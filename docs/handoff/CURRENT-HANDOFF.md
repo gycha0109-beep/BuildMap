@@ -10,7 +10,7 @@
 - Phase25 Link Sharing runtime: 사용자 로컬 `OverallResult: PASS`
 - Phase26 regression gate: 사용자 로컬 `Phase26GateResult: PASS`
 - Phase27.1 P1 RLS runtime: 사용자 로컬 `OverallResult: PASS`, scenario coverage `181/181`
-- Phase28 unified baseline: 42 protected files / 3 packs / 26 scenario files / 435 scenarios
+- Phase28 unified baseline: 46 protected files / 3 packs / 26 scenario files / 435 scenarios
 - hosted/remote 적용: 없음
 - migration draft `00–09`: 보호 기준선에 포함
 - 정식 migration 승격: 없음
@@ -48,11 +48,12 @@
 
 - manifest: `scripts/manual-local-unified-regression/phase28_unified_rls_regression_baseline.json`
 - gate: `scripts/manual-local-unified-regression/run-phase28-unified-rls-regression-gate.ps1`
-- protected files: 42
+- protected files: 46
 - packs: 3
 - scenario files: 26
 - scenarios: 435
 - hash contract: `normalized_utf8_lf`
+- Phase28 executable PowerShell files: 4/4 protected
 - automatic baseline refresh: prohibited
 - optional logs: supplied logs fail closed; `-RequireAllPassLogs` requires all three
 
@@ -123,7 +124,7 @@
 ## Phase28 변경
 
 - P0/Link/P1 PASS 계약을 하나의 manifest로 통합
-- migration draft `00–09`를 포함한 42개 파일 보호
+- migration draft `00–09` 및 Phase28 executable gate 4개를 포함한 46개 파일 보호
 - 3 packs / 26 SQL files / 435 unique scenarios 고정
 - migration 및 test SQL exact inventory 검증 추가
 - strict UTF-8 + BOM 제거 + LF 정규화 SHA-256로 Windows checkout false-positive 제거
@@ -132,6 +133,9 @@
 - PowerShell parse와 prohibited remote-capable command scan
 - Phase20/25/27 optional PASS log validation 및 `-RequireAllPassLogs`
 - supplied malformed log의 fail-open 방지
+- raw/parsed `FileResult` count 불일치 차단
+- `ParsedSignals`에서 `PASS`/`EXPECTED_DENY` 외 blocker·unknown signal 차단
+- empty contract binder 예외 대신 명시적 failure reporting
 - path traversal, drive-relative path, duplicated log path 차단
 - 독립 리뷰와 mutation-oriented static validation 완료
 
@@ -143,8 +147,9 @@
 - Phase27.1 P1 RLS: 사용자 로컬 PASS
 - Phase28 design/implementation/review correction: 완료
 - Phase28 manifest static audit: PASS
-- protected normalized hashes: 42/42 PASS
+- protected normalized hashes: 46/46 PASS
 - scenario contract: 435/435 PASS
+- Phase28 executable files protected: 4/4
 - PowerShell native parser and Phase28 gate on user Windows: pending
 - Phase28 runtime evidence level은 아직 생성하지 않음
 
