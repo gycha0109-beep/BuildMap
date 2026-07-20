@@ -80,3 +80,26 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - P0 PRE-021 grant oracle를 column-level UPDATE와 호환되도록 보정
 - matrix를 167 → 181 scenarios로 확대
 - static review PASS, 사용자 local rerun pending
+
+## Phase27.1 User Local Closure
+
+- Phase20 P0 compatibility PASS 확인
+- Phase26 legacy regression gate PASS 확인
+- Phase27.1 9/9 SQL files PASS
+- expected/observed scenarios `181/181`
+- missing/duplicate/conflicting IDs 없음
+- all blocker flags false
+- `OverallResult: PASS`
+- evidence level `USER_LOCAL_PASS`
+
+## Phase28 Unified RLS Regression Baseline & Change Gate
+
+- migration drafts `00–09`, Phase20, Phase25, Phase27.1, Phase26 legacy gate를 통합 보호
+- 42 protected files / 3 packs / 26 scenario files / 435 scenarios
+- normalized UTF-8/LF SHA-256 contract로 Windows line-ending false positive 제거
+- exact SQL inventory 및 scenario-source contract 검증
+- pack metadata, signal flags, regex, validation mode를 gate에 고정
+- optional three-pack PASS-log attestation 및 `-RequireAllPassLogs` 구현
+- path traversal, duplicate path/log, malformed supplied log를 fail closed 처리
+- 독립 리뷰에서 path normalization, console-only completion-line, manifest weakening 가능성을 보완
+- static validation PASS, 사용자 local PowerShell gate pending
