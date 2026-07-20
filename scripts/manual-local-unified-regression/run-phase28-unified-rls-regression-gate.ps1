@@ -20,7 +20,7 @@ $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ExpectedBaselineId = 'buildmap-unified-rls-phase28-20260720'
 $ExpectedSourceRepository = 'gycha0109-beep/BuildMap'
 $ExpectedSourceCommit = 'f98d94d361e26af9957dea0b988e1a1559cf13e8'
-$ExpectedProtectedFileCount = 42
+$ExpectedProtectedFileCount = 46
 $ExpectedPackCount = 3
 $ExpectedScenarioFileCount = 26
 $ExpectedScenarioCount = 435
@@ -179,6 +179,7 @@ foreach ($PackId in $ExpectedPackContracts.Keys) {
 }
 foreach ($PathValue in $ExpectedScenarioPaths) { $ExpectedProtectedPaths.Add($PathValue) }
 foreach ($PathValue in $LegacyGatePaths) { $ExpectedProtectedPaths.Add($PathValue) }
+foreach ($PathValue in $Phase28PowerShellPaths) { $ExpectedProtectedPaths.Add($PathValue) }
 $ExpectedProtectedUnique = @($ExpectedProtectedPaths | Sort-Object -Unique)
 if ($ExpectedProtectedUnique.Count -ne $ExpectedProtectedFileCount) {
   Add-GateFailure $Failures "Internal protected-path contract count mismatch: $($ExpectedProtectedUnique.Count)"
