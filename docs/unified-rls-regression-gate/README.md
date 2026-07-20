@@ -26,7 +26,7 @@ Phase28 consolidates the previously separate P0, Link Sharing, and P1 protection
 | Phase27.1 P1 RLS | 9 | 181 | `USER_LOCAL_PASS` |
 | **Total** | **26** | **435** | — |
 
-The unified manifest protects 42 files, including migration drafts `00–09`, all three runners and test packs, the Phase27 scenario manifest, and the Phase26 legacy baseline/gate.
+The unified manifest protects 46 files, including migration drafts `00–09`, all three runners and test packs, the Phase27 scenario manifest, the Phase26 legacy baseline/gate, and the four executable Phase28 gate scripts.
 
 ## Documents
 
