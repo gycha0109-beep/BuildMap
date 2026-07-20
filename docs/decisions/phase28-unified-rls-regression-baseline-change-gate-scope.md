@@ -11,14 +11,14 @@ Protect the accepted Phase20, Phase25, and Phase27.1 RLS contracts through one l
 ## Fixed baseline
 
 - migration drafts `00–09`;
-- 42 protected files;
+- 46 protected files;
 - 3 packs;
 - 26 SQL scenario files;
 - 435 scenarios.
 
 ## Rationale
 
-The previous Phase26 gate protected only Link Sharing. Phase27.1 introduced a new additive security migration and 181 P1 scenarios, so continued reliance on the narrower baseline would leave P0/P1 drift and unlisted migration additions outside one canonical gate.
+The previous Phase26 gate protected only Link Sharing. Phase27.1 introduced a new additive security migration and 181 P1 scenarios, so continued reliance on the narrower baseline would leave P0/P1 drift and unlisted migration additions outside one canonical gate. The final scope also protects the four executable Phase28 PowerShell files so accidental gate-implementation drift is detected.
 
 ## Constraints
 
