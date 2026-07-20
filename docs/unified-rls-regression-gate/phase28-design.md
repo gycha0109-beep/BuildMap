@@ -10,11 +10,12 @@ Create a fail-closed, local-only static change gate for all accepted BuildMap RL
 2. Phase20 P0 runner and SQL contract;
 3. Phase25 Link Sharing runner and SQL contract;
 4. Phase27.1 P1 runner, external manifest, and SQL contract;
-5. Phase26 Link Sharing baseline manifest and gate.
+5. Phase26 Link Sharing baseline manifest and gate;
+6. the four executable Phase28 gate scripts.
 
 ## Baseline dimensions
 
-- 42 protected files
+- 46 protected files
 - 3 test packs
 - 26 scenario files
 - 435 unique scenario IDs
