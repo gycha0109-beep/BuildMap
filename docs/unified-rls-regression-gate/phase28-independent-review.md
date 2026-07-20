@@ -42,6 +42,18 @@ The implementation was reviewed separately from its initial construction against
 
 **Correction:** path resolution errors become explicit gate failures; the same resolved log cannot attest multiple packs; `-RequireAllPassLogs` enforces all three.
 
+### 7. Gate implementation drift
+
+**Finding:** protecting only the prior migrations and test packs would allow accidental edits to the new Phase28 executable gate modules without a hash failure.
+
+**Correction:** the final baseline also hashes the four executable Phase28 PowerShell files. The protected-file count is 46.
+
+### 8. PASS-log malformed-line and signal inconsistency
+
+**Finding:** an extra malformed `FileResult:` line could be ignored, and a tampered `ParsedSignals` field could contradict a PASS result. An empty derived contract supplied with a log could also trigger a binder exception instead of a controlled failure.
+
+**Correction:** raw and parsed `FileResult` counts must match, only `PASS` and `EXPECTED_DENY` signal names are accepted in a passing file result, and the scenario-contract parameter explicitly accepts an empty collection so the gate can report the underlying contract failures.
+
 ## Review conclusion
 
 `PASS_WITH_USER_LOCAL_POWERSHELL_RUNTIME_PENDING`
