@@ -10,7 +10,7 @@
     "mode": "normalized_utf8_lf",
     "description": "Decode UTF-8, remove optional BOM, normalize CRLF/CR to LF, hash UTF-8 bytes without BOM. This avoids Windows checkout line-ending false positives while preserving text-content drift detection."
   },
-  "expectedProtectedFileCount": 42,
+  "expectedProtectedFileCount": 46,
   "expectedPackCount": 3,
   "expectedScenarioFileCount": 26,
   "expectedScenarioCount": 435,
@@ -56,6 +56,10 @@
     {"path":"scripts/manual-local-rls-p1/phase27_07_integrity_permission_matrix.sql","sha256":"cda2e854300caea4fbb34539570ae384026e508de8bf764fdbf04a79239c5bd5"},
     {"path":"scripts/manual-local-rls-p1/phase27_99_result_summary.sql","sha256":"6c977ab102377170366067aeb63e2f1c6edaf9248a10762399d4cab4b3636e5a"},
     {"path":"scripts/manual-local-link-sharing/phase26_link_sharing_regression_baseline.json","sha256":"c6cf3fbe415bffc33857135601bb08c3cd56ce18b8151e3fce9ea0b786386f57"},
-    {"path":"scripts/manual-local-link-sharing/run-phase26-link-sharing-regression-gate.ps1","sha256":"4a52cfe55d49f0eb436944ac1485b4dc7b4360c7faf936f22732fcb9e1b40de1"}
+    {"path":"scripts/manual-local-link-sharing/run-phase26-link-sharing-regression-gate.ps1","sha256":"4a52cfe55d49f0eb436944ac1485b4dc7b4360c7faf936f22732fcb9e1b40de1"},
+    {"path":"scripts/manual-local-unified-regression/phase28-common.ps1","sha256":"985cf17cb64fc6692ed05601e16416a4dd3878e02bcf62a8d7d16ff73cb40bdd"},
+    {"path":"scripts/manual-local-unified-regression/phase28-contract.ps1","sha256":"748e17c5de6d7d5af74350f7c5c4f71ba6a9d6f9ee066daa5fbccce775be73f1"},
+    {"path":"scripts/manual-local-unified-regression/phase28-log-validation.ps1","sha256":"9b3c1607861d369b80b44374c37758d17ed219d8b05fdbdd2c923bc1cbd8097f"},
+    {"path":"scripts/manual-local-unified-regression/run-phase28-unified-rls-regression-gate.ps1","sha256":"a4f7d3c15985ed28ba7b4a2e3a69422fab9a822a52c4b1352a940aedb8bf2d56"}
   ]
 }
