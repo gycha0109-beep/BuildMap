@@ -11,10 +11,11 @@ It does not run Docker, Supabase CLI, `psql`, SQL, or any remote command.
 - Phase25 Link Sharing runner and 8 SQL files: 107 scenarios
 - Phase27.1 P1 runner, manifest, and 9 SQL files: 181 scenarios
 - Phase26 legacy baseline manifest and regression gate
+- four executable Phase28 gate scripts
 
 Total:
 
-- protected files: 42
+- protected files: 46
 - packs: 3
 - scenario files: 26
 - scenarios: 435
@@ -25,14 +26,14 @@ From the BuildMap repository root:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-Unblock-File .\scripts\manual-local-unified-regression\run-phase28-unified-rls-regression-gate.ps1
+Get-ChildItem .\scripts\manual-local-unified-regression\*.ps1 | Unblock-File
 .\scripts\manual-local-unified-regression\run-phase28-unified-rls-regression-gate.ps1
 ```
 
 Expected result:
 
 ```text
-ProtectedFileCount: 42
+ProtectedFileCount: 46
 PackCount: 3
 ScenarioFileCount: 26
 ExpectedScenarioCount: 435
