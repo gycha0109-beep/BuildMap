@@ -2,7 +2,7 @@ function Test-PackPassLog {
   param(
     [Parameter(Mandatory = $true)][string] $Path,
     [Parameter(Mandatory = $true)] $Pack,
-    [Parameter(Mandatory = $true)][object[]] $ScenarioContract,
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]] $ScenarioContract,
     [Parameter(Mandatory = $true)][AllowEmptyCollection()][System.Collections.Generic.List[string]] $Failures
   )
 
@@ -58,11 +58,15 @@ function Test-PackPassLog {
 
   $Pattern = '^FileResult:\s*(?<file>[^|]+?)\s*\|\s*ExitCode=(?<exit>[+-]?\d+)\s*\|\s*ExpectedScenarioCount=(?<expected>\d+)\s*\|\s*ObservedScenarioCount=(?<observed>\d+)\s*\|\s*MissingScenarioIds=(?<missing>[^|]+?)\s*\|\s*DuplicateScenarioIds=(?<duplicate>[^|]+?)\s*\|\s*ConflictingScenarioIds=(?<conflicting>[^|]+?)\s*\|\s*ParsedSignals=(?<signals>[^|]+?)\s*\|\s*FileOverallResult=(?<result>\S+)\s*$'
   $ObservedNames = New-Object System.Collections.Generic.List[string]
+  $RawFileResultCount = 0
+  $ParsedFileResultCount = 0
   $ExpectedTotal = 0
   $ObservedTotal = 0
 
   foreach ($Line in $Lines) {
+    if ($Line -match '^FileResult:') { $RawFileResultCount += 1 }
     if ($Line -notmatch $Pattern) { continue }
+    $ParsedFileResultCount += 1
     $Name = $Matches['file'].Trim()
     $ObservedNames.Add($Name)
     $DeclaredExpected = [int]$Matches['expected']
@@ -80,10 +84,27 @@ function Test-PackPassLog {
     if ($Matches['missing'].Trim() -ne 'none') { Add-GateFailure -Failures $Failures -Message "${PackId} MissingScenarioIds is not none: $Name" }
     if ($Matches['duplicate'].Trim() -ne 'none') { Add-GateFailure -Failures $Failures -Message "${PackId} DuplicateScenarioIds is not none: $Name" }
     if ($Matches['conflicting'].Trim() -ne 'none') { Add-GateFailure -Failures $Failures -Message "${PackId} ConflictingScenarioIds is not none: $Name" }
-    if ($Matches['signals'].Trim() -eq 'none') { Add-GateFailure -Failures $Failures -Message "${PackId} ParsedSignals is none: $Name" }
+    $SignalText = $Matches['signals'].Trim()
+    if ($SignalText -eq 'none') {
+      Add-GateFailure -Failures $Failures -Message "${PackId} ParsedSignals is none: $Name"
+    }
+    else {
+      $SignalNames = @(
+        $SignalText -split ',' | ForEach-Object {
+          (($_ -split '=', 2)[0]).Trim().ToUpperInvariant()
+        }
+      )
+      $UnexpectedSignals = @($SignalNames | Where-Object { $_ -notin @('PASS', 'EXPECTED_DENY') } | Sort-Object -Unique)
+      if ($UnexpectedSignals.Count -gt 0) {
+        Add-GateFailure -Failures $Failures -Message "${PackId} ParsedSignals contains blocker or unknown signals in ${Name}: $($UnexpectedSignals -join ',')"
+      }
+    }
     if ($Matches['result'].Trim() -ne 'PASS') { Add-GateFailure -Failures $Failures -Message "${PackId} FileOverallResult is not PASS: $Name" }
   }
 
+  if ($RawFileResultCount -ne $ParsedFileResultCount) {
+    Add-GateFailure -Failures $Failures -Message "${PackId} log contains malformed FileResult lines: raw=$RawFileResultCount, parsed=$ParsedFileResultCount."
+  }
   $UniqueNames = @($ObservedNames | Sort-Object -Unique)
   if ($ObservedNames.Count -ne [int]$Pack.expectedFileCount) {
     Add-GateFailure -Failures $Failures -Message "${PackId} FileResult count mismatch: expected $($Pack.expectedFileCount), observed $($ObservedNames.Count)."
