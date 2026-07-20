@@ -1,0 +1,302 @@
+{
+  "schemaVersion": "1.0",
+  "baselineId": "buildmap-link-sharing-phase25-pass-20260720",
+  "recordedDate": "2026-07-20",
+  "baselineStatus": "USER_LOCAL_PASS",
+  "runtimeAttestation": {
+    "source": "user_local_execution_report",
+    "exactCompletionLine": "Phase25 link sharing RPC local run completed. OverallResult: PASS",
+    "rawLogBundled": false,
+    "expectedSqlFileCount": 8,
+    "expectedScenarioCount": 107,
+    "qualification": "PASS is accepted from the user-reported local run; raw log evidence was not included in the supplied project archive."
+  },
+  "protectedFiles": [
+    {
+      "path": "supabase/migrations_draft/20260708000000_buildmap_00_extensions_and_primitives_draft.sql",
+      "category": "migration_draft",
+      "sha256": "255ee89807e1665dc531b6499ff135dbe5bb2935e2a0388b9f913360cc36cfb2"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708001000_buildmap_01_core_schema_draft.sql",
+      "category": "migration_draft",
+      "sha256": "acbd315c2e0a0442b4a169b67bdd495239bd3e7efa4027a044e594f79b38c46e"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708002000_buildmap_02_decision_records_schema_draft.sql",
+      "category": "migration_draft",
+      "sha256": "d94d81833470995957ad4092c19142f2c60d3dbaa481452fc7a40fe6211288f5"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708003000_buildmap_03_feedback_and_links_schema_draft.sql",
+      "category": "migration_draft",
+      "sha256": "977581f1515478fbc6942489064a6fc78d79dee43772d146a06a647060cfafca"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708004000_buildmap_04_helpers_and_triggers_draft.sql",
+      "category": "migration_draft",
+      "sha256": "f2948fbb47355cec049d2637a3d6bbac5b4213e38fa3dbf129c4c63ac117be22"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708005000_buildmap_05_rls_policies_draft.sql",
+      "category": "migration_draft",
+      "sha256": "eafe0c309cf0b0018a4548e2d00ae64199d59dfb01d2374b5349afc779096ce5"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708006000_buildmap_06_public_safe_views_draft.sql",
+      "category": "migration_draft",
+      "sha256": "538c31b9b507f80232073dd2492f92e01a520b71e37c2498f2dd41a4cb23d961"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708007000_buildmap_07_link_sharing_rpc_draft.sql",
+      "category": "migration_draft",
+      "sha256": "413cfc549b188dbb606b4c2bbfa0994e9766fe7108985767c5f9ac9937966a25"
+    },
+    {
+      "path": "supabase/migrations_draft/20260708008000_buildmap_08_grants_and_final_checks_draft.sql",
+      "category": "migration_draft",
+      "sha256": "16e4d8ef18645ab2147200ddf1a26cf8c07e8eb2ba0105c27f25e9503a08bee5"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_00_preflight.sql",
+      "category": "phase25_test_sql",
+      "sha256": "8e3aa854d5de7e83bb69142e7426c4b56559d27419c6e464b209dbead68d29a1"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_01_seed_link_fixture.sql",
+      "category": "phase25_test_sql",
+      "sha256": "1b5f03c64678db07be10b16aa977912743c80c4e265c66e7e9b1a220b845c64e"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_02_read_rpc_matrix.sql",
+      "category": "phase25_test_sql",
+      "sha256": "9c5fe4ff56e0ac2b32bbc8e8280c164a0f498b2abb226c44a9245f87a6bafea5"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_03_token_lifecycle_matrix.sql",
+      "category": "phase25_test_sql",
+      "sha256": "d656848e928cdf68b6f0e4080061c16d08e0bee581dd7c74f94865bdbb3ddd1a"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_04_feedback_rpc_matrix.sql",
+      "category": "phase25_test_sql",
+      "sha256": "4d7d4ce1b604561637a4e3d5c4dbe8250158e0e61e776a90618fdf1639bbf178"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_05_rpc_permission_security.sql",
+      "category": "phase25_test_sql",
+      "sha256": "60df008a05117201e1d025f2b2299d50dafde383f76691120b2f5a0ca5dc2609"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_06_response_exposure.sql",
+      "category": "phase25_test_sql",
+      "sha256": "4e0cec4dd7034f91f4eae47ed6ff3d941fb62adb0917235caf79a7b900418a39"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_99_result_summary.sql",
+      "category": "phase25_test_sql",
+      "sha256": "0e5ab28ef5d7f7b903015def8db01f45d45bfab38204afb7b4e180d2872eaf5a"
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/run-phase25-link-sharing-local.ps1",
+      "category": "phase25_runner",
+      "sha256": "34895e42702ce29e348ddfdf187f9139ddd2eba7e93d18dbd1ed6c5bf61547a9"
+    }
+  ],
+  "scenarioFiles": [
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_00_preflight.sql",
+      "expectedCount": 19,
+      "expectedIds": [
+        "LINK-PRE-001",
+        "LINK-PRE-002",
+        "LINK-PRE-003",
+        "LINK-PRE-004",
+        "LINK-PRE-005",
+        "LINK-PRE-006",
+        "LINK-PRE-007",
+        "LINK-PRE-008",
+        "LINK-PRE-009",
+        "LINK-PRE-010",
+        "LINK-PRE-011",
+        "LINK-PRE-012",
+        "LINK-PRE-013",
+        "LINK-PRE-014",
+        "LINK-PRE-015",
+        "LINK-PRE-016",
+        "LINK-PRE-017",
+        "LINK-PRE-018",
+        "LINK-PRE-019"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_01_seed_link_fixture.sql",
+      "expectedCount": 10,
+      "expectedIds": [
+        "LINK-SEED-001",
+        "LINK-SEED-002",
+        "LINK-SEED-003",
+        "LINK-SEED-004",
+        "LINK-SEED-005",
+        "LINK-SEED-006",
+        "LINK-SEED-007",
+        "LINK-SEED-008",
+        "LINK-SEED-009",
+        "LINK-SEED-010"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_02_read_rpc_matrix.sql",
+      "expectedCount": 21,
+      "expectedIds": [
+        "LINK-READ-001",
+        "LINK-READ-002",
+        "LINK-READ-003",
+        "LINK-READ-004",
+        "LINK-READ-005",
+        "LINK-READ-006",
+        "LINK-READ-007",
+        "LINK-READ-008",
+        "LINK-READ-009",
+        "LINK-READ-010",
+        "LINK-READ-011",
+        "LINK-READ-012",
+        "LINK-READ-013",
+        "LINK-READ-014",
+        "LINK-READ-015",
+        "LINK-READ-016",
+        "LINK-READ-017",
+        "LINK-READ-018",
+        "LINK-READ-019",
+        "LINK-READ-020",
+        "LINK-READ-021"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_03_token_lifecycle_matrix.sql",
+      "expectedCount": 14,
+      "expectedIds": [
+        "LINK-LIFE-001",
+        "LINK-LIFE-002",
+        "LINK-LIFE-003",
+        "LINK-LIFE-004",
+        "LINK-LIFE-005",
+        "LINK-LIFE-006",
+        "LINK-LIFE-007",
+        "LINK-LIFE-008",
+        "LINK-LIFE-009",
+        "LINK-LIFE-010",
+        "LINK-LIFE-011",
+        "LINK-LIFE-012",
+        "LINK-LIFE-013",
+        "LINK-LIFE-014"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_04_feedback_rpc_matrix.sql",
+      "expectedCount": 12,
+      "expectedIds": [
+        "LINK-FB-001",
+        "LINK-FB-002",
+        "LINK-FB-003",
+        "LINK-FB-004",
+        "LINK-FB-005",
+        "LINK-FB-006",
+        "LINK-FB-007",
+        "LINK-FB-008",
+        "LINK-FB-009",
+        "LINK-FB-010",
+        "LINK-FB-011",
+        "LINK-FB-012"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_05_rpc_permission_security.sql",
+      "expectedCount": 12,
+      "expectedIds": [
+        "LINK-RPC-001",
+        "LINK-RPC-002",
+        "LINK-RPC-003",
+        "LINK-RPC-004",
+        "LINK-RPC-005",
+        "LINK-RPC-006",
+        "LINK-RPC-007",
+        "LINK-RPC-008",
+        "LINK-RPC-009",
+        "LINK-RPC-010",
+        "LINK-RPC-011",
+        "LINK-RPC-012"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_06_response_exposure.sql",
+      "expectedCount": 10,
+      "expectedIds": [
+        "LINK-EXPOSE-001",
+        "LINK-EXPOSE-002",
+        "LINK-EXPOSE-003",
+        "LINK-EXPOSE-004",
+        "LINK-EXPOSE-005",
+        "LINK-EXPOSE-006",
+        "LINK-EXPOSE-007",
+        "LINK-EXPOSE-008",
+        "LINK-EXPOSE-009",
+        "LINK-EXPOSE-010"
+      ]
+    },
+    {
+      "path": "scripts/manual-local-link-sharing/phase25_99_result_summary.sql",
+      "expectedCount": 9,
+      "expectedIds": [
+        "LINK-SUMMARY-001",
+        "LINK-SUMMARY-002",
+        "LINK-SUMMARY-003",
+        "LINK-SUMMARY-004",
+        "LINK-SUMMARY-005",
+        "LINK-SUMMARY-006",
+        "LINK-SUMMARY-007",
+        "LINK-SUMMARY-008",
+        "LINK-SUMMARY-009"
+      ]
+    }
+  ],
+  "requiredPositiveFlags": [
+    "ExpectedDenyDetected",
+    "PassDetected"
+  ],
+  "failureFlags": [
+    "UnexpectedAllowDetected",
+    "UnexpectedDenyDetected",
+    "SeedFailDetected",
+    "AuthContextFailDetected",
+    "PolicyFailDetected",
+    "TriggerFailDetected",
+    "ViewExposureFailDetected",
+    "ViewBoundaryFailDetected",
+    "ViewAccessErrorDetected",
+    "ViewOptionMismatchDetected",
+    "ViewExecutionModelMismatchDetected",
+    "GrantFailDetected",
+    "AccessPathMismatchDetected",
+    "RpcBoundaryFailDetected",
+    "TokenLifecycleFailDetected",
+    "ResponseExposureFailDetected",
+    "ScriptErrorDetected",
+    "EnvErrorDetected",
+    "NeedsReviewDetected",
+    "ScenarioCoverageFailDetected",
+    "FailDetected",
+    "UncaughtErrorDetected"
+  ],
+  "baselineRefreshPolicy": {
+    "automaticRefreshAllowed": false,
+    "requiredBeforeRefresh": [
+      "documented scope",
+      "independent review",
+      "clean local reset",
+      "Phase25 full matrix PASS",
+      "new phase decision record"
+    ],
+    "reason": "A mutable baseline would allow security-regression evidence to be silently redefined."
+  }
+}
