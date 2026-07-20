@@ -5,24 +5,39 @@ Run from the BuildMap repository root.
 ## 1. Parse check
 
 ```powershell
-$Path = Resolve-Path ".\scripts\manual-local-unified-regression\run-phase28-unified-rls-regression-gate.ps1"
-$Tokens = $null
-$ParseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile(
-  $Path,
-  [ref]$Tokens,
-  [ref]$ParseErrors
-) | Out-Null
-$ParseErrors
+$Paths = @(
+  ".\scripts\manual-local-unified-regression\phase28-common.ps1",
+  ".\scripts\manual-local-unified-regression\phase28-contract.ps1",
+  ".\scripts\manual-local-unified-regression\phase28-log-validation.ps1",
+  ".\scripts\manual-local-unified-regression\run-phase28-unified-rls-regression-gate.ps1"
+)
+
+foreach ($Candidate in $Paths) {
+  $Path = Resolve-Path $Candidate
+  $Tokens = $null
+  $ParseErrors = $null
+  [System.Management.Automation.Language.Parser]::ParseFile(
+    $Path,
+    [ref]$Tokens,
+    [ref]$ParseErrors
+  ) | Out-Null
+
+  if ($ParseErrors.Count -eq 0) {
+    "POWERSHELL_PARSE_CHECK: PASS | $Path"
+  } else {
+    "POWERSHELL_PARSE_CHECK: FAIL | $Path"
+    $ParseErrors | Format-List Message, Extent
+  }
+}
 ```
 
-No output is expected.
+All four files must report `POWERSHELL_PARSE_CHECK: PASS`.
 
 ## 2. Static baseline gate
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-Unblock-File .\scripts\manual-local-unified-regression\run-phase28-unified-rls-regression-gate.ps1
+Get-ChildItem .\scripts\manual-local-unified-regression\*.ps1 | Unblock-File
 .\scripts\manual-local-unified-regression\run-phase28-unified-rls-regression-gate.ps1
 ```
 
