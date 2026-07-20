@@ -95,11 +95,13 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 ## Phase28 Unified RLS Regression Baseline & Change Gate
 
 - migration drafts `00–09`, Phase20, Phase25, Phase27.1, Phase26 legacy gate를 통합 보호
-- 42 protected files / 3 packs / 26 scenario files / 435 scenarios
+- Phase28 executable PowerShell 4개까지 포함한 46 protected files / 3 packs / 26 scenario files / 435 scenarios
 - normalized UTF-8/LF SHA-256 contract로 Windows line-ending false positive 제거
 - exact SQL inventory 및 scenario-source contract 검증
 - pack metadata, signal flags, regex, validation mode를 gate에 고정
 - optional three-pack PASS-log attestation 및 `-RequireAllPassLogs` 구현
 - path traversal, duplicate path/log, malformed supplied log를 fail closed 처리
-- 독립 리뷰에서 path normalization, console-only completion-line, manifest weakening 가능성을 보완
+- raw/parsed `FileResult` count 불일치 및 blocker·unknown `ParsedSignals` 차단
+- empty collection binder 예외가 아닌 명시적 gate failure reporting 적용
+- 독립 리뷰에서 path normalization, console-only completion-line, manifest weakening, gate self-protection, log inconsistency 가능성을 보완
 - static validation PASS, 사용자 local PowerShell gate pending
