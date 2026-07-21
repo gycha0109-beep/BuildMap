@@ -23,6 +23,12 @@ select 'PGCRYPTO_INSTALLED=' || exists(
   from pg_catalog.pg_extension
   where extname = 'pgcrypto'
 )::text;
+select 'PGCRYPTO_SCHEMA=' || coalesce((
+  select n.nspname
+  from pg_catalog.pg_extension e
+  join pg_catalog.pg_namespace n on n.oid = e.extnamespace
+  where e.extname = 'pgcrypto'
+), '');
 select 'DATABASE_CREATE_PRIVILEGE=' || has_database_privilege(current_user, current_database(), 'CREATE')::text;
 select 'PUBLIC_CREATE_PRIVILEGE=' || has_schema_privilege(current_user, 'public', 'CREATE')::text;
 select 'AUTH_USAGE_PRIVILEGE=' || has_schema_privilege(current_user, 'auth', 'USAGE')::text;
