@@ -49,6 +49,12 @@ $CanonicalMigrationPaths = @(
   'supabase/migrations_draft/20260720000000_buildmap_09_p1_access_integrity_hardening_draft.sql'
 )
 
+$CanonicalReplayMirrorPaths = @(
+  $CanonicalMigrationPaths | ForEach-Object {
+    $_ -replace '^supabase/migrations_draft/', 'supabase/migrations/'
+  }
+)
+
 $CanonicalGatePaths = @(
   'scripts/manual-local-migration-readiness/phase29-common.ps1',
   'scripts/manual-local-migration-readiness/phase29-sql-analysis.ps1',
@@ -186,22 +192,58 @@ $Definitions = Get-FinalFunctionDefinitions -MigrationRows $MigrationRows -Root 
 Test-FinalSecurityDefinerBoundary -Definitions $Definitions -Findings $Findings
 $RiskInventory = Get-RiskInventory -MigrationRows $MigrationRows -Root $Root
 
-$TrackedFormalMigrations = @()
+$TrackedReplayMirrorResult = 'NONE'
 $GitCommand = Get-Command git -ErrorAction SilentlyContinue
 if ($null -eq $GitCommand) {
-  Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-GIT-INSPECTION' -Message 'git is required to inspect tracked formal migrations.'
+  Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-GIT-INSPECTION' -Message 'git is required to inspect tracked migration files.'
 }
 else {
-  $TrackedFormalMigrations = @(
+  $TrackedMigrationPaths = @(
     & $GitCommand.Source -C $Root ls-files 'supabase/migrations/*.sql' 2>$null |
-      Where-Object { $_ -match 'buildmap_(?:0[0-9])_' }
+      ForEach-Object { Get-NormalizedRelativePath -Path $_ } |
+      Sort-Object
   )
   if ($LASTEXITCODE -ne 0) {
-    Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-GIT-INSPECTION' -Message 'git ls-files failed while inspecting formal migrations.'
+    Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-GIT-INSPECTION' -Message 'git ls-files failed while inspecting tracked migration files.'
   }
-}
-if ($TrackedFormalMigrations.Count -gt 0) {
-  Add-Phase29Finding -Findings $Findings -Severity BLOCKER -Code 'MIG29-PREMATURE-PROMOTION' -Message "Formal BuildMap migrations are already tracked: $($TrackedFormalMigrations -join ',')"
+  elseif ($TrackedMigrationPaths.Count -eq 0) {
+    $TrackedReplayMirrorResult = 'NONE'
+  }
+  else {
+    $UnexpectedTracked = @($TrackedMigrationPaths | Where-Object { $CanonicalReplayMirrorPaths -notcontains $_ })
+    $MissingTracked = @($CanonicalReplayMirrorPaths | Where-Object { $TrackedMigrationPaths -notcontains $_ })
+    $MirrorDrift = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($DraftPath in $CanonicalMigrationPaths) {
+      $MirrorPath = $DraftPath -replace '^supabase/migrations_draft/', 'supabase/migrations/'
+      if ($TrackedMigrationPaths -notcontains $MirrorPath) { continue }
+
+      $DraftFullPath = Join-Path $Root $DraftPath
+      $MirrorFullPath = Join-Path $Root $MirrorPath
+      if (-not (Test-Path -LiteralPath $MirrorFullPath -PathType Leaf)) {
+        $MirrorDrift.Add("$MirrorPath missing from working tree")
+        continue
+      }
+
+      $DraftHash = Get-NormalizedSha256 -Path $DraftFullPath
+      $MirrorHash = Get-NormalizedSha256 -Path $MirrorFullPath
+      $MirrorText = Get-StrictUtf8Text -Path $MirrorFullPath
+      if ($DraftHash -ne $MirrorHash) {
+        $MirrorDrift.Add("$MirrorPath content differs from canonical draft")
+      }
+      elseif ($MirrorPath -notmatch '_draft\.sql$' -or $MirrorText -notmatch 'DRAFT ONLY') {
+        $MirrorDrift.Add("$MirrorPath lacks replay-mirror draft markers")
+      }
+    }
+
+    if ($UnexpectedTracked.Count -gt 0 -or $MissingTracked.Count -gt 0 -or $MirrorDrift.Count -gt 0) {
+      Add-Phase29Finding -Findings $Findings -Severity BLOCKER -Code 'MIG29-PREMATURE-PROMOTION' -Message "Tracked migration directory is not an exact canonical local replay mirror. Missing=$($MissingTracked -join ','); Unexpected=$($UnexpectedTracked -join ','); Drift=$($MirrorDrift -join '; ')"
+      $TrackedReplayMirrorResult = 'FAIL'
+    }
+    else {
+      $TrackedReplayMirrorResult = 'PASS'
+    }
+  }
 }
 
 $EvidenceComplete = $true
@@ -234,6 +276,7 @@ if ($ErrorCount -gt 0 -or $BlockerCount -gt 0 -or -not $EvidenceComplete) {
 
 Write-Host "MigrationCount: $($MigrationRows.Count)"
 Write-Host "Phase28BaselineResult: $(if ($Phase28BaselinePass) { 'PASS' } else { 'FAIL' })"
+Write-Host "TrackedReplayMirrorResult: $TrackedReplayMirrorResult"
 Write-Host "StaticErrorCount: $ErrorCount"
 Write-Host "StaticBlockerCount: $BlockerCount"
 Write-Host "RuntimeEvidenceComplete: $EvidenceComplete"
