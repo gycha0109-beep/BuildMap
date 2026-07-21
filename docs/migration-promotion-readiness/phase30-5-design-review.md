@@ -12,6 +12,7 @@ Phase30 formal bundle과 실제 대상 Supabase project identity·migration hist
 - Phase30 bundle head/hash/artifact를 다시 검증
 - project ref는 host 또는 user identity와 교차 확인
 - server/schema/extension/privilege를 읽기 전용 조회
+- `pgcrypto`가 `extensions` schema에 설치됐는지 검증
 - migration history와 `public` 사용자 객체가 모두 0인 대상만 허용
 - 운영 확인 사항을 evidence에 결속
 - evidence는 `.local-evidence` 아래에만 생성
