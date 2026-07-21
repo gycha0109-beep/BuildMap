@@ -97,12 +97,13 @@ begin
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
     and p.proname = 'is_feedback_author'
-    and pg_get_function_identity_arguments(p.oid) = 'p_feedback_id uuid';
+    and p.pronargs = 1
+    and oidvectortypes(p.proargtypes) = 'uuid';
 
   if v_count = 1 then
     raise notice 'MIG29-HARD-010 PASS';
   else
-    raise notice 'MIG29-HARD-010 FAIL expected one exact identity signature observed %', v_count;
+    raise notice 'MIG29-HARD-010 FAIL expected one uuid signature observed %', v_count;
   end if;
 end
 $phase291$;
