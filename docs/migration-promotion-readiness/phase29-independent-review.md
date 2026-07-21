@@ -30,9 +30,11 @@ Correction: both evidence files are required for READY and are validated with ex
 
 Correction: duplicate resolved evidence paths are rejected.
 
-### 7. Local test copies could be mistaken for formal promotion
+### 7. Local replay mirrors could be mistaken for formal promotion
 
-Correction: premature promotion checks use Git-tracked files, not arbitrary untracked local replay files.
+The repository already tracks `supabase/migrations/*.sql` copies for local reset/replay. Those files retain `_draft.sql`, the `DRAFT ONLY` marker, and the same normalized content as `migrations_draft/00–09`.
+
+Correction: tracked migrations are accepted only when they form an exact canonical replay mirror. Missing, extra, renamed, marker-stripped, or content-drifted files still emit `MIG29-PREMATURE-PROMOTION`.
 
 ### 8. Gate implementation drift could invalidate the readiness verdict
 
@@ -60,6 +62,6 @@ The final-state scan identifies `public.is_feedback_author(uuid)` as unpinned. T
 
 ## Review verdict
 
-Implementation: PASS after PowerShell 5.1 compatibility correction.
+Implementation: PASS after PowerShell 5.1 and replay-mirror classification corrections.
 
 Migration promotion: HOLD.
