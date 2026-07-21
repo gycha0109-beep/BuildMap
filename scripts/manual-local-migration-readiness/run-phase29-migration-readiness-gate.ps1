@@ -123,7 +123,7 @@ for ($Index = 0; $Index -lt $CanonicalMigrationPaths.Count; $Index++) {
 
 $DraftInventory = @(
   Get-ChildItem -LiteralPath (Join-Path $Root 'supabase/migrations_draft') -File -Filter '*.sql' |
-    ForEach-Object { Get-NormalizedRelativePath -Path ([System.IO.Path]::GetRelativePath($Root, $_.FullName)) } |
+    ForEach-Object { Get-CompatibleRelativePath -BasePath $Root -TargetPath $_.FullName } |
     Sort-Object
 )
 $MissingInventory = @($CanonicalMigrationPaths | Where-Object { $DraftInventory -notcontains $_ })
