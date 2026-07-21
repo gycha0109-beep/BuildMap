@@ -89,6 +89,7 @@ EMPTY_TARGET_ONLY_V1
 - SQL: `BEGIN TRANSACTION READ ONLY` + `ROLLBACK`
 - connection: 전용 process environment variable만 사용
 - command line에 DB URL/password를 넣지 않음
+- password는 `Read-Host -AsSecureString`으로 입력해 shell history 노출 방지
 - `PGOPTIONS default_transaction_read_only=on` 강제
 - statement/lock/idle transaction timeout 적용
 - evidence/log는 `.local-evidence` 아래에만 생성
@@ -112,7 +113,7 @@ DeploymentReadinessDecision: DEPLOYMENT_HOLD
 
 ## 사용자 로컬 다음 실행
 
-### 1. 브랜치 동기화
+### 1. 브랜치 동기화 및 psql 확인
 
 ```powershell
 git fetch origin
@@ -121,32 +122,49 @@ git pull --ff-only origin agent/phase30-5-target-project-attestation
 
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 Get-ChildItem .\scripts\manual-target-project-attestation\*.ps1 | Unblock-File
+
+psql --version
 ```
+
+`psql`이 PATH에서 확인되지 않으면 target probe를 실행하지 않는다.
 
 ### 2. credential을 현재 PowerShell 프로세스에만 설정
 
 ```powershell
-$env:BUILDMAP_PHASE305_PGHOST = '<Supabase direct 또는 pooler host>'
-$env:BUILDMAP_PHASE305_PGPORT = '5432'
+$env:BUILDMAP_PHASE305_PGHOST = '<host from target project connection details>'
+$env:BUILDMAP_PHASE305_PGPORT = '<port from target project connection details>'
 $env:BUILDMAP_PHASE305_PGDATABASE = 'postgres'
 $env:BUILDMAP_PHASE305_PGUSER = '<database user>'
-$env:BUILDMAP_PHASE305_PGPASSWORD = '<database password>'
 $env:BUILDMAP_PHASE305_PGSSLMODE = 'require'
+
+$securePassword = Read-Host 'Target database password' -AsSecureString
+$passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+
+try {
+  $env:BUILDMAP_PHASE305_PGPASSWORD =
+    [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+}
+finally {
+  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
+  Remove-Variable securePassword, passwordPointer -ErrorAction SilentlyContinue
+}
 ```
 
 credential과 project ref를 채팅·문서·Git에 기록하지 않는다.
 
 ### 3. read-only attestation 실행
 
+운영 확인 인자에는 실제로 확인된 값만 입력한다.
+
 ```powershell
 .\scripts\manual-target-project-attestation\run-phase30-5-target-attestation-local.ps1 `
   -BundleManifestPath 'D:\Ji_hwan\personal\BuildMap\.local-evidence\phase30-formal-promotion\20260721-175812-07f2dc31-18f9-4974-82b8-9ff6ff3088cf\phase30-release-bundle.json' `
   -TargetEnvironment staging `
   -TargetProjectRef '<20-character-project-ref>' `
-  -OperatorName '<operator>' `
-  -MaintenanceWindow '<window>' `
+  -OperatorName '<authorized operator>' `
+  -MaintenanceWindow '<approved window>' `
   -RecoveryPlanReference '<backup/PITR/recovery reference>' `
-  -RollbackOwner '<owner>' `
+  -RollbackOwner '<rollback owner>' `
   -TargetProjectIdentityConfirmed `
   -BackupOrRecoveryConfirmed `
   -MaintenanceWindowConfirmed `
@@ -174,10 +192,15 @@ DeploymentReadinessDecision: DEPLOYMENT_READY
 Phase30.5GateResult: PASS
 ```
 
-### 4. 실행 후 password 제거
+### 4. 실행 후 credential 제거
 
 ```powershell
-Remove-Item Env:BUILDMAP_PHASE305_PGPASSWORD
+Remove-Item Env:BUILDMAP_PHASE305_PGPASSWORD -ErrorAction SilentlyContinue
+Remove-Item Env:BUILDMAP_PHASE305_PGHOST -ErrorAction SilentlyContinue
+Remove-Item Env:BUILDMAP_PHASE305_PGPORT -ErrorAction SilentlyContinue
+Remove-Item Env:BUILDMAP_PHASE305_PGDATABASE -ErrorAction SilentlyContinue
+Remove-Item Env:BUILDMAP_PHASE305_PGUSER -ErrorAction SilentlyContinue
+Remove-Item Env:BUILDMAP_PHASE305_PGSSLMODE -ErrorAction SilentlyContinue
 ```
 
 ## 절대 제약
