@@ -68,7 +68,6 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - Problem/Hypothesis, Feedback Request/Feedback, Project Links, Change Card mutation, Profile/Discovery, grant/trigger integrity 검증
 - 독립 리뷰 후 linked-card parity, archived row, identity spoof, approved immutable fields, internal account status, direct ownership/token mutation negative control 추가
 - migration draft와 Phase25 protected baseline은 변경하지 않음
-- static review PASS, 사용자 local runtime pending
 
 ## Phase27.1 P1 Access & Integrity Hardening
 
@@ -76,7 +75,44 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - archived child public source exposure, creator/author spoofing, linked-card parity, approval metadata, profile/project broad UPDATE를 실제 blocker로 분류
 - 기존 protected migration 00–08을 수정하지 않고 additive migration draft 09 추가
 - profile/project UPDATE whitelist, Project INSERT allowlist, identity triggers, linked-card helper parity, pinned SECURITY DEFINER helpers, unified target validation, approved Change Card immutability 구현
-- `P1-INTEGRITY-018`이 ownership transfer 성공에 가려진 false-negative였음을 독립 리뷰에서 발견하고 transaction 분리
+- `P1-INTEGRITY-018` false-negative를 독립 transaction으로 분리
 - P0 PRE-021 grant oracle를 column-level UPDATE와 호환되도록 보정
 - matrix를 167 → 181 scenarios로 확대
-- static review PASS, 사용자 local rerun pending
+
+## Phase27.1 User Local Closure
+
+- Phase20 P0 compatibility PASS
+- Phase26 legacy regression gate PASS
+- Phase27.1 9/9 SQL files PASS
+- expected/observed scenarios `181/181`
+- missing/duplicate/conflicting IDs 없음
+- all blocker flags false
+- `OverallResult: PASS`
+- evidence level `USER_LOCAL_PASS`
+
+## Phase28 Unified RLS Regression Baseline & Change Gate
+
+- migration drafts `00–09`, Phase20, Phase25, Phase27.1, Phase26 legacy gate를 통합 보호
+- Phase28 executable PowerShell 4개까지 포함한 46 protected files / 3 packs / 26 scenario files / 435 scenarios
+- normalized UTF-8/LF SHA-256 contract로 Windows line-ending false positive 제거
+- exact SQL inventory 및 scenario-source contract 검증
+- pack metadata, signal flags, regex, validation mode를 gate에 고정
+- optional three-pack PASS-log attestation 및 `-RequireAllPassLogs` 구현
+- path traversal, duplicate path/log, malformed supplied log를 fail closed 처리
+- raw/parsed `FileResult` count 불일치 및 blocker·unknown `ParsedSignals` 차단
+- empty collection binder 예외가 아닌 명시적 gate failure reporting 적용
+- 독립 리뷰에서 path normalization, console-only completion-line, manifest weakening, gate self-protection, log inconsistency 가능성을 보완
+- static validation PASS
+
+## Phase28 User Local Closure
+
+- 사용자 Windows에서 Phase28 PowerShell parser 전체 PASS
+- unified static gate 전체 PASS
+- protected files `46/46`
+- packs `3/3`
+- scenario SQL files `26/26`
+- scenario contract `435/435`
+- `Phase28GateResult: PASS`
+- evidence level `USER_LOCAL_PASS`
+- hosted/remote DB 작업 없음
+- Phase29 Migration Promotion Readiness 진입 승인
