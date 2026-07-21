@@ -17,7 +17,7 @@ function Get-ExactlyOneEvidenceValue {
 function Test-Phase29Evidence {
   param(
     [Parameter(Mandatory = $true)][string] $Path,
-    [Parameter(Mandatory = $true)][ValidateSet('FRESH_INSTALL_00_09','INCREMENTAL_00_08_TO_09')][string] $ExpectedType,
+    [Parameter(Mandatory = $true)][ValidateSet('FRESH_INSTALL_00_10','INCREMENTAL_00_09_TO_10')][string] $ExpectedType,
     [Parameter(Mandatory = $true)][AllowEmptyCollection()][System.Collections.Generic.List[object]] $Findings
   )
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
