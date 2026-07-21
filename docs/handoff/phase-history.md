@@ -133,3 +133,12 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - 실제 blocker `MIG29-BLOCK-001` 발견: final `public.is_feedback_author(uuid)`가 `search_path = public, auth` 유지
 - runtime evidence 미완료와 blocker 때문에 current decision `PROMOTION_HOLD`
 - migration draft 수정, formal promotion, hosted/remote DB 작업 없음
+
+## Phase29 Windows PowerShell 5.1 Compatibility Correction
+
+- 첫 사용자 로컬 static gate가 `.NET Framework`에 없는 `System.IO.Path.GetRelativePath()` 호출에서 중단
+- migration/security 실패가 아닌 test-harness compatibility defect로 분류
+- `System.Uri.MakeRelativeUri()` 기반 `Get-CompatibleRelativePath`를 공통 모듈에 추가
+- static gate의 PowerShell 7/.NET Core 전용 API 의존 제거
+- 변경된 common/gate 파일의 protected normalized hashes 갱신
+- corrected user-local rerun pending
