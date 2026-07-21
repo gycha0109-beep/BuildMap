@@ -1,0 +1,73 @@
+<#
+Run both Phase29.2 local replay paths and require the final promotion-readiness gate to return PROMOTION_READY.
+All database operations target the disposable local Supabase stack only.
+#>
+
+[CmdletBinding()]
+param(
+  [string] $OutputRoot = '.local-evidence/phase29-2',
+  [string] $ContainerName
+)
+
+$ErrorActionPreference = 'Stop'
+$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $ScriptDirectory 'phase29-evidence-run-common.ps1')
+
+$Root = Get-Phase292RepositoryRoot -ScriptDirectory $ScriptDirectory
+Assert-Phase292TrackedWorkingTreeClean -Root $Root
+$Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$ResolvedOutputRoot = if ([System.IO.Path]::IsPathRooted($OutputRoot)) { [System.IO.Path]::GetFullPath($OutputRoot) } else { [System.IO.Path]::GetFullPath((Join-Path $Root $OutputRoot)) }
+$RunDirectory = Join-Path $ResolvedOutputRoot $Timestamp
+New-Item -ItemType Directory -Force -Path $RunDirectory | Out-Null
+
+$FreshEvidencePath = Join-Path $RunDirectory 'fresh-install-evidence.txt'
+$IncrementalEvidencePath = Join-Path $RunDirectory 'incremental-upgrade-evidence.txt'
+$FreshRunId = [guid]::NewGuid().ToString()
+$IncrementalRunId = [guid]::NewGuid().ToString()
+$CommonContainerArguments = @()
+if (-not [string]::IsNullOrWhiteSpace($ContainerName)) {
+  $CommonContainerArguments = @('-ContainerName', $ContainerName)
+}
+
+$FreshArguments = @('-EvidencePath', $FreshEvidencePath, '-RunId', $FreshRunId) + $CommonContainerArguments
+$Fresh = Invoke-Phase292PowerShellFile `
+  -Path (Join-Path $ScriptDirectory 'run-phase29-fresh-install-evidence-local.ps1') `
+  -Arguments $FreshArguments `
+  -CapturePath (Join-Path $RunDirectory 'fresh-install-runner.log')
+if ($Fresh.ExitCode -ne 0) { throw "Fresh-install evidence runner failed with exit code $($Fresh.ExitCode)." }
+Assert-Phase292ExactLine -Lines $Fresh.Lines -Pattern '^FreshInstallEvidenceResult:\s*PASS\s*$' -Label 'Fresh-install evidence runner'
+
+$IncrementalArguments = @('-EvidencePath', $IncrementalEvidencePath, '-RunId', $IncrementalRunId) + $CommonContainerArguments
+$Incremental = Invoke-Phase292PowerShellFile `
+  -Path (Join-Path $ScriptDirectory 'run-phase29-incremental-upgrade-evidence-local.ps1') `
+  -Arguments $IncrementalArguments `
+  -CapturePath (Join-Path $RunDirectory 'incremental-upgrade-runner.log')
+if ($Incremental.ExitCode -ne 0) { throw "Incremental evidence runner failed with exit code $($Incremental.ExitCode)." }
+Assert-Phase292ExactLine -Lines $Incremental.Lines -Pattern '^IncrementalEvidenceResult:\s*PASS\s*$' -Label 'Incremental evidence runner'
+
+$GateArguments = @(
+  '-FreshInstallEvidencePath', $FreshEvidencePath,
+  '-IncrementalUpgradeEvidencePath', $IncrementalEvidencePath,
+  '-RequirePromotionReady'
+)
+$Gate = Invoke-Phase292PowerShellFile `
+  -Path (Join-Path $ScriptDirectory 'run-phase29-migration-readiness-gate.ps1') `
+  -Arguments $GateArguments `
+  -CapturePath (Join-Path $RunDirectory 'phase29-final-readiness-gate.log')
+if ($Gate.ExitCode -ne 0) { throw "Final Phase29 readiness gate failed with exit code $($Gate.ExitCode)." }
+foreach ($Pattern in @(
+  '^FreshInstallEvidenceResult:\s*PASS\s*$',
+  '^IncrementalEvidenceResult:\s*PASS\s*$',
+  '^RuntimeEvidenceComplete:\s*True\s*$',
+  '^PromotionDecision:\s*PROMOTION_READY\s*$',
+  '^Phase29GateResult:\s*PASS\s*$'
+)) {
+  Assert-Phase292ExactLine -Lines $Gate.Lines -Pattern $Pattern -Label 'Final Phase29 readiness gate'
+}
+
+Write-Host "FreshInstallEvidencePath: $FreshEvidencePath"
+Write-Host "IncrementalEvidencePath: $IncrementalEvidencePath"
+Write-Host "FinalGateLogPath: $(Join-Path $RunDirectory 'phase29-final-readiness-gate.log')"
+Write-Host 'PromotionDecision: PROMOTION_READY'
+Write-Host 'Phase29.2ClosureResult: PASS'
+exit 0
