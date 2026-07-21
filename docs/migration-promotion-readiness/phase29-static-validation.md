@@ -24,6 +24,7 @@ This result applies to the Phase29 implementation, not to migration promotion.
 - no remote DB parameter or command in the static gate;
 - catalog SQL runtime contract: 16 unique scenario IDs with PASS/failure branches;
 - catalog wrapper completeness/duplicate/conflict checks present;
+- PowerShell native stderr/exit-code capture and preference restoration present;
 - PowerShell delimiter and ambiguous-variable checks pass;
 - SQL delimiter balance passes.
 
