@@ -124,21 +124,34 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - destructive SQL, broad grants, PUBLIC EXECUTE, remote URL 정적 차단
 - comments/string literals를 제거한 executable SQL scan으로 false positive 억제
 - migration order 기준 final SECURITY DEFINER definition 분석
-- tracked formal migration premature promotion 감지
+- tracked local replay mirror exact parity 검증
 - fresh-install/incremental evidence exact contract와 duplicate evidence 방지
 - local PostgreSQL catalog 16-scenario wrapper 구현
 - forward-fix, emergency recovery, Go/No-go matrix 문서화
 - Phase29 executable/catalog files 7개 normalized hash 보호
-- 독립 리뷰 및 static validation PASS
 - 실제 blocker `MIG29-BLOCK-001` 발견: final `public.is_feedback_author(uuid)`가 `search_path = public, auth` 유지
-- runtime evidence 미완료와 blocker 때문에 current decision `PROMOTION_HOLD`
-- migration draft 수정, formal promotion, hosted/remote DB 작업 없음
 
-## Phase29 Windows PowerShell 5.1 Compatibility Correction
+## Phase29 Local Corrections and Closure
 
-- 첫 사용자 로컬 static gate가 `.NET Framework`에 없는 `System.IO.Path.GetRelativePath()` 호출에서 중단
-- migration/security 실패가 아닌 test-harness compatibility defect로 분류
-- `System.Uri.MakeRelativeUri()` 기반 `Get-CompatibleRelativePath`를 공통 모듈에 추가
-- static gate의 PowerShell 7/.NET Core 전용 API 의존 제거
-- 변경된 common/gate 파일의 protected normalized hashes 갱신
-- corrected user-local rerun pending
+- Windows PowerShell 5.1에 없는 `System.IO.Path.GetRelativePath()`를 `System.Uri.MakeRelativeUri()` 기반 함수로 교체
+- tracked replay mirror를 formal promotion으로 오판하던 detector를 exact mirror parity 방식으로 보정
+- 사용자 로컬 corrected static gate 정확히 PASS
+- `Phase29GateResult: PASS`, `TrackedReplayMirrorResult: PASS`
+- security blocker 1개와 runtime evidence 미완료를 정확히 분리
+- PR #2를 `main` merge commit `0413ea9a8dafa2e2fb098a2b30b94c75a4a95676`으로 병합
+
+## Phase29.1 Residual SECURITY DEFINER Boundary Hardening
+
+- 기존 migration drafts `00–09` 불변 유지
+- additive migration draft `10` 및 byte-identical local replay mirror 추가
+- `public.is_feedback_author(uuid)`를 `search_path = pg_catalog, pg_temp`로 재정의
+- `public.feedbacks`, `public.current_user_profile_id()` schema qualification 유지
+- `PUBLIC`/`anon` EXECUTE revoke, `authenticated`만 재부여
+- Phase28 protected migration inventory를 `00–10`, protected files `47`로 확장
+- 변경된 migration set에 기존 PASS를 재사용하지 않고 baseline status를 `PENDING_USER_LOCAL_REVALIDATION`으로 전환
+- Phase29 migration contract `10 → 11`, protected gate/catalog files `7 → 8`
+- catalog contract `16 → 26` scenarios로 확장
+- function signature oracle를 `pronargs` + `oidvectortypes(proargtypes)`로 보강
+- 설계 자체 리뷰, 구현 독립 리뷰, static validation PASS
+- known security blocker 구현상 해소; 사용자 로컬 runtime 재검증 pending
+- hosted/remote/formal promotion 없음
