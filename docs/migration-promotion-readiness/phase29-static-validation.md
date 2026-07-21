@@ -25,6 +25,9 @@ This result applies to the Phase29 implementation, not to migration promotion.
 - catalog SQL runtime contract: 16 unique scenario IDs with PASS/failure branches;
 - catalog wrapper completeness/duplicate/conflict checks present;
 - PowerShell native stderr/exit-code capture and preference restoration present;
+- Windows PowerShell 5.1 compatibility: no `System.IO.Path.GetRelativePath()` dependency remains;
+- relative-path calculation uses `System.Uri.MakeRelativeUri()` and normalized separators;
+- protected hashes refreshed for `phase29-common.ps1` and the Phase29 static gate;
 - PowerShell delimiter and ambiguous-variable checks pass;
 - SQL delimiter balance passes.
 
@@ -42,4 +45,4 @@ MIG29-UNPINNED-SECURITY-DEFINER
 public.is_feedback_author
 ```
 
-Runtime catalog execution remains user-local.
+Runtime catalog execution remains user-local. The corrected static gate requires a new user-local run.
