@@ -153,5 +153,30 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - catalog contract `16 → 26` scenarios로 확장
 - function signature oracle를 `pronargs` + `oidvectortypes(proargtypes)`로 보강
 - 설계 자체 리뷰, 구현 독립 리뷰, static validation PASS
-- known security blocker 구현상 해소; 사용자 로컬 runtime 재검증 pending
 - hosted/remote/formal promotion 없음
+
+## Phase29.1 User Local Closure
+
+- Phase20, Phase25, Phase27.1 전체 PASS
+- Phase28 `47 protected files / 435 scenarios` PASS
+- Phase29 static gate: migrations `11`, mirror PASS, errors `0`, blockers `0`
+- Phase29 catalog `26/26` PASS
+- `MIG29-BLOCK-001` runtime 해소 확인
+- PR #3을 `main` merge commit `c18b7995f6cf6cdff7787f5131cbb4d5d77df70d`으로 병합
+- 남은 HOLD는 fresh/incremental evidence 파일 미완료로 한정
+
+## Phase29.2 Fresh-install & Incremental Replay Evidence Closure
+
+- 수동 evidence 작성 대신 실제 local replay 기반 evidence schema `2.0` 구현
+- fresh path: reset 후 exact `00–10` migration history 검증
+- incremental path: exact `00–09` precondition, migration 10 단독 delta 검증
+- historical pre-upgrade oracle `MIG29-PREUP-001..006` 추가
+- 두 경로 각각 Phase20/25/27.1 재실행
+- 각 신규 로그를 Phase28 `-RequireAllPassLogs`로 검증
+- 각 경로에서 Phase29 catalog `26/26` 재검증
+- evidence를 Git HEAD, baseline ID, migration digest, protected-gate digest에 결속
+- evidence path/RunId 중복과 서로 다른 HEAD 혼합 차단
+- 긴 replay 전 static readiness preflight 추가
+- one-command closure wrapper와 `.local-evidence/` Git exclusion 구현
+- 설계 리뷰, 구현 리뷰, repository/static validation PASS
+- 사용자 로컬 fresh/incremental 실행 및 최종 `PROMOTION_READY` 판정 pending
