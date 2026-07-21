@@ -40,9 +40,15 @@ Correction: the manifest stores normalized hashes for all five Phase29 PowerShel
 
 ### 9. Catalog wrapper could pass with missing scenarios
 
-Correction: the local catalog wrapper now enforces the complete 16-scenario contract, including missing, unexpected, duplicate, and conflicting ID detection.
+Correction: the local catalog wrapper enforces the complete 16-scenario contract, including missing, unexpected, duplicate, and conflicting ID detection.
 
-### 10. SECURITY DEFINER defect found
+### 10. Native stderr handling could terminate before producing a verdict
+
+Earlier BuildMap wrappers showed that PowerShell 7 can convert native stderr/non-zero exits into terminating errors when `$PSNativeCommandUseErrorActionPreference` is enabled.
+
+Correction: the catalog runner and Phase28 child-process invocation temporarily disable that behavior, capture native output/exit codes, normalize `ErrorRecord` objects, and restore the caller settings in `finally` blocks.
+
+### 11. SECURITY DEFINER defect found
 
 The final-state scan identifies `public.is_feedback_author(uuid)` as unpinned. This is a real promotion blocker and is not suppressed by changing expectations.
 
