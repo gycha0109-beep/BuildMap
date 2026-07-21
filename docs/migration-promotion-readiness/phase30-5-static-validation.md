@@ -12,6 +12,7 @@
 - prohibited deployment/link/repair capability 부재
 - evidence output path 제한
 - credential 출력·직접 URL 사용 부재
+- `pgcrypto` extension namespace contract
 - empty-target-only fail-closed decision
 
 ## 결과
