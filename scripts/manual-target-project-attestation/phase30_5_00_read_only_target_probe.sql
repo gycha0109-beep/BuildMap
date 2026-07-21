@@ -13,10 +13,19 @@ select 'CURRENT_USER=' || current_user;
 select 'PUBLIC_SCHEMA_EXISTS=' || (to_regnamespace('public') is not null)::text;
 select 'AUTH_SCHEMA_EXISTS=' || (to_regnamespace('auth') is not null)::text;
 select 'EXTENSIONS_SCHEMA_EXISTS=' || (to_regnamespace('extensions') is not null)::text;
-select 'PGCRYPTO_AVAILABLE=' || exists(
-  select 1
-  from pg_catalog.pg_available_extensions
-  where name = 'pgcrypto'
+select 'PGCRYPTO_AVAILABLE=' || (
+  exists(
+    select 1
+    from pg_catalog.pg_available_extensions
+    where name = 'pgcrypto'
+  )
+  and exists(
+    select 1
+    from pg_catalog.pg_extension e
+    join pg_catalog.pg_namespace n on n.oid = e.extnamespace
+    where e.extname = 'pgcrypto'
+      and n.nspname = 'extensions'
+  )
 )::text;
 select 'PGCRYPTO_INSTALLED=' || exists(
   select 1
