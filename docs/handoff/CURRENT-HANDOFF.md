@@ -2,168 +2,161 @@
 
 ## 현재 재개 기준
 
-- 현재 단계: Phase29 Migration Promotion Readiness & Release Safety Gate — 설계/구현/독립 리뷰/정적 검증 및 Windows PowerShell 5.1 호환 보정 완료
+- 현재 단계: Phase29.1 Residual SECURITY DEFINER Boundary Hardening — 설계 자체 리뷰/구현/독립 리뷰/정적 검증 완료
 - 기준 날짜: 2026-07-21
-- 공식 작업 기준: GitHub `gycha0109-beep/BuildMap`
-- 기준 브랜치: `agent/phase29-migration-promotion-readiness`
-- Phase28 merge commit: `2382fe78b75acedcad034076c083c29264f6f1af`
-- Phase20 P0 RLS: 사용자 로컬 PASS
-- Phase25 Link Sharing: 사용자 로컬 PASS
-- Phase26 legacy gate: 사용자 로컬 PASS
-- Phase27.1 P1 RLS: 사용자 로컬 PASS, `181/181`
-- Phase28 unified gate: 사용자 로컬 PASS, `46 files / 435 scenarios`
-- Phase29 implementation validation: PASS
-- Phase29 current promotion decision: `PROMOTION_HOLD`
-- Phase29 첫 사용자 로컬 static run: Windows PowerShell 5.1의 `Path.GetRelativePath()` 부재로 inventory 단계 중단
-- Phase29 compatibility correction: 적용 완료, 사용자 로컬 재실행 pending
-- hosted/remote 적용: 없음
-- migration draft 수정 또는 정식 migration 승격: 없음
+- 공식 저장소: `gycha0109-beep/BuildMap`
+- 작업 브랜치: `agent/phase29-1-security-definer-hardening`
+- Phase29 merge commit: `0413ea9a8dafa2e2fb098a2b30b94c75a4a95676`
+- hosted/remote/formal migration promotion: 없음
+- 사용자 로컬 Phase29.1 runtime: pending
 
 ## 보호 기준선
 
-### Unified Phase28 baseline
+### 이전 사용자 로컬 PASS
 
-- manifest: `scripts/manual-local-unified-regression/phase28_unified_rls_regression_baseline.json`
-- gate: `scripts/manual-local-unified-regression/run-phase28-unified-rls-regression-gate.ps1`
-- protected files: 46
-- packs: 3
-- scenario SQL files: 26
-- scenarios: 435
-- evidence level: `USER_LOCAL_PASS`
+- Phase20 P0 RLS: PASS, 147 scenarios
+- Phase25 Link Sharing: PASS, 107 scenarios
+- Phase26 legacy gate: PASS
+- Phase27.1 P1 RLS: PASS, 181 scenarios
+- Phase28 unified gate: PASS, 46 protected files / 435 scenarios
+- Phase29 corrected static gate: PASS
+- Phase29 tracked replay mirror: PASS
 
-### Phase29 readiness contract
+### Phase29.1 변경 후 기준선
 
-- manifest: `scripts/manual-local-migration-readiness/phase29_migration_promotion_manifest.json`
-- static gate: `scripts/manual-local-migration-readiness/run-phase29-migration-readiness-gate.ps1`
-- local catalog runner: `scripts/manual-local-migration-readiness/run-phase29-catalog-readiness-local.ps1`
-- migration drafts: exact `00–09`, 10 files
-- protected Phase29 executable/catalog files: 7
-- catalog runtime scenarios: 16
-- decision values: `PROMOTION_READY`, `PROMOTION_HOLD`
-- automatic promotion: prohibited
-- automatic manifest refresh: prohibited
+- migration drafts: exact `00–10`, 11 files
+- Phase28 protected files: `47`
+- Phase28 packs: `3`
+- Phase28 scenario SQL files: `26`
+- Phase28 scenarios: `435`
+- Phase28 baseline ID: `buildmap-unified-rls-phase28-1-20260721`
+- Phase28 evidence status: `PENDING_USER_LOCAL_REVALIDATION`
+- Phase29 protected gate/catalog files: `8`
+- Phase29 catalog scenarios: `26`
+- automatic baseline refresh/promotion: prohibited
 
-## Phase29 구현 내용
+## Phase29 종료
 
-- migration `00–09` 순서·dependency·hash·분류 계약 고정
-- Phase28 protected baseline을 필수 선행 gate로 연결
-- destructive SQL, broad grant, PUBLIC EXECUTE, remote URL 정적 차단
-- SQL comment/string을 제거한 뒤 실행 구문만 분석하여 false positive 최소화
-- migration 순서대로 function definition을 처리하고 final `SECURITY DEFINER` 정의만 평가
-- tracked `supabase/migrations/*.sql` 조기 승격 감지
-- fresh-install 및 incremental evidence를 서로 다른 파일로 강제
-- 증거 필드 singleton/정확한 PASS 계약 검증
-- gate 분석 성공과 promotion readiness를 별도 출력
-- local PostgreSQL catalog 16-scenario wrapper 구현
-- forward-fix, emergency access-control recovery, Go/No-go 문서화
+- migration `00–09` readiness gate 구현
+- destructive SQL, broad grants, PUBLIC EXECUTE, remote URL 차단
+- final-definition SECURITY DEFINER 검사
+- fresh-install/incremental evidence fail-closed validator
+- Windows PowerShell 5.1 relative-path compatibility 보정
+- tracked local replay mirror를 formal promotion으로 오판하던 detector 보정
+- 사용자 로컬 corrected gate 정확히 PASS
+- 실제 blocker `MIG29-BLOCK-001`과 runtime evidence 미완료를 분리
+- PR #2 병합 완료
 
-## 독립 리뷰 결과
+## Phase29.1 구현
 
-### 보완 완료
+### Additive migration
 
-1. 주석·예외문 속 위험 키워드 false positive 제거
-2. 과거에 존재했으나 후속 migration에서 수정된 function의 false blocker 방지
-3. manifest 약화로 migration 누락이 가능하지 않도록 canonical 10 paths hard-code
-4. HOLD와 harness FAIL 분리
-5. runtime evidence 누락 fail-open 차단
-6. 동일 evidence 재사용 차단
-7. untracked local replay copy를 premature promotion으로 오판하지 않도록 Git tracked 파일만 검사
-8. Phase29 gate 자체 7개 파일 hash 보호
-9. catalog scenario 누락·추가·중복·충돌 차단
-10. PowerShell 7 native stderr/non-zero exit의 terminating error 경로 차단
-11. Windows PowerShell 5.1에 없는 `System.IO.Path.GetRelativePath()` 제거 및 `System.Uri.MakeRelativeUri()` 기반 호환 함수 적용
+- draft: `supabase/migrations_draft/20260721000000_buildmap_10_security_definer_boundary_hardening_draft.sql`
+- local replay mirror: `supabase/migrations/20260721000000_buildmap_10_security_definer_boundary_hardening_draft.sql`
+- 기존 `00–09`: 수정 없음
 
-### 실제 발견 blocker
+### 보안 보정
 
-- ID: `MIG29-BLOCK-001`
-- object: `public.is_feedback_author(uuid)`
-- final state: `SECURITY DEFINER`, `search_path = public, auth`
-- required rule: `search_path = pg_catalog, pg_temp` + 명시적 schema qualification
-- migration 09가 이 function을 재정의하지 않으므로 `00–09` 최종 상태에 잔존
-- 판정: `PROMOTION_HOLD`
-- 기대 조치: 기존 migration 수정이 아니라 additive forward hardening migration 작성 후 전체 회귀 재검증
+`public.is_feedback_author(uuid)`를 다음 계약으로 재정의했다.
 
-## 사용자 로컬 첫 실행과 보정
+- return: `boolean`
+- language: `sql`
+- volatility: `stable`
+- security: `SECURITY DEFINER`
+- search path: `pg_catalog, pg_temp`
+- qualified objects: `public.feedbacks`, `public.current_user_profile_id()`
+- EXECUTE: `PUBLIC`/`anon`/기존 권한 revoke 후 `authenticated`만 grant
+- row/data rewrite: 없음
 
-첫 Phase29 static gate 실행은 다음 오류로 verdict 출력 전에 중단됐다.
+### Gate와 oracle 확장
 
-```text
-[System.IO.Path]에 이름이 'GetRelativePath'인 메서드가 없음
-```
+- Phase28 migration inventory `00–09 → 00–10`
+- Phase28 protected files `46 → 47`
+- 기존 Phase28 PASS 재사용 금지; evidence status pending 전환
+- Phase29 migration count `10 → 11`
+- protected gate/catalog files `7 → 8`
+- catalog scenarios `16 → 26`
+- 신규 `MIG29-HARD-001..010` 추가
+- evidence types:
+  - `FRESH_INSTALL_00_10`
+  - `INCREMENTAL_00_09_TO_10`
 
-분류:
+## 설계 자체 리뷰 결과
 
-- migration/RLS/security failure 아님
-- Windows PowerShell 5.1/.NET Framework compatibility failure
-- Phase29 test harness defect
+1. migration 10만 추가하면 Phase28 exact inventory가 실패하므로 Phase28 계약을 함께 확장했다.
+2. `supabase/migrations`는 formal promotion이 아닌 exact local replay mirror로 유지했다.
+3. source-text 검사만으로 부족하여 PostgreSQL catalog oracle 10개를 추가했다.
+4. signature 검증은 포맷 의존 문자열 대신 `pronargs`와 `oidvectortypes(proargtypes)`를 사용한다.
+5. 변경된 migration set에 기존 사용자 PASS를 자동 계승하지 않는다.
 
-보정:
+설계 판정: `PASS`
 
-- `phase29-common.ps1`에 `Get-CompatibleRelativePath` 추가
-- absolute file URI와 `MakeRelativeUri()`로 상대경로 계산
-- separator normalization 유지
-- static gate의 직접 `Path.GetRelativePath()` 호출 제거
-- 변경된 common/gate 파일의 protected normalized SHA-256 갱신
+## 구현 리뷰 및 정적 검증
 
-## 정적 검증 상태
-
-- manifest parse: PASS
-- migration inventory/order: 10/10 PASS
-- migration normalized hashes: 10/10 PASS
-- Phase29 protected gate/catalog hashes: 7/7 PASS after compatibility refresh
-- runtime scenario source IDs: 16 unique
-- PowerShell lexical/delimiter checks: PASS
-- SQL delimiter checks: PASS
-- ambiguous `$variable:`: 0
-- `elselseif`: 0
-- executable remote-capable commands: 0
-- destructive SQL approved exceptions: 0
-- direct `System.IO.Path.GetRelativePath()` dependency: 0
-- implementation verdict: PASS
-- corrected native PowerShell runtime: 사용자 로컬 rerun pending
-- PostgreSQL catalog execution: 사용자 로컬 pending
-- fresh-install evidence: pending
-- incremental upgrade evidence: pending
+- migration 10 draft/mirror parity: PASS
+- normalized migration hash contract: PASS
+- search path pinning: PASS
+- schema qualification: PASS
+- ACL intent: PASS
+- Phase28 47-file contract: PASS
+- Phase29 11-migration contract: PASS
+- Phase29 8-file self-protection: PASS
+- 26 catalog scenario IDs unique: PASS
+- PowerShell 5.1 compatibility: 유지
+- prohibited remote-capable command: 없음
+- known security blockers in manifest: `0`
+- resolved blocker record: `MIG29-BLOCK-001`
+- independent/static verdict: `PASS`
 
 ## 현재 정확한 판정
 
 ```text
-Phase29 implementation: PASS
-Phase29 corrected local gate: pending rerun
+Phase29.1 design: PASS
+Phase29.1 implementation: PASS
+Phase29.1 static validation: PASS
+Security blocker implementation: RESOLVED
+User-local runtime: PENDING
 PromotionDecision: PROMOTION_HOLD
 ```
 
-HOLD 원인:
+현재 HOLD 사유는 다음 runtime evidence 미완료뿐이다.
 
-1. unpinned `public.is_feedback_author(uuid)` SECURITY DEFINER
-2. fresh-install `00–09` runtime evidence 없음
-3. incremental `00–08 → 09` runtime evidence 없음
+1. fresh-install `00–10`
+2. incremental `00–09 → 10`
+3. 변경 후 Phase20/25/27.1/28 전체 회귀
+
+## 사용자 로컬 예상 결과
+
+Migration 10이 local reset/replay로 적용된 뒤:
+
+```text
+Phase28GateResult: PASS
+MigrationCount: 11
+TrackedReplayMirrorResult: PASS
+StaticErrorCount: 0
+StaticBlockerCount: 0
+Phase29GateResult: PASS
+ExpectedScenarioCount: 26
+ObservedScenarioCount: 26
+CatalogReadinessResult: PASS
+PromotionDecision: PROMOTION_HOLD
+```
 
 ## 절대 제약
 
-- ZIP 대신 GitHub 저장소를 기준으로 작업한다.
-- Supabase CLI, Docker, psql, SQL 실제 실행은 사용자 로컬 PC에서만 수행한다.
-- `supabase link`, `supabase db push`, `supabase db pull`을 사용하지 않는다.
-- hosted SQL Editor 또는 remote DB URL을 사용하지 않는다.
-- Phase29에서는 migration draft를 수정하거나 정식 migration으로 승격하지 않는다.
-- applied migration history rewrite를 금지하고 forward-fix만 사용한다.
-- raw secret/share token/remote connection 정보를 문서·로그에 포함하지 않는다.
-- blocker를 기대값 변경으로 숨기지 않는다.
+- GitHub 저장소를 canonical source로 사용한다.
+- Supabase CLI, Docker, psql, SQL runtime은 사용자 로컬 PC에서만 실행한다.
+- `supabase link`, `supabase db push`, `supabase db pull` 금지
+- hosted SQL Editor/remote DB URL 금지
+- 기존 migration history 수정 금지; additive forward-fix만 허용
+- raw secret/share token/remote connection 정보 기록 금지
+- 기존 PASS의 자동 재사용 및 manifest 자동 갱신 금지
 
-## 다음 작업
+## 다음 실행 지점
 
-1. 사용자는 Phase29 브랜치 최신 커밋을 `git pull --ff-only`로 반영
-2. corrected Phase29 PowerShell parser 실행
-3. corrected static gate 재실행 — 예상 `Phase29GateResult: PASS`, `PromotionDecision: PROMOTION_HOLD`
-4. local final catalog runner 실행 — 예상 `MIG29-CATALOG-007 PROMOTION_BLOCKER`
-5. 결과가 예상과 일치하면 Phase29 분석 기준선 확정
-6. 후속 Phase29.1에서 additive SECURITY DEFINER hardening migration 설계
-
-## 정확한 재개 지점
-
-1. `docs/handoff/CURRENT-HANDOFF.md`
-2. `docs/migration-promotion-readiness/phase29-risk-register.md`
-3. `docs/migration-promotion-readiness/phase29-independent-review.md`
+1. `docs/migration-promotion-readiness/phase29-1-design-review.md`
+2. `docs/migration-promotion-readiness/phase29-1-static-validation.md`
+3. `scripts/manual-local-unified-regression/phase28_unified_rls_regression_baseline.json`
 4. `scripts/manual-local-migration-readiness/phase29_migration_promotion_manifest.json`
 5. `scripts/manual-local-migration-readiness/run-phase29-migration-readiness-gate.ps1`
 6. `scripts/manual-local-migration-readiness/run-phase29-catalog-readiness-local.ps1`
