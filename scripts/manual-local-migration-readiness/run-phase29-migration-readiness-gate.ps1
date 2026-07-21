@@ -139,11 +139,30 @@ if (-not (Test-Path -LiteralPath $Phase28GatePath -PathType Leaf)) {
 }
 else {
   $PowerShellExecutable = (Get-Process -Id $PID).Path
+  $PreviousErrorActionPreference = $ErrorActionPreference
+  $HasNativePreference = Test-Path variable:PSNativeCommandUseErrorActionPreference
+  if ($HasNativePreference) { $PreviousNativePreference = $PSNativeCommandUseErrorActionPreference }
+  try {
+    $ErrorActionPreference = 'Continue'
+    if ($HasNativePreference) { $PSNativeCommandUseErrorActionPreference = $false }
+    $Phase28RawOutput = @(
+      & $PowerShellExecutable -NoProfile -ExecutionPolicy Bypass -File $Phase28GatePath 2>&1
+    )
+    $Phase28Exit = $LASTEXITCODE
+  }
+  finally {
+    if ($HasNativePreference) { $PSNativeCommandUseErrorActionPreference = $PreviousNativePreference }
+    $ErrorActionPreference = $PreviousErrorActionPreference
+  }
   $Phase28Output = @(
-    & $PowerShellExecutable -NoProfile -ExecutionPolicy Bypass -File $Phase28GatePath 2>&1
+    $Phase28RawOutput | ForEach-Object {
+      if ($_ -is [System.Management.Automation.ErrorRecord]) {
+        if ($_.Exception -and $_.Exception.Message) { $_.Exception.Message } else { $_.ToString() }
+      }
+      else { $_.ToString() }
+    }
   )
-  $Phase28Exit = $LASTEXITCODE
-  $Phase28PassLines = @($Phase28Output | Where-Object { $_.ToString() -match '^Phase28GateResult:\s*PASS\s*$' })
+  $Phase28PassLines = @($Phase28Output | Where-Object { $_ -match '^Phase28GateResult:\s*PASS\s*$' })
   if ($Phase28Exit -ne 0 -or $Phase28PassLines.Count -ne 1) {
     Add-Phase29Finding -Findings $Findings -Severity BLOCKER -Code 'MIG29-PHASE28-BASELINE' -Message 'Phase28 protected baseline gate did not PASS.'
   }
