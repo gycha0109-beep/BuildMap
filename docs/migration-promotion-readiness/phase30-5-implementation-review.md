@@ -14,15 +14,16 @@
 
 1. `PGOPTIONS default_transaction_read_only=on`과 SQL `BEGIN READ ONLY` 이중 보호
 2. psql command-line URL/password 제거
-3. probe SQL DDL/DML token static blocker
-4. Phase30 promotion head와 merge commit 분리 결속
-5. Phase30 bundle manifest 및 11 artifact 재검증
-6. project ref와 connection identity 교차 확인
-7. `pgcrypto` installed namespace를 `extensions`로 고정 검증
-8. public relation/function/policy/trigger/type inventory 합산
-9. existing target는 자동 승인하지 않고 HOLD
-10. raw current user와 host 대신 hash만 evidence에 저장
-11. production target 별도 approval switch 요구
+3. password 입력 문서를 `Read-Host -AsSecureString` 기반으로 보정해 shell history 노출 방지
+4. probe SQL DDL/DML token static blocker
+5. Phase30 promotion head와 merge commit 분리 결속
+6. Phase30 bundle manifest 및 11 artifact 재검증
+7. project ref와 connection identity 교차 확인
+8. `pgcrypto` installed namespace를 `extensions`로 고정 검증
+9. public relation/function/policy/trigger/type inventory 합산
+10. existing target는 자동 승인하지 않고 HOLD
+11. raw current user와 host 대신 hash만 evidence에 저장
+12. production target 별도 approval switch 요구
 
 ## 변경 금지 기준선
 
