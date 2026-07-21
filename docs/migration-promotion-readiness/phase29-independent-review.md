@@ -48,12 +48,18 @@ Earlier BuildMap wrappers showed that PowerShell 7 can convert native stderr/non
 
 Correction: the catalog runner and Phase28 child-process invocation temporarily disable that behavior, capture native output/exit codes, normalize `ErrorRecord` objects, and restore the caller settings in `finally` blocks.
 
-### 11. SECURITY DEFINER defect found
+### 11. Windows PowerShell 5.1 lacks `System.IO.Path.GetRelativePath()`
+
+The first user-local Phase29 static-gate run stopped during migration inventory construction because Windows PowerShell 5.1 runs on .NET Framework, where `Path.GetRelativePath()` is unavailable.
+
+Correction: `phase29-common.ps1` now provides `Get-CompatibleRelativePath`, implemented with absolute `System.Uri` values and `MakeRelativeUri()`. The static gate no longer calls the PowerShell 7/.NET Core-only API. The changed common module and gate runner hashes were refreshed in the Phase29 manifest.
+
+### 12. SECURITY DEFINER defect found
 
 The final-state scan identifies `public.is_feedback_author(uuid)` as unpinned. This is a real promotion blocker and is not suppressed by changing expectations.
 
 ## Review verdict
 
-Implementation: PASS.
+Implementation: PASS after PowerShell 5.1 compatibility correction.
 
 Migration promotion: HOLD.
