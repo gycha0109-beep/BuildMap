@@ -13,6 +13,16 @@ $ErrorActionPreference = 'Stop'
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptDirectory 'phase29-evidence-run-common.ps1')
 
+function Write-Phase292CapturedLog {
+  param(
+    [Parameter(Mandatory = $true)][string] $Path,
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][AllowEmptyString()][string[]] $Lines
+  )
+  $Directory = Split-Path -Parent $Path
+  New-Item -ItemType Directory -Force -Path $Directory | Out-Null
+  [System.IO.File]::WriteAllLines($Path, $Lines, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Invoke-Phase292PowerShellFile {
   param(
     [Parameter(Mandatory = $true)][string] $Path,
