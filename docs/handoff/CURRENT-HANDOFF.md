@@ -2,7 +2,7 @@
 
 ## 현재 재개 기준
 
-- 현재 단계: Phase29 Migration Promotion Readiness & Release Safety Gate — 설계/구현/독립 리뷰/정적 검증 완료
+- 현재 단계: Phase29 Migration Promotion Readiness & Release Safety Gate — 설계/구현/독립 리뷰/정적 검증 및 Windows PowerShell 5.1 호환 보정 완료
 - 기준 날짜: 2026-07-21
 - 공식 작업 기준: GitHub `gycha0109-beep/BuildMap`
 - 기준 브랜치: `agent/phase29-migration-promotion-readiness`
@@ -14,6 +14,8 @@
 - Phase28 unified gate: 사용자 로컬 PASS, `46 files / 435 scenarios`
 - Phase29 implementation validation: PASS
 - Phase29 current promotion decision: `PROMOTION_HOLD`
+- Phase29 첫 사용자 로컬 static run: Windows PowerShell 5.1의 `Path.GetRelativePath()` 부재로 inventory 단계 중단
+- Phase29 compatibility correction: 적용 완료, 사용자 로컬 재실행 pending
 - hosted/remote 적용: 없음
 - migration draft 수정 또는 정식 migration 승격: 없음
 
@@ -68,6 +70,8 @@
 7. untracked local replay copy를 premature promotion으로 오판하지 않도록 Git tracked 파일만 검사
 8. Phase29 gate 자체 7개 파일 hash 보호
 9. catalog scenario 누락·추가·중복·충돌 차단
+10. PowerShell 7 native stderr/non-zero exit의 terminating error 경로 차단
+11. Windows PowerShell 5.1에 없는 `System.IO.Path.GetRelativePath()` 제거 및 `System.Uri.MakeRelativeUri()` 기반 호환 함수 적용
 
 ### 실제 발견 blocker
 
@@ -79,12 +83,34 @@
 - 판정: `PROMOTION_HOLD`
 - 기대 조치: 기존 migration 수정이 아니라 additive forward hardening migration 작성 후 전체 회귀 재검증
 
+## 사용자 로컬 첫 실행과 보정
+
+첫 Phase29 static gate 실행은 다음 오류로 verdict 출력 전에 중단됐다.
+
+```text
+[System.IO.Path]에 이름이 'GetRelativePath'인 메서드가 없음
+```
+
+분류:
+
+- migration/RLS/security failure 아님
+- Windows PowerShell 5.1/.NET Framework compatibility failure
+- Phase29 test harness defect
+
+보정:
+
+- `phase29-common.ps1`에 `Get-CompatibleRelativePath` 추가
+- absolute file URI와 `MakeRelativeUri()`로 상대경로 계산
+- separator normalization 유지
+- static gate의 직접 `Path.GetRelativePath()` 호출 제거
+- 변경된 common/gate 파일의 protected normalized SHA-256 갱신
+
 ## 정적 검증 상태
 
 - manifest parse: PASS
 - migration inventory/order: 10/10 PASS
 - migration normalized hashes: 10/10 PASS
-- Phase29 protected gate/catalog hashes: 7/7 PASS
+- Phase29 protected gate/catalog hashes: 7/7 PASS after compatibility refresh
 - runtime scenario source IDs: 16 unique
 - PowerShell lexical/delimiter checks: PASS
 - SQL delimiter checks: PASS
@@ -92,8 +118,9 @@
 - `elselseif`: 0
 - executable remote-capable commands: 0
 - destructive SQL approved exceptions: 0
+- direct `System.IO.Path.GetRelativePath()` dependency: 0
 - implementation verdict: PASS
-- native PowerShell parser/runtime: 사용자 로컬 pending
+- corrected native PowerShell runtime: 사용자 로컬 rerun pending
 - PostgreSQL catalog execution: 사용자 로컬 pending
 - fresh-install evidence: pending
 - incremental upgrade evidence: pending
@@ -102,7 +129,7 @@
 
 ```text
 Phase29 implementation: PASS
-Phase29GateResult expected: PASS
+Phase29 corrected local gate: pending rerun
 PromotionDecision: PROMOTION_HOLD
 ```
 
@@ -125,12 +152,12 @@ HOLD 원인:
 
 ## 다음 작업
 
-1. 사용자 로컬 Phase29 PowerShell parser 실행
-2. Phase29 static gate 실행 — 예상 `Phase29GateResult: PASS`, `PromotionDecision: PROMOTION_HOLD`
-3. local final catalog runner 실행 — 예상 `MIG29-CATALOG-007 PROMOTION_BLOCKER`
-4. 결과가 예상과 일치하면 Phase29 분석 기준선 확정
-5. 후속 Phase29.1에서 additive SECURITY DEFINER hardening migration 설계
-6. hardening 후 fresh-install/incremental replay와 Phase20/25/27/28 전체 재검증
+1. 사용자는 Phase29 브랜치 최신 커밋을 `git pull --ff-only`로 반영
+2. corrected Phase29 PowerShell parser 실행
+3. corrected static gate 재실행 — 예상 `Phase29GateResult: PASS`, `PromotionDecision: PROMOTION_HOLD`
+4. local final catalog runner 실행 — 예상 `MIG29-CATALOG-007 PROMOTION_BLOCKER`
+5. 결과가 예상과 일치하면 Phase29 분석 기준선 확정
+6. 후속 Phase29.1에서 additive SECURITY DEFINER hardening migration 설계
 
 ## 정확한 재개 지점
 
