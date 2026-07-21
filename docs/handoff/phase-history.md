@@ -116,3 +116,20 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - evidence level `USER_LOCAL_PASS`
 - hosted/remote DB 작업 없음
 - Phase29 Migration Promotion Readiness 진입 승인
+
+## Phase29 Migration Promotion Readiness & Release Safety Gate
+
+- migration draft `00–09` exact inventory/order/dependency/hash contract 구현
+- Phase28 baseline gate를 promotion readiness 선행 조건으로 연결
+- destructive SQL, broad grants, PUBLIC EXECUTE, remote URL 정적 차단
+- comments/string literals를 제거한 executable SQL scan으로 false positive 억제
+- migration order 기준 final SECURITY DEFINER definition 분석
+- tracked formal migration premature promotion 감지
+- fresh-install/incremental evidence exact contract와 duplicate evidence 방지
+- local PostgreSQL catalog 16-scenario wrapper 구현
+- forward-fix, emergency recovery, Go/No-go matrix 문서화
+- Phase29 executable/catalog files 7개 normalized hash 보호
+- 독립 리뷰 및 static validation PASS
+- 실제 blocker `MIG29-BLOCK-001` 발견: final `public.is_feedback_author(uuid)`가 `search_path = public, auth` 유지
+- runtime evidence 미완료와 blocker 때문에 current decision `PROMOTION_HOLD`
+- migration draft 수정, formal promotion, hosted/remote DB 작업 없음
