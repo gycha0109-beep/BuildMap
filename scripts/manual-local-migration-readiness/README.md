@@ -21,6 +21,8 @@ To require a release-ready result:
 
 This returns exit code `2` while HOLD remains.
 
+The static gate supports Windows PowerShell 5.1 and PowerShell 7. It does not depend on `System.IO.Path.GetRelativePath()`; repository-relative inventory paths are calculated through `System.Uri.MakeRelativeUri()`.
+
 ## Local catalog check
 
 ```powershell
