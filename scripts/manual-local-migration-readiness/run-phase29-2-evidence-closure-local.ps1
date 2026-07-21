@@ -29,6 +29,20 @@ if (-not [string]::IsNullOrWhiteSpace($ContainerName)) {
   $CommonContainerArguments = @('-ContainerName', $ContainerName)
 }
 
+$Preflight = Invoke-Phase292PowerShellFile `
+  -Path (Join-Path $ScriptDirectory 'run-phase29-migration-readiness-gate.ps1') `
+  -CapturePath (Join-Path $RunDirectory 'phase29-preflight-readiness-gate.log')
+if ($Preflight.ExitCode -ne 0) { throw "Phase29 preflight gate failed with exit code $($Preflight.ExitCode)." }
+foreach ($Pattern in @(
+  '^StaticErrorCount:\s*0\s*$',
+  '^StaticBlockerCount:\s*0\s*$',
+  '^RuntimeEvidenceComplete:\s*False\s*$',
+  '^PromotionDecision:\s*PROMOTION_HOLD\s*$',
+  '^Phase29GateResult:\s*PASS\s*$'
+)) {
+  Assert-Phase292ExactLine -Lines $Preflight.Lines -Pattern $Pattern -Label 'Phase29 preflight gate'
+}
+
 $FreshArguments = @('-EvidencePath', $FreshEvidencePath, '-RunId', $FreshRunId) + $CommonContainerArguments
 $Fresh = Invoke-Phase292PowerShellFile `
   -Path (Join-Path $ScriptDirectory 'run-phase29-fresh-install-evidence-local.ps1') `
