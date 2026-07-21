@@ -19,6 +19,32 @@ function Get-NormalizedRelativePath {
   return ($Path -replace '\\','/').Trim()
 }
 
+function Get-CompatibleRelativePath {
+  param(
+    [Parameter(Mandatory = $true)][string] $BasePath,
+    [Parameter(Mandatory = $true)][string] $TargetPath
+  )
+
+  $BaseFullPath = [System.IO.Path]::GetFullPath($BasePath)
+  $TargetFullPath = [System.IO.Path]::GetFullPath($TargetPath)
+  $DirectorySeparator = [System.IO.Path]::DirectorySeparatorChar
+
+  if (-not $BaseFullPath.EndsWith([string]$DirectorySeparator)) {
+    $BaseFullPath += $DirectorySeparator
+  }
+
+  $BaseUri = [System.Uri]::new($BaseFullPath)
+  $TargetUri = [System.Uri]::new($TargetFullPath)
+
+  if ($BaseUri.Scheme -ne $TargetUri.Scheme) {
+    throw "Cannot calculate a relative path across URI schemes: $BaseFullPath -> $TargetFullPath"
+  }
+
+  $RelativeUri = $BaseUri.MakeRelativeUri($TargetUri)
+  $RelativePath = [System.Uri]::UnescapeDataString($RelativeUri.ToString())
+  return Get-NormalizedRelativePath -Path $RelativePath
+}
+
 function Test-SafeRelativePath {
   param([Parameter(Mandatory = $true)][string] $Path)
   $Normalized = Get-NormalizedRelativePath -Path $Path
