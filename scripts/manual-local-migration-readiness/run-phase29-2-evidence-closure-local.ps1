@@ -13,6 +13,25 @@ $ErrorActionPreference = 'Stop'
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptDirectory 'phase29-evidence-run-common.ps1')
 
+function Invoke-Phase292PowerShellFile {
+  param(
+    [Parameter(Mandatory = $true)][string] $Path,
+    [AllowEmptyCollection()][string[]] $Arguments = @(),
+    [Parameter(Mandatory = $true)][string] $CapturePath
+  )
+
+  $PowerShellExecutable = (Get-Process -Id $PID).Path
+  $Execution = Invoke-Phase292Native -Command {
+    & $PowerShellExecutable -NoProfile -ExecutionPolicy Bypass -File $Path @Arguments
+  }
+  $MeaningfulLines = @($Execution.Lines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  Write-Phase292CapturedLog -Path $CapturePath -Lines $MeaningfulLines
+  return [pscustomobject]@{
+    ExitCode = $Execution.ExitCode
+    Lines = $MeaningfulLines
+  }
+}
+
 $Root = Get-Phase292RepositoryRoot -ScriptDirectory $ScriptDirectory
 Assert-Phase292TrackedWorkingTreeClean -Root $Root
 $Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
