@@ -202,6 +202,10 @@ if (-not [string]::IsNullOrWhiteSpace($BundleManifestPath)) {
       if ([string]$Bundle.sourcePromotionMergeCommit -ne [string]$Manifest.sourcePromotionMergeCommit) {
         Add-Phase30Finding -Findings $Findings -Severity BLOCKER -Code 'MIG30-BUNDLE-SOURCE' -Message 'Bundle source promotion commit mismatch.'
       }
+      $ExpectedManifestHash = Get-Phase30NormalizedSha256 -Path $ManifestPath
+      if (([string]$Bundle.sourceManifestSha256).ToLowerInvariant() -ne $ExpectedManifestHash) {
+        Add-Phase30Finding -Findings $Findings -Severity BLOCKER -Code 'MIG30-BUNDLE-MANIFEST-HASH' -Message 'Bundle source manifest hash mismatch.'
+      }
       if ([string]$Bundle.remoteCommandsUsed -ne 'none' -or [string]$Bundle.transformation -ne 'RENAME_ONLY_PRESERVE_BYTES') {
         Add-Phase30Finding -Findings $Findings -Severity BLOCKER -Code 'MIG30-BUNDLE-CONTRACT' -Message 'Bundle remote-command or transformation contract mismatch.'
       }
@@ -210,6 +214,11 @@ if (-not [string]::IsNullOrWhiteSpace($BundleManifestPath)) {
       }
 
       $BundleDirectory = Split-Path -Parent $ResolvedBundleManifest
+      $ExpectedBundleSqlPaths = @(
+        $Manifest.migrations |
+          Sort-Object { [int]$_.order } |
+          ForEach-Object { "$([string]$Manifest.releaseBundle.migrationDirectoryName)/$([string]$_.releaseFileName)" }
+      )
       foreach ($Migration in @($Manifest.migrations)) {
         $Rows = @($Bundle.files | Where-Object { [int]$_.order -eq [int]$Migration.order })
         if ($Rows.Count -ne 1) {
@@ -231,6 +240,16 @@ if (-not [string]::IsNullOrWhiteSpace($BundleManifestPath)) {
         if ((Get-Phase30NormalizedSha256 -Path $ReleaseFullPath) -ne $ExpectedHash -or ([string]$Rows[0].normalizedSha256).ToLowerInvariant() -ne $ExpectedHash) {
           Add-Phase30Finding -Findings $Findings -Severity ERROR -Code 'MIG30-BUNDLE-HASH' -Path $ReleaseRelativePath -Message 'Bundle migration hash mismatch.'
         }
+      }
+      $BundleSqlInventory = @(
+        Get-ChildItem -LiteralPath (Join-Path $BundleDirectory ([string]$Manifest.releaseBundle.migrationDirectoryName)) -File -Filter '*.sql' |
+          ForEach-Object { "$([string]$Manifest.releaseBundle.migrationDirectoryName)/$($_.Name)" } |
+          Sort-Object
+      )
+      $BundleMissing = @($ExpectedBundleSqlPaths | Where-Object { $BundleSqlInventory -notcontains $_ })
+      $BundleExtra = @($BundleSqlInventory | Where-Object { $ExpectedBundleSqlPaths -notcontains $_ })
+      if ($BundleMissing.Count -gt 0 -or $BundleExtra.Count -gt 0) {
+        Add-Phase30Finding -Findings $Findings -Severity ERROR -Code 'MIG30-BUNDLE-INVENTORY' -Message "Bundle inventory drift. Missing=$($BundleMissing -join ','); Extra=$($BundleExtra -join ',')"
       }
       if ($Findings.Count -eq $BeforeBundleFindings) { $BundleResult = 'PASS' }
       else { $BundleResult = 'FAIL' }
