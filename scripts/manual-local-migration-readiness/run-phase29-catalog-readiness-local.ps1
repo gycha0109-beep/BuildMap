@@ -11,6 +11,36 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Invoke-LocalNative {
+  param([Parameter(Mandatory = $true)][scriptblock] $Command)
+
+  $PreviousErrorActionPreference = $ErrorActionPreference
+  $HasNativePreference = Test-Path variable:PSNativeCommandUseErrorActionPreference
+  if ($HasNativePreference) { $PreviousNativePreference = $PSNativeCommandUseErrorActionPreference }
+
+  try {
+    $ErrorActionPreference = 'Continue'
+    if ($HasNativePreference) { $PSNativeCommandUseErrorActionPreference = $false }
+    $RawOutput = @(& $Command 2>&1)
+    $ExitCode = $LASTEXITCODE
+  }
+  finally {
+    if ($HasNativePreference) { $PSNativeCommandUseErrorActionPreference = $PreviousNativePreference }
+    $ErrorActionPreference = $PreviousErrorActionPreference
+  }
+
+  $Lines = @(
+    $RawOutput | ForEach-Object {
+      if ($_ -is [System.Management.Automation.ErrorRecord]) {
+        if ($_.Exception -and $_.Exception.Message) { $_.Exception.Message } else { $_.ToString() }
+      }
+      else { $_.ToString() }
+    }
+  )
+  return [pscustomobject]@{ ExitCode = $ExitCode; Lines = $Lines }
+}
+
 $ExpectedIds = @(
   'MIG29-CATALOG-001','MIG29-CATALOG-002','MIG29-CATALOG-003','MIG29-CATALOG-004',
   'MIG29-CATALOG-005','MIG29-CATALOG-006','MIG29-CATALOG-007','MIG29-CATALOG-008',
@@ -19,10 +49,12 @@ $ExpectedIds = @(
 )
 
 if ([string]::IsNullOrWhiteSpace($ContainerName)) {
-  $Candidates = @(
-    docker ps --format '{{.Names}}' 2>$null |
-      Where-Object { $_ -match '^supabase_db_' }
-  )
+  $DockerPs = Invoke-LocalNative -Command { docker ps --format '{{.Names}}' }
+  if ($DockerPs.ExitCode -ne 0) {
+    Write-Error "docker ps failed while locating the local Supabase container."
+    exit 1
+  }
+  $Candidates = @($DockerPs.Lines | Where-Object { $_ -match '^supabase_db_' })
   if ($Candidates.Count -ne 1) {
     Write-Error "Expected exactly one running local supabase_db_ container; observed $($Candidates.Count). Pass -ContainerName explicitly."
     exit 1
@@ -44,13 +76,11 @@ Write-Host 'Remote commands used: none'
 foreach ($File in $Files) {
   $Path = Join-Path $ScriptDirectory $File
   $Sql = Get-Content -Raw -LiteralPath $Path
-  $Output = @(
-    $Sql |
-      docker exec -i $ContainerName psql -U postgres -d postgres -v ON_ERROR_STOP=1 2>&1
-  )
-  $ExitCode = $LASTEXITCODE
-  foreach ($Line in $Output) {
-    $Text = $Line.ToString()
+  $Execution = Invoke-LocalNative -Command {
+    $Sql | docker exec -i $ContainerName psql -U postgres -d postgres -v ON_ERROR_STOP=1
+  }
+  $ExitCode = $Execution.ExitCode
+  foreach ($Text in $Execution.Lines) {
     Write-Host $Text
     if ($Text -match '\b(?<id>MIG29-(?:CATALOG|INCR)-\d{3})\s+(?<signal>PASS|FAIL|PROMOTION_BLOCKER)\b') {
       $Rows.Add([pscustomobject]@{
