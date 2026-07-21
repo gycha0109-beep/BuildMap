@@ -179,4 +179,51 @@ raw substring false positive 제거, exact signal parser, scenario completeness,
 - 긴 replay 전 static readiness preflight 추가
 - one-command closure wrapper와 `.local-evidence/` Git exclusion 구현
 - 설계 리뷰, 구현 리뷰, repository/static validation PASS
-- 사용자 로컬 fresh/incremental 실행 및 최종 `PROMOTION_READY` 판정 pending
+
+## Phase29.2 User Local Closure
+
+- fresh-install `00–10` evidence PASS
+- incremental `00–09 → 10` evidence PASS
+- `RuntimeEvidenceComplete: True`
+- `PromotionDecision: PROMOTION_READY`
+- PowerShell blank-output binding 결함 보정 후 재검증
+- PR #4를 `main` merge commit `fccc9633761bfe99b0c0da23b661f3f74d7d7f08`으로 병합
+- hosted/remote DB 작업 없음
+
+## Phase30 Formal Migration Promotion & Deployment Readiness
+
+- migration `00–10` SQL bytes 불변 유지
+- source/replay/release normalized SHA-256 exact equality
+- release filename에서 `_draft` suffix만 제거
+- `.local-evidence/phase30-formal-promotion` 아래 immutable bundle 생성
+- bundle을 promotion head, Phase29.2 merge commit, Phase30 manifest에 결속
+- exact 11-file release inventory 검증
+- automatic deployment/link/history repair 비활성 고정
+- hosted/remote DB capability 없음
+- 설계 리뷰, 구현 리뷰, repository/static validation PASS
+
+## Phase30 User Local Closure
+
+- formal release bundle 생성 PASS
+- `FormalPromotionDecision: PROMOTION_READY`
+- `DeploymentReadinessDecision: DEPLOYMENT_HOLD` — Phase30.5 전 정상 상태
+- `Phase30ClosureResult: PASS`
+- PR #5를 `main` merge commit `320bbd52f7bf18402b1fe10801bc809e173fcf4b`으로 병합
+- migration SQL 및 hosted DB 변경 없음
+
+## Phase30.5 Target Project Read-only Attestation
+
+- Phase30 bundle manifest와 11개 artifact 재검증
+- protected Phase30 promotion head와 merge ancestry 결속
+- explicit SQL `BEGIN TRANSACTION READ ONLY` + `ROLLBACK`
+- `PGOPTIONS default_transaction_read_only=on` 이중 보호
+- credential은 process environment variable에서만 읽고 command line/evidence에 저장하지 않음
+- target project ref와 PGHOST/PGUSER identity 교차 확인
+- PostgreSQL `15+`, required schema/privilege 점검
+- `pgcrypto`가 `extensions` schema에 설치됐는지 검증
+- migration history와 `public` 사용자 객체가 모두 0인 신규 대상만 허용
+- existing/ambiguous target는 `DEPLOYMENT_HOLD`
+- backup/recovery, maintenance window, rollback owner, operator, production approval 계약
+- static no-write gate와 protected hash manifest 구현
+- 설계 리뷰, 구현 리뷰, repository/static validation PASS
+- 사용자 로컬 remote read-only attestation pending
