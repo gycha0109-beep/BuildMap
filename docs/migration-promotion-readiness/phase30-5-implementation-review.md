@@ -18,10 +18,11 @@
 4. Phase30 promotion head와 merge commit 분리 결속
 5. Phase30 bundle manifest 및 11 artifact 재검증
 6. project ref와 connection identity 교차 확인
-7. public relation/function/policy/trigger/type inventory 합산
-8. existing target는 자동 승인하지 않고 HOLD
-9. raw current user와 host 대신 hash만 evidence에 저장
-10. production target 별도 approval switch 요구
+7. `pgcrypto` installed namespace를 `extensions`로 고정 검증
+8. public relation/function/policy/trigger/type inventory 합산
+9. existing target는 자동 승인하지 않고 HOLD
+10. raw current user와 host 대신 hash만 evidence에 저장
+11. production target 별도 approval switch 요구
 
 ## 변경 금지 기준선
 
