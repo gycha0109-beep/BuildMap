@@ -46,7 +46,8 @@ $CanonicalMigrationPaths = @(
   'supabase/migrations_draft/20260708006000_buildmap_06_public_safe_views_draft.sql',
   'supabase/migrations_draft/20260708007000_buildmap_07_link_sharing_rpc_draft.sql',
   'supabase/migrations_draft/20260708008000_buildmap_08_grants_and_final_checks_draft.sql',
-  'supabase/migrations_draft/20260720000000_buildmap_09_p1_access_integrity_hardening_draft.sql'
+  'supabase/migrations_draft/20260720000000_buildmap_09_p1_access_integrity_hardening_draft.sql',
+  'supabase/migrations_draft/20260721000000_buildmap_10_security_definer_boundary_hardening_draft.sql'
 )
 
 $CanonicalReplayMirrorPaths = @(
@@ -62,14 +63,15 @@ $CanonicalGatePaths = @(
   'scripts/manual-local-migration-readiness/run-phase29-migration-readiness-gate.ps1',
   'scripts/manual-local-migration-readiness/run-phase29-catalog-readiness-local.ps1',
   'scripts/manual-local-migration-readiness/phase29_00_final_catalog_readiness.sql',
-  'scripts/manual-local-migration-readiness/phase29_01_incremental_upgrade_postcheck.sql'
+  'scripts/manual-local-migration-readiness/phase29_01_incremental_upgrade_postcheck.sql',
+  'scripts/manual-local-migration-readiness/phase29_02_security_definer_hardening_postcheck.sql'
 )
 
-if ([string]$Manifest.schemaVersion -ne '1.0') {
+if ([string]$Manifest.schemaVersion -ne '1.1') {
   Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-MANIFEST-SCHEMA' -Message "Unsupported schemaVersion: $($Manifest.schemaVersion)"
 }
-if ([int]$Manifest.expectedMigrationCount -ne 10 -or @($Manifest.migrations).Count -ne 10) {
-  Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-MANIFEST-COUNT' -Message 'Phase29 requires exactly 10 migration drafts.'
+if ([int]$Manifest.expectedMigrationCount -ne 11 -or @($Manifest.migrations).Count -ne 11) {
+  Add-Phase29Finding -Findings $Findings -Severity ERROR -Code 'MIG29-MANIFEST-COUNT' -Message 'Phase29.1 requires exactly 11 migration drafts.'
 }
 if ([bool]$Manifest.automaticPromotionAllowed -or [bool]$Manifest.automaticManifestRefreshAllowed) {
   Add-Phase29Finding -Findings $Findings -Severity BLOCKER -Code 'MIG29-AUTOMATION-PROHIBITED' -Message 'Automatic promotion and automatic manifest refresh must remain disabled.'
@@ -249,8 +251,8 @@ else {
 $EvidenceComplete = $true
 $ResolvedEvidencePaths = [System.Collections.Generic.List[string]]::new()
 foreach ($Pair in @(
-  @{ Path=$FreshInstallEvidencePath; Type='FRESH_INSTALL_00_09' },
-  @{ Path=$IncrementalUpgradeEvidencePath; Type='INCREMENTAL_00_08_TO_09' }
+  @{ Path=$FreshInstallEvidencePath; Type='FRESH_INSTALL_00_10' },
+  @{ Path=$IncrementalUpgradeEvidencePath; Type='INCREMENTAL_00_09_TO_10' }
 )) {
   if ([string]::IsNullOrWhiteSpace([string]$Pair.Path)) {
     $EvidenceComplete = $false
@@ -285,7 +287,7 @@ foreach ($Finding in $Findings) {
   Write-Host "$($Finding.Severity): $($Finding.Code) | $($Finding.Path) | $($Finding.Message)"
 }
 if (-not $EvidenceComplete) {
-  Write-Host 'HOLD_REASON: fresh-install and incremental runtime evidence are both required.'
+  Write-Host 'HOLD_REASON: fresh-install 00-10 and incremental 00-09 to 10 runtime evidence are both required.'
 }
 Write-Host "PromotionDecision: $PromotionDecision"
 

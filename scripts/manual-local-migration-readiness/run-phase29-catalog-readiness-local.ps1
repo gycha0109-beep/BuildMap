@@ -1,6 +1,6 @@
 <#
 LOCAL-ONLY catalog readiness runner.
-Runs two Phase29 SQL checks against the local Docker Supabase PostgreSQL container only.
+Runs three Phase29/29.1 SQL checks against the local Docker Supabase PostgreSQL container only.
 No DB URL, password, access token, anon key, or service-role key is accepted.
 #>
 
@@ -45,7 +45,10 @@ $ExpectedIds = @(
   'MIG29-CATALOG-001','MIG29-CATALOG-002','MIG29-CATALOG-003','MIG29-CATALOG-004',
   'MIG29-CATALOG-005','MIG29-CATALOG-006','MIG29-CATALOG-007','MIG29-CATALOG-008',
   'MIG29-INCR-001','MIG29-INCR-002','MIG29-INCR-003','MIG29-INCR-004',
-  'MIG29-INCR-005','MIG29-INCR-006','MIG29-INCR-007','MIG29-INCR-008'
+  'MIG29-INCR-005','MIG29-INCR-006','MIG29-INCR-007','MIG29-INCR-008',
+  'MIG29-HARD-001','MIG29-HARD-002','MIG29-HARD-003','MIG29-HARD-004',
+  'MIG29-HARD-005','MIG29-HARD-006','MIG29-HARD-007','MIG29-HARD-008',
+  'MIG29-HARD-009','MIG29-HARD-010'
 )
 
 if ([string]::IsNullOrWhiteSpace($ContainerName)) {
@@ -64,12 +67,13 @@ if ([string]::IsNullOrWhiteSpace($ContainerName)) {
 
 $Files = @(
   'phase29_00_final_catalog_readiness.sql',
-  'phase29_01_incremental_upgrade_postcheck.sql'
+  'phase29_01_incremental_upgrade_postcheck.sql',
+  'phase29_02_security_definer_hardening_postcheck.sql'
 )
 $Rows = [System.Collections.Generic.List[object]]::new()
 $ExecutionFailed = $false
 
-Write-Host 'BuildMap Phase29 local catalog readiness'
+Write-Host 'BuildMap Phase29.1 local catalog readiness'
 Write-Host "Container: $ContainerName"
 Write-Host 'Remote commands used: none'
 
@@ -82,7 +86,7 @@ foreach ($File in $Files) {
   $ExitCode = $Execution.ExitCode
   foreach ($Text in $Execution.Lines) {
     Write-Host $Text
-    if ($Text -match '\b(?<id>MIG29-(?:CATALOG|INCR)-\d{3})\s+(?<signal>PASS|FAIL|PROMOTION_BLOCKER)\b') {
+    if ($Text -match '\b(?<id>MIG29-(?:CATALOG|INCR|HARD)-\d{3})\s+(?<signal>PASS|FAIL|PROMOTION_BLOCKER)\b') {
       $Rows.Add([pscustomobject]@{
         Id = $Matches['id'].ToUpperInvariant()
         Signal = $Matches['signal'].ToUpperInvariant()

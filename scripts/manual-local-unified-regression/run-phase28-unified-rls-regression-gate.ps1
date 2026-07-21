@@ -17,10 +17,11 @@ $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptDirectory 'phase28-contract.ps1')
 . (Join-Path $ScriptDirectory 'phase28-log-validation.ps1')
 
-$ExpectedBaselineId = 'buildmap-unified-rls-phase28-20260720'
+$ExpectedBaselineId = 'buildmap-unified-rls-phase28-1-20260721'
 $ExpectedSourceRepository = 'gycha0109-beep/BuildMap'
-$ExpectedSourceCommit = 'f98d94d361e26af9957dea0b988e1a1559cf13e8'
-$ExpectedProtectedFileCount = 46
+$ExpectedSourceCommit = '0413ea9a8dafa2e2fb098a2b30b94c75a4a95676'
+$ExpectedBaselineStatus = 'PENDING_USER_LOCAL_REVALIDATION'
+$ExpectedProtectedFileCount = 47
 $ExpectedPackCount = 3
 $ExpectedScenarioFileCount = 26
 $ExpectedScenarioCount = 435
@@ -76,7 +77,8 @@ $ExpectedMigrationPaths = @(
   'supabase/migrations_draft/20260708006000_buildmap_06_public_safe_views_draft.sql',
   'supabase/migrations_draft/20260708007000_buildmap_07_link_sharing_rpc_draft.sql',
   'supabase/migrations_draft/20260708008000_buildmap_08_grants_and_final_checks_draft.sql',
-  'supabase/migrations_draft/20260720000000_buildmap_09_p1_access_integrity_hardening_draft.sql'
+  'supabase/migrations_draft/20260720000000_buildmap_09_p1_access_integrity_hardening_draft.sql',
+  'supabase/migrations_draft/20260721000000_buildmap_10_security_definer_boundary_hardening_draft.sql'
 )
 $LegacyGatePaths = @(
   'scripts/manual-local-link-sharing/phase26_link_sharing_regression_baseline.json',
@@ -106,7 +108,7 @@ if ([string]$Manifest.schemaVersion -ne '1.0') { Add-GateFailure $Failures "Unsu
 if ([string]$Manifest.baselineId -ne $ExpectedBaselineId) { Add-GateFailure $Failures "Unexpected baselineId: $($Manifest.baselineId)" }
 if ([string]$Manifest.sourceRepository -ne $ExpectedSourceRepository) { Add-GateFailure $Failures "Unexpected sourceRepository: $($Manifest.sourceRepository)" }
 if ([string]$Manifest.sourceCommit -ne $ExpectedSourceCommit) { Add-GateFailure $Failures "Unexpected sourceCommit: $($Manifest.sourceCommit)" }
-if ([string]$Manifest.baselineStatus -ne 'USER_LOCAL_PASS') { Add-GateFailure $Failures "Baseline status is not USER_LOCAL_PASS: $($Manifest.baselineStatus)" }
+if ([string]$Manifest.baselineStatus -ne $ExpectedBaselineStatus) { Add-GateFailure $Failures "Unexpected baseline status: $($Manifest.baselineStatus)" }
 if ([bool]$Manifest.automaticRefreshAllowed) { Add-GateFailure $Failures 'Automatic baseline refresh must remain disabled.' }
 if ([string]$Manifest.hashContract.mode -ne 'normalized_utf8_lf') { Add-GateFailure $Failures "Unsupported hash mode: $($Manifest.hashContract.mode)" }
 if ([int]$Manifest.expectedProtectedFileCount -ne $ExpectedProtectedFileCount) { Add-GateFailure $Failures 'Manifest protected-file count drift.' }
@@ -277,6 +279,7 @@ foreach ($Input in $LogInputs) {
 }
 
 Write-Host "BaselineId: $($Manifest.baselineId)"
+Write-Host "BaselineStatus: $($Manifest.baselineStatus)"
 Write-Host "SourceRepository: $($Manifest.sourceRepository)"
 Write-Host "SourceCommit: $($Manifest.sourceCommit)"
 Write-Host "HashMode: $($Manifest.hashContract.mode)"
