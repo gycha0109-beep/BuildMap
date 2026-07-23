@@ -2,213 +2,149 @@
 
 ## 현재 재개 기준
 
-- 현재 단계: Phase30.5 Target Project Read-only Attestation
-- 상태: 설계 → 설계 리뷰 → 구현 → 독립 보완 → 정적 검증 완료
-- 기준 날짜: 2026-07-21
+- 현재 단계: Phase31 Controlled Staging Migration Execution
+- 상태: 실제 저장소 검증 → 설계 → 구현 → 독립 리뷰 완료, 사용자 로컬 정적/hosted runtime pending
+- 기준 날짜: 2026-07-23
 - 공식 저장소: `gycha0109-beep/BuildMap`
-- 작업 브랜치: `agent/phase30-5-target-project-attestation`
-- Phase30 merge commit: `320bbd52f7bf18402b1fe10801bc809e173fcf4b`
-- hosted migration execution: 없음
-- remote operation capability: read-only probe만 허용
-- Phase30.5 사용자 로컬 target attestation: pending
+- 작업 브랜치: `agent/phase31-controlled-staging-migration-execution`
+- Phase30.5 implementation HEAD: `eb40bea433a3e3f51c13520879e797728dc7bc05`
+- Phase30.5 merge commit / Phase31 base: `ed2be349de1d9114d321fc2a66b97fbd5740bcc1`
+- hosted staging migration execution: 아직 없음
+- production deployment: 범위 밖
 
-## 현재 보호 기준선
-
-- migration source/replay mirror: exact `00–10`, 11 files
-- Phase20 P0 RLS: `147` scenarios
-- Phase25 Link Sharing: `107` scenarios
-- Phase27.1 P1 RLS: `181` scenarios
-- Phase28 unified gate: `47` protected files / `435` scenarios
-- Phase29 catalog: `26` scenarios
-- Phase29.2: `PROMOTION_READY`
-- Phase30 formal bundle: `PROMOTION_READY`
-- Phase30 protected promotion head: `884c13ccafcc29f452976de7033fae6e3f5fe06e`
-- known security blockers: `0`
-- automatic deployment/link/history repair: prohibited
-
-## Phase30 종료
-
-사용자 로컬에서 다음 결과가 확인됐다.
+## 확정 기준선
 
 ```text
-BundleManifestPath: D:\Ji_hwan\personal\BuildMap\.local-evidence\phase30-formal-promotion\20260721-175812-07f2dc31-18f9-4974-82b8-9ff6ff3088cf\phase30-release-bundle.json
-FormalPromotionDecision: PROMOTION_READY
-DeploymentReadinessDecision: DEPLOYMENT_HOLD
-Phase30ClosureResult: PASS
+Phase29.2: PROMOTION_READY
+Phase30 FormalPromotionDecision: PROMOTION_READY
+Phase30.5 TargetProjectAttestation: PASS
+Phase30.5 DeploymentReadinessDecision: DEPLOYMENT_READY
+Phase30.5 TargetProjectClassification: TARGET_EMPTY_COMPATIBLE
 ```
 
-- PR #5 merge 완료
-- merge commit: `320bbd52f7bf18402b1fe10801bc809e173fcf4b`
-- migration SQL 변경 없음
-- hosted/remote DB 작업 없음
-
-상세 attestation:
-
-- `docs/migration-promotion-readiness/phase30-user-local-attestation.md`
-
-## Phase30.5 목적
-
-Phase30 release bundle을 실제 대상 Supabase project와 결속하고, 적용 전 환경이 안전한지 읽기 전용으로 판정한다.
-
-### Compatibility mode
+Phase30.5 user-local evidence:
 
 ```text
-EMPTY_TARGET_ONLY_V1
+D:\Ji_hwan\personal\BuildMap\.local-evidence\phase30-5-target-attestation\20260723-160204-fc783c22-2881-45d3-9a34-bfffdfd4805e\phase30-5-target-attestation.json
 ```
 
-다음 조건을 모두 만족하는 신규·빈 대상만 `DEPLOYMENT_READY` 후보가 된다.
+Phase30 release bundle:
 
-- 대상 project ref와 connection identity 교차 확인
-- explicit read-only transaction
-- PostgreSQL version `15+`
-- `public`, `auth`, `extensions` schema 조건 확인
-- `pgcrypto`가 `extensions` schema에 설치됨
-- DB/public/auth privilege 조건 확인
-- Supabase migration history `0`
-- `public` 사용자 relation/function/policy/trigger/type `0`
-- backup 또는 recovery plan 확인
-- maintenance window, rollback owner, authorized operator 확인
-- production 대상은 별도 approval 확인
+```text
+D:\Ji_hwan\personal\BuildMap\.local-evidence\phase30-formal-promotion\20260721-175812-07f2dc31-18f9-4974-82b8-9ff6ff3088cf\phase30-release-bundle.json
+```
 
-기존 migration history 또는 public 사용자 객체가 존재하면 자동 호환 처리하지 않고 `DEPLOYMENT_HOLD`로 종료한다.
+## 실제 저장소 검증 결과
 
-## Phase30.5 구현
+- PR #6은 이미 `main`에 병합됨
+- merge commit: `ed2be349de1d9114d321fc2a66b97fbd5740bcc1`
+- PR #6 본문은 병합 시점의 pending 상태가 남아 있었음
+- PR #6 conversation에 Phase30.5 `USER_LOCAL_PASS` attestation 기록 완료
+- `main`의 `CURRENT-HANDOFF.md`는 Phase30.5 pending 상태였으므로 Phase31 기준으로 갱신
 
-- `scripts/manual-target-project-attestation/phase30-5-common.ps1`
-- `scripts/manual-target-project-attestation/phase30-5_target_project_attestation_manifest.json`
-- `scripts/manual-target-project-attestation/phase30_5_00_read_only_target_probe.sql`
-- `scripts/manual-target-project-attestation/run-phase30-5-static-gate.ps1`
-- `scripts/manual-target-project-attestation/run-phase30-5-target-attestation-local.ps1`
-- `scripts/manual-target-project-attestation/README.md`
-- `docs/migration-promotion-readiness/phase30-5-design-review.md`
-- `docs/migration-promotion-readiness/phase30-5-implementation-review.md`
-- `docs/migration-promotion-readiness/phase30-5-static-validation.md`
+## Phase31 구현
 
-## 보안·운영 설계
+### 실행 엔진
 
-- SQL: `BEGIN TRANSACTION READ ONLY` + `ROLLBACK`
-- connection: 전용 process environment variable만 사용
-- command line에 DB URL/password를 넣지 않음
-- password는 `Read-Host -AsSecureString`으로 입력해 shell history 노출 방지
-- `PGOPTIONS default_transaction_read_only=on` 강제
-- statement/lock/idle transaction timeout 적용
-- evidence/log는 `.local-evidence` 아래에만 생성
-- host/user/database는 raw credential로 저장하지 않고 identity hash로 결속
-- `supabase link`, `db push`, `migration repair`, DDL/DML capability 없음
-- Phase30 bundle manifest와 11개 release artifact 재검증
-- Phase30 이후 migration SQL drift 차단
+```text
+SUPABASE_CLI_DB_PUSH_V1
+```
+
+### 흐름
+
+```text
+static gate
+→ protected bundle/evidence binding
+→ isolated workdir init/link
+→ migration list before
+→ exact 00–10 db push --dry-run
+→ read-only empty-target re-probe
+→ exact interactive approval
+→ actual db push
+→ migration list/read-only history probe
+→ Phase29 catalog 26/26
+→ evidence
+```
+
+### 구현 파일
+
+- `scripts/manual-controlled-staging-migration/phase31_controlled_staging_migration_manifest.json`
+- `scripts/manual-controlled-staging-migration/phase31-common.ps1`
+- `scripts/manual-controlled-staging-migration/phase31-runtime.ps1`
+- `scripts/manual-controlled-staging-migration/phase31-evidence.ps1`
+- `scripts/manual-controlled-staging-migration/run-phase31-static-gate.ps1`
+- `scripts/manual-controlled-staging-migration/run-phase31-controlled-staging-migration-local.ps1`
+- `scripts/manual-controlled-staging-migration/README.md`
+- `docs/migration-promotion-readiness/phase30-5-user-local-attestation.md`
+- `docs/migration-promotion-readiness/phase31-design-review.md`
+- `docs/migration-promotion-readiness/phase31-implementation-review.md`
+- `docs/migration-promotion-readiness/phase31-static-validation.md`
+
+## 보호 경계
+
+- migration source/replay SQL `00–10`: 변경 금지
+- Phase30 bundle exact hash: 필수
+- Phase30.5 evidence target/project/connection/bundle binding: 필수
+- staging only
+- explicit approval phrase 전 remote write 금지
+- remote mutation command: controlled actual `db push` 1회만 허용
+- migration history repair 금지
+- linked/remote reset 금지
+- seed/roles 금지
+- `--db-url`/command-line password 금지
+- automatic rollback 금지
+- production deployment 금지
 
 ## 현재 정확한 판정
 
 ```text
-Phase29.2: USER_LOCAL_PROMOTION_READY
-Phase30: USER_LOCAL_PROMOTION_READY
-Phase30.5 design: PASS
-Phase30.5 implementation: PASS
-Phase30.5 static validation: PASS
-TargetRuntimeAttestation: PENDING_USER_LOCAL
-TargetProjectAttestation: PENDING
-DeploymentReadinessDecision: DEPLOYMENT_HOLD
+Phase31 repository source review: PASS
+Phase31 design review: PASS
+Phase31 implementation review: PASS
+Phase31 user-local static gate: PENDING
+Controlled staging migration execution: PENDING_USER_LOCAL
+Hosted migration applied: false
+Production deployment: OUT_OF_SCOPE
 ```
 
-## 사용자 로컬 다음 실행
+## 다음 사용자 로컬 작업
 
-### 1. 브랜치 동기화 및 psql 확인
+BuildMap 루트에서:
 
 ```powershell
 git fetch origin
-git switch agent/phase30-5-target-project-attestation
-git pull --ff-only origin agent/phase30-5-target-project-attestation
+git switch agent/phase31-controlled-staging-migration-execution
+git pull --ff-only origin agent/phase31-controlled-staging-migration-execution
 
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-Get-ChildItem .\scripts\manual-target-project-attestation\*.ps1 | Unblock-File
+Get-ChildItem .\scripts\manual-controlled-staging-migration\*.ps1 | Unblock-File
 
-psql --version
+.\scripts\manual-controlled-staging-migration\run-phase31-static-gate.ps1
 ```
 
-`psql`이 PATH에서 확인되지 않으면 target probe를 실행하지 않는다.
+static gate PASS 후 credential과 운영 확인 값을 현재 PowerShell process에만 설정하고 `scripts/manual-controlled-staging-migration/README.md`의 controlled runner를 실행합니다.
 
-### 2. credential을 현재 PowerShell 프로세스에만 설정
-
-```powershell
-$env:BUILDMAP_PHASE305_PGHOST = '<host from target project connection details>'
-$env:BUILDMAP_PHASE305_PGPORT = '<port from target project connection details>'
-$env:BUILDMAP_PHASE305_PGDATABASE = 'postgres'
-$env:BUILDMAP_PHASE305_PGUSER = '<database user>'
-$env:BUILDMAP_PHASE305_PGSSLMODE = 'require'
-
-$securePassword = Read-Host 'Target database password' -AsSecureString
-$passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-
-try {
-  $env:BUILDMAP_PHASE305_PGPASSWORD =
-    [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
-}
-finally {
-  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
-  Remove-Variable securePassword, passwordPointer -ErrorAction SilentlyContinue
-}
-```
-
-credential과 project ref를 채팅·문서·Git에 기록하지 않는다.
-
-### 3. read-only attestation 실행
-
-운영 확인 인자에는 실제로 확인된 값만 입력한다.
-
-```powershell
-.\scripts\manual-target-project-attestation\run-phase30-5-target-attestation-local.ps1 `
-  -BundleManifestPath 'D:\Ji_hwan\personal\BuildMap\.local-evidence\phase30-formal-promotion\20260721-175812-07f2dc31-18f9-4974-82b8-9ff6ff3088cf\phase30-release-bundle.json' `
-  -TargetEnvironment staging `
-  -TargetProjectRef '<20-character-project-ref>' `
-  -OperatorName '<authorized operator>' `
-  -MaintenanceWindow '<approved window>' `
-  -RecoveryPlanReference '<backup/PITR/recovery reference>' `
-  -RollbackOwner '<rollback owner>' `
-  -TargetProjectIdentityConfirmed `
-  -BackupOrRecoveryConfirmed `
-  -MaintenanceWindowConfirmed `
-  -RollbackOwnerConfirmed `
-  -AuthorizedOperatorConfirmed `
-  -CredentialHandlingConfirmed
-```
-
-production 대상이면 `-ProductionApprovalConfirmed`가 추가로 필요하다.
-
-기대 성공 결과:
+## 성공 종료 기준
 
 ```text
-ReadOnlyProbeResult: PASS
-TargetProjectIdentityResult: PASS
-TargetExtensionCompatibilityResult: PASS
-TargetPrivilegeCompatibilityResult: PASS
-TargetMigrationHistoryResult: PASS
-TargetObjectCollisionResult: PASS
-BackupReadinessResult: PASS
-OperationalReadinessResult: PASS
-TargetProjectClassification: TARGET_EMPTY_COMPATIBLE
-TargetProjectAttestation: PASS
-DeploymentReadinessDecision: DEPLOYMENT_READY
-Phase30.5GateResult: PASS
+Phase31StaticGateResult: PASS
+DryRunResult: PASS
+PreExecutionStateResult: PASS
+MigrationHistoryResult: PASS
+CatalogReadinessResult: PASS
+PostValidationResult: PASS
+ControlledStagingMigrationResult: PASS
+ProductionDeploymentDecision: OUT_OF_SCOPE
+Phase31GateResult: PASS
 ```
 
-### 4. 실행 후 credential 제거
+## 실패 종료 기준
 
-```powershell
-Remove-Item Env:BUILDMAP_PHASE305_PGPASSWORD -ErrorAction SilentlyContinue
-Remove-Item Env:BUILDMAP_PHASE305_PGHOST -ErrorAction SilentlyContinue
-Remove-Item Env:BUILDMAP_PHASE305_PGPORT -ErrorAction SilentlyContinue
-Remove-Item Env:BUILDMAP_PHASE305_PGDATABASE -ErrorAction SilentlyContinue
-Remove-Item Env:BUILDMAP_PHASE305_PGUSER -ErrorAction SilentlyContinue
-Remove-Item Env:BUILDMAP_PHASE305_PGSSLMODE -ErrorAction SilentlyContinue
-```
+어느 단계든 FAIL이면:
 
-## 절대 제약
-
-- 실제 migration 적용 금지
-- `supabase link`, `supabase db push`, `supabase migration repair` 금지
-- DDL/DML 및 migration history 수정 금지
-- credential을 명령 인자·채팅·로그·Git에 기록 금지
-- generated evidence/log Git commit 금지
-- Phase30.5 PASS 이후 branch commit 변경 시 evidence HEAD binding 재검토
-- Phase31 진입 전 명시적 사용자 승인 필요
+- 추가 mutation 중지
+- evidence/log 보존
+- 자동 rollback 금지
+- migration repair/remote reset 금지
+- 실제 remote history와 apply log를 rollback owner가 검토
+- 별도 forward-fix/recovery 결정 전 재실행 금지
