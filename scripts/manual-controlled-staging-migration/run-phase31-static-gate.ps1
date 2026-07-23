@@ -142,24 +142,25 @@ foreach ($Row in $ProtectedRows) {
 
 $RunnerPath = Join-Path $Root 'scripts/manual-controlled-staging-migration/run-phase31-controlled-staging-migration-local.ps1'
 if (Test-Path -LiteralPath $RunnerPath -PathType Leaf) {
-  $Tokens = $null
-  $Errors = $null
-  $Ast = [System.Management.Automation.Language.Parser]::ParseFile($RunnerPath,[ref]$Tokens,[ref]$Errors)
-  $Commands = @($Ast.FindAll({ param($Node) $Node -is [System.Management.Automation.Language.CommandAst] },$true) | ForEach-Object { $_.Extent.Text })
-  $SupabaseCommands = @($Commands | Where-Object { $_ -match '\$Supabase\.Source' })
-  $Push = @($SupabaseCommands | Where-Object { $_ -match '(?i)\bdb\s+push\b' })
+  $RunnerText = Get-Phase31StrictUtf8Text -Path $RunnerPath
+  $CommandSurface = [regex]::Matches(
+    $RunnerText,
+    '(?im)^\s*[^#\r\n]*&\s*\$Supabase\.Source\b[^\r\n]*$'
+  ) | ForEach-Object { $_.Value.Trim() }
+
+  $Push = @($CommandSurface | Where-Object { $_ -match '(?i)\bdb\s+push\b' })
   $Dry = @($Push | Where-Object { $_ -match '(?i)--dry-run\b' })
   $Apply = @($Push | Where-Object { $_ -notmatch '(?i)--dry-run\b' })
   if ($Push.Count -ne 2 -or $Dry.Count -ne 1 -or $Apply.Count -ne 1) {
     Add-GateFinding BLOCKER 'MIG31-PUSH-SURFACE' 'Exactly one dry-run and one actual db push are required.' $RunnerPath
   }
-  if (@($SupabaseCommands | Where-Object { $_ -match '(?i)\bmigration\s+list\b' }).Count -ne 2) {
+  if (@($CommandSurface | Where-Object { $_ -match '(?i)\bmigration\s+list\b' }).Count -ne 2) {
     Add-GateFinding ERROR 'MIG31-LIST-SURFACE' 'Migration list must run before and after execution.' $RunnerPath
   }
-  if (@($SupabaseCommands | Where-Object { $_ -match '(?i)\blink\b' }).Count -ne 1) {
+  if (@($CommandSurface | Where-Object { $_ -match '(?i)\blink\b' }).Count -ne 1) {
     Add-GateFinding ERROR 'MIG31-LINK-SURFACE' 'Exactly one isolated link command is required.' $RunnerPath
   }
-  foreach ($Command in $SupabaseCommands) {
+  foreach ($Command in $CommandSurface) {
     foreach ($Pattern in @(
       '(?i)\bmigration\s+repair\b','(?i)\bdb\s+reset\b','(?i)\bdb\s+pull\b',
       '(?i)--db-url\b','(?i)--password\b','(?i)(?:^|\s)-p(?:\s|$)',
@@ -170,7 +171,6 @@ if (Test-Path -LiteralPath $RunnerPath -PathType Leaf) {
       }
     }
   }
-  $RunnerText = Get-Phase31StrictUtf8Text -Path $RunnerPath
   foreach ($Marker in @('APPLY 11 MIGRATIONS TO STAGING','ProductionDeploymentDecision: OUT_OF_SCOPE','AutomaticRollback: disabled')) {
     if ($RunnerText.IndexOf($Marker,[System.StringComparison]::Ordinal) -lt 0) {
       Add-GateFinding ERROR 'MIG31-RUNNER-MARKER' "Missing runner marker: $Marker" $RunnerPath
