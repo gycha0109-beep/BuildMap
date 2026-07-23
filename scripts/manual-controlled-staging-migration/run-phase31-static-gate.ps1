@@ -171,7 +171,7 @@ if (Test-Path -LiteralPath $RunnerPath -PathType Leaf) {
     }
   }
   $RunnerText = Get-Phase31StrictUtf8Text -Path $RunnerPath
-  foreach ($Marker in @('APPLY 11 MIGRATIONS TO STAGING','ProductionDeploymentDecision: OUT_OF_SCOPE','automaticRollback = false')) {
+  foreach ($Marker in @('APPLY 11 MIGRATIONS TO STAGING','ProductionDeploymentDecision: OUT_OF_SCOPE','AutomaticRollback: disabled')) {
     if ($RunnerText.IndexOf($Marker,[System.StringComparison]::Ordinal) -lt 0) {
       Add-GateFinding ERROR 'MIG31-RUNNER-MARKER' "Missing runner marker: $Marker" $RunnerPath
     }
