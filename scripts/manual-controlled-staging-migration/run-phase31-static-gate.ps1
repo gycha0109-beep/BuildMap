@@ -143,22 +143,25 @@ foreach ($Row in $ProtectedRows) {
 $RunnerPath = Join-Path $Root 'scripts/manual-controlled-staging-migration/run-phase31-controlled-staging-migration-local.ps1'
 if (Test-Path -LiteralPath $RunnerPath -PathType Leaf) {
   $RunnerText = Get-Phase31StrictUtf8Text -Path $RunnerPath
-  $CommandSurface = [regex]::Matches(
-    $RunnerText,
-    '(?im)^\s*[^#\r\n]*&\s*\$Supabase\.Source\b[^\r\n]*$'
-  ) | ForEach-Object { $_.Value.Trim() }
+  $CommandSurface = @(
+    $RunnerText -split "\r?\n" |
+      Where-Object { $_ -match '&\s*\$Supabase\.Source\b' } |
+      ForEach-Object { $_.Trim() }
+  )
 
   $Push = @($CommandSurface | Where-Object { $_ -match '(?i)\bdb\s+push\b' })
   $Dry = @($Push | Where-Object { $_ -match '(?i)--dry-run\b' })
   $Apply = @($Push | Where-Object { $_ -notmatch '(?i)--dry-run\b' })
   if ($Push.Count -ne 2 -or $Dry.Count -ne 1 -or $Apply.Count -ne 1) {
-    Add-GateFinding BLOCKER 'MIG31-PUSH-SURFACE' 'Exactly one dry-run and one actual db push are required.' $RunnerPath
+    Add-GateFinding BLOCKER 'MIG31-PUSH-SURFACE' "Exactly one dry-run and one actual db push are required. Observed total=$($Push.Count), dryRun=$($Dry.Count), apply=$($Apply.Count)." $RunnerPath
   }
-  if (@($CommandSurface | Where-Object { $_ -match '(?i)\bmigration\s+list\b' }).Count -ne 2) {
-    Add-GateFinding ERROR 'MIG31-LIST-SURFACE' 'Migration list must run before and after execution.' $RunnerPath
+  $ListCount = @($CommandSurface | Where-Object { $_ -match '(?i)\bmigration\s+list\b' }).Count
+  if ($ListCount -ne 2) {
+    Add-GateFinding ERROR 'MIG31-LIST-SURFACE' "Migration list must run before and after execution. Observed count=$ListCount." $RunnerPath
   }
-  if (@($CommandSurface | Where-Object { $_ -match '(?i)\blink\b' }).Count -ne 1) {
-    Add-GateFinding ERROR 'MIG31-LINK-SURFACE' 'Exactly one isolated link command is required.' $RunnerPath
+  $LinkCount = @($CommandSurface | Where-Object { $_ -match '(?i)\blink\b' }).Count
+  if ($LinkCount -ne 1) {
+    Add-GateFinding ERROR 'MIG31-LINK-SURFACE' "Exactly one isolated link command is required. Observed count=$LinkCount." $RunnerPath
   }
   foreach ($Command in $CommandSurface) {
     foreach ($Pattern in @(
