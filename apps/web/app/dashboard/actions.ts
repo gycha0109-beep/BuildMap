@@ -32,18 +32,22 @@ export async function createProjectAction(formData: FormData) {
 
   const { supabase, context } = await authenticatedContext();
 
-  const inserted = await supabase.from("projects").insert({
-    owner_builder_profile_id: context.builderProfileId,
-    title,
-    one_line_description: description || null,
-  });
+  const inserted = await supabase
+    .from("projects")
+    .insert({
+      owner_builder_profile_id: context.builderProfileId,
+      title,
+      one_line_description: description || null,
+    })
+    .select("id")
+    .single();
 
   if (inserted.error) {
     redirect("/dashboard?error=project-create");
   }
 
   revalidatePath("/dashboard");
-  redirect("/dashboard");
+  redirect(`/projects/${inserted.data.id}`);
 }
 
 export async function signOutAction() {
