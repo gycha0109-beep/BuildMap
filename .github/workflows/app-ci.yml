@@ -1,0 +1,53 @@
+name: Web App CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/app-ci.yml'
+      - 'apps/web/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/app-ci.yml'
+      - 'apps/web/**'
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Lint, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout exact event SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        working-directory: apps/web
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: apps/web
+        run: npm run build
