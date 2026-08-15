@@ -1,0 +1,94 @@
+name: Phase31 Lifecycle Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - '.github/workflows/phase31-lifecycle.yml'
+      - 'scripts/manual-controlled-staging-migration/**'
+      - 'scripts/manual-target-project-attestation/**'
+      - 'scripts/manual-local-migration-readiness/**'
+      - 'scripts/manual-formal-migration-promotion/**'
+      - 'supabase/migrations/**'
+      - 'supabase/migrations_draft/**'
+      - 'docs/migration-promotion-readiness/**'
+      - 'docs/handoff/CURRENT-HANDOFF.md'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase31-lifecycle.yml'
+      - 'scripts/manual-controlled-staging-migration/**'
+      - 'scripts/manual-target-project-attestation/**'
+      - 'scripts/manual-local-migration-readiness/**'
+      - 'scripts/manual-formal-migration-promotion/**'
+      - 'supabase/migrations/**'
+      - 'supabase/migrations_draft/**'
+      - 'docs/migration-promotion-readiness/**'
+      - 'docs/handoff/CURRENT-HANDOFF.md'
+
+permissions:
+  contents: read
+
+jobs:
+  phase31-exact-sha-static-gate:
+    name: Phase31 exact-SHA static gate
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact event SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact SHA and establish gate branch
+        shell: pwsh
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -cne $env:EXPECTED_SHA) {
+            throw "Exact-SHA checkout mismatch. expected=$env:EXPECTED_SHA actual=$actual"
+          }
+          Write-Host "ExactSha: $actual"
+          git switch -C agent/phase31-controlled-staging-migration-execution $actual
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to establish Phase31 gate branch at exact SHA.' }
+          $after = (git rev-parse HEAD).Trim()
+          if ($after -cne $env:EXPECTED_SHA) {
+            throw "Gate branch moved away from exact SHA. expected=$env:EXPECTED_SHA actual=$after"
+          }
+
+      - name: Parse reconciliation runner
+        shell: pwsh
+        run: |
+          $path = 'scripts/manual-controlled-staging-migration/run-phase31-already-applied-staging-reconciliation-local.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
+          if (@($errors).Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'Reconciliation runner PowerShell parse failed.'
+          }
+          Write-Host 'ReconciliationRunnerParse: PASS'
+
+      - name: Run Phase31 repository static gate
+        shell: pwsh
+        run: |
+          ./scripts/manual-controlled-staging-migration/run-phase31-static-gate.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Confirm CI safety boundary
+        shell: pwsh
+        run: |
+          Write-Host 'RemoteDatabaseAccess: none'
+          Write-Host 'RemoteMutationAttempted: false'
+          Write-Host 'ProductionDeploymentDecision: OUT_OF_SCOPE'
+          Write-Host 'Phase31ExactShaCiResult: PASS'
