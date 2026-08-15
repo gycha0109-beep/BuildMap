@@ -1,2 +1,12 @@
 .local-evidence/
 .env*
+!.env.example
+
+# Supabase CLI local state
+supabase/.temp/
+
+# Future application build artifacts
+node_modules/
+.next/
+dist/
+coverage/
