@@ -21,6 +21,9 @@ export async function signInAction(formData: FormData) {
 
   const result = await supabase.auth.signInWithPassword({ email, password });
   if (result.error || !result.data.user) {
+    if (result.error?.code === "email_not_confirmed") {
+      redirect("/login?error=email-not-confirmed");
+    }
     redirect("/login?error=invalid-credentials");
   }
 
@@ -44,6 +47,9 @@ export async function signUpAction(formData: FormData) {
 
   const result = await supabase.auth.signUp({ email, password });
   if (result.error) {
+    if (result.error.code === "over_email_send_rate_limit") {
+      redirect("/login?error=email-rate-limit");
+    }
     redirect("/login?error=signup-failed");
   }
 
