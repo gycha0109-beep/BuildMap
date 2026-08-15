@@ -1,0 +1,67 @@
+import Link from "next/link";
+import { signInAction, signUpAction } from "./actions";
+
+const errorMessages: Record<string, string> = {
+  "missing-fields": "이메일과 비밀번호를 모두 입력해 주세요.",
+  "invalid-credentials": "로그인 정보를 확인해 주세요.",
+  "profile-bootstrap": "Builder 프로필을 준비하지 못했습니다. 다시 시도해 주세요.",
+  "password-length": "비밀번호는 8자 이상이어야 합니다.",
+  "signup-failed": "회원가입을 완료하지 못했습니다.",
+  "confirmation-failed": "이메일 확인 링크가 유효하지 않거나 만료되었습니다.",
+};
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const error = typeof params.error === "string" ? errorMessages[params.error] : null;
+  const message =
+    params.message === "check-email"
+      ? "확인 이메일을 보냈습니다. 이메일 인증 후 다시 접속해 주세요."
+      : null;
+
+  return (
+    <main className="shell stack">
+      <div className="row">
+        <Link href="/">← BuildMap</Link>
+      </div>
+
+      <section className="panel stack">
+        <div>
+          <p className="muted">Builder account</p>
+          <h1>로그인 또는 회원가입</h1>
+        </div>
+
+        {error ? <p className="error">{error}</p> : null}
+        {message ? <p>{message}</p> : null}
+
+        <form className="stack">
+          <label className="field">
+            <span>이메일</span>
+            <input name="email" type="email" autoComplete="email" required />
+          </label>
+          <label className="field">
+            <span>비밀번호</span>
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              minLength={8}
+              required
+            />
+          </label>
+          <div className="row">
+            <button className="button" formAction={signInAction}>
+              로그인
+            </button>
+            <button className="button secondary" formAction={signUpAction}>
+              회원가입
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  );
+}

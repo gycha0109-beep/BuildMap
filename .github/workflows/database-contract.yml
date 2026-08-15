@@ -1,35 +1,29 @@
-name: Phase31 Historical Integrity Gate
+name: Database Contract Gate
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/phase31-lifecycle.yml'
+      - '.github/workflows/database-contract.yml'
       - 'scripts/database-contract/**'
-      - 'scripts/manual-controlled-staging-migration/**'
-      - 'scripts/manual-target-project-attestation/**'
-      - 'scripts/manual-local-migration-readiness/**'
-      - 'scripts/manual-formal-migration-promotion/**'
-      - 'docs/migration-promotion-readiness/**'
-      - 'docs/handoff/CURRENT-HANDOFF.md'
+      - 'scripts/manual-controlled-staging-migration/phase31_controlled_staging_migration_manifest.json'
+      - 'supabase/migrations/**'
+      - 'supabase/migrations_draft/**'
   push:
     branches: [main]
     paths:
-      - '.github/workflows/phase31-lifecycle.yml'
+      - '.github/workflows/database-contract.yml'
       - 'scripts/database-contract/**'
-      - 'scripts/manual-controlled-staging-migration/**'
-      - 'scripts/manual-target-project-attestation/**'
-      - 'scripts/manual-local-migration-readiness/**'
-      - 'scripts/manual-formal-migration-promotion/**'
-      - 'docs/migration-promotion-readiness/**'
-      - 'docs/handoff/CURRENT-HANDOFF.md'
+      - 'scripts/manual-controlled-staging-migration/phase31_controlled_staging_migration_manifest.json'
+      - 'supabase/migrations/**'
+      - 'supabase/migrations_draft/**'
 
 permissions:
   contents: read
 
 jobs:
-  phase31-history:
-    name: Frozen Phase31 closure integrity
+  repository-contract:
+    name: Historical 00-10 integrity and additive migration contract
     runs-on: windows-latest
     timeout-minutes: 10
 
@@ -50,14 +44,13 @@ jobs:
             throw "Exact-SHA checkout mismatch. expected=$env:EXPECTED_SHA actual=$actual"
           }
 
-      - name: Verify frozen Phase31 history
+      - name: Run database contract gate
         shell: pwsh
         run: ./scripts/database-contract/check-post-phase31-migrations.ps1
 
-      - name: Confirm historical safety boundary
+      - name: Confirm safety boundary
         shell: pwsh
         run: |
-          Write-Host 'Phase31Status: CLOSED'
           Write-Host 'RemoteDatabaseAccess: none'
           Write-Host 'RemoteMutationAttempted: false'
           Write-Host 'ProductionDeploymentDecision: OUT_OF_SCOPE'
