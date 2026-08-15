@@ -2,25 +2,29 @@
 
 ## Current authority
 
-현재 저장소의 운영/재개 상태는 다음 문서를 우선 기준으로 본다.
+현재 저장소의 제품 구현/운영 상태는 다음 문서를 우선 기준으로 본다.
 
-1. `docs/handoff/CURRENT-HANDOFF.md`
+1. `docs/handoff/ACTIVE-HANDOFF.md`
 2. `docs/use-cases/use-case-priorities.md`
 3. `docs/screens/screen-priorities.md`
 4. `docs/data-model/initial-data-scope.md`
 
-Phase별 설계·검증 문서는 해당 시점의 historical evidence다. 과거 Phase README의 `PENDING`, `HOLD`, `DRAFT` 문자열만으로 현재 상태를 판정하지 않는다.
+`docs/handoff/CURRENT-HANDOFF.md`는 이름과 달리 Phase31 closure 당시 hash-protected historical snapshot이다. Phase별 설계·검증 문서 역시 해당 시점의 historical evidence이며 과거 README의 `PENDING`, `HOLD`, `DRAFT` 문자열만으로 현재 상태를 판정하지 않는다.
 
 ## Current implementation status
 
 - 제품 철학, 유즈케이스, 화면 흐름, 텍스트 와이어프레임, 데이터 모델: 설계 완료 수준
-- Supabase schema/RLS/migration `00–10`: 보호된 historical lineage
-- staging: exact migration history와 catalog poststate reconciliation 완료
-- Phase31: CLOSED
+- Supabase schema/RLS historical migrations `00–10`: immutable lineage
+- Phase31 staging reconciliation: CLOSED / PASS
+- additive migration 11: app runtime privilege alignment
+- additive migration 12: least-privilege ACL hardening
+- Supabase Git `main` branch deployment: active, migrations auto-apply after merge
+- `apps/web`: Next.js + TypeScript + Supabase SSR foundation implemented
+- Auth signup/signin/confirmation route, Builder bootstrap, project create/list: implemented
+- Web App CI / Database Contract Gate / Phase31 Historical Integrity Gate: active
+- real browser staging E2E: not yet proven
+- Vercel BuildMap deployment: not yet configured
 - production deployment: `OUT_OF_SCOPE`
-- 사용자용 웹 애플리케이션 runtime: 아직 저장소에 없음
-
-따라서 현재 저장소는 "제품 전체가 배포 직전"인 상태가 아니라, DB/RLS/staging 기반이 먼저 완성된 상태다.
 
 ## Product design
 
@@ -58,13 +62,21 @@ Phase별 설계·검증 문서는 해당 시점의 historical evidence다. 과�
 
 ## Next product milestone
 
-다음 실질 milestone은 DB 검증 Phase를 추가하는 것이 아니라 실제 MVP application vertical slice를 구현하는 것이다.
+현재 우선순위는 DB 검증 Phase 추가가 아니라 앱 staging runtime을 실제로 증명하는 것이다.
 
 ```text
-Auth
-→ Builder Profile
-→ Project
-→ Problem / Hypothesis
+Vercel staging/preview
+→ Supabase Auth configuration
+→ signup / confirmation / signin
+→ User + Builder bootstrap
+→ Project create/list
+→ browser smoke / E2E
+```
+
+이 흐름이 통과하면 다음 vertical slice로 진행한다.
+
+```text
+Problem / Hypothesis
 → Rough Note
 → AI Structured Draft
 → Change Card Review / Approval
@@ -72,5 +84,3 @@ Auth
 → Public Project Page
 → Feedback Request / Feedback
 ```
-
-새 단계 번호나 branch 이름은 별도 설계 후 확정한다.
