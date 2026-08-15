@@ -6,8 +6,6 @@ BuildMap은 프로젝트가 **왜 지금의 모습이 되었는지**를 기록�
 
 ## Product core
 
-핵심 사용 흐름은 다음과 같다.
-
 ```text
 Builder
 → Project
@@ -25,59 +23,75 @@ BuildMap의 핵심 원천 기록은 **Change Card**다. AI draft는 공식 기�
 
 ## Current repository status
 
-현재 저장소는 제품 전체가 배포 직전인 상태가 아니다.
-
-완료되거나 상당히 진행된 영역:
+### Completed foundation
 
 - 제품 철학 / 문제 정의 / 포지셔닝
 - Builder / Scout 유즈케이스
 - 화면 흐름과 텍스트 와이어프레임
 - 제품 데이터 모델
-- Supabase schema / RLS / helper / trigger 설계 및 구현
-- migration `00–10` historical lineage
-- RLS regression / replay / catalog validation
-- staging migration history 및 poststate reconciliation
-- Phase31 lifecycle closure
+- Supabase schema / RLS / helper / trigger
+- historical migrations `00–10` immutable lineage
+- Phase31 staging reconciliation and lifecycle closure
+- additive migration 11: app runtime privilege alignment
+- additive migration 12: least-privilege ACL hardening
+- Supabase Git `main` branch auto-deployment for migrations
+- `apps/web` Next.js App Router + TypeScript runtime foundation
+- Supabase SSR cookie session handling
+- email/password signup / signin / confirmation route
+- User Profile / Builder Profile bootstrap
+- Builder dashboard
+- project create/list
+- Web App CI: install / lint / typecheck / build
+- Database Contract Gate
+- Phase31 Historical Integrity Gate
 
-아직 구현되지 않은 영역:
+### Not yet proven / implemented
 
-- 사용자용 웹 application runtime
-- frontend framework / routing / components
-- Supabase client 기반 실제 Auth UX
+- real browser staging Auth smoke test
+- BuildMap Vercel deployment
+- automated browser E2E
+- Problem / Hypothesis UI
+- Rough Note workflow
 - AI provider runtime integration
-- application-level API / server functions
-- lint / typecheck / unit / E2E / app build CI
-- application staging deployment
+- AI Structured Draft workflow
+- Change Card review / approval UI
+- Decision Timeline UI
+- Public Project Page / Feedback runtime
 - production deployment
 
-Production deployment는 현재 `OUT_OF_SCOPE`다.
+Production deployment remains `OUT_OF_SCOPE`.
 
 ## Staging database status
 
-BuildMap staging에는 보호된 migration `00–10`의 exact version/name history가 존재한다.
+Staging migration history currently aligns with the repository through:
 
-Phase31에서 read-only reconciliation을 수행해 migration history, public object poststate, catalog readiness를 검증했고 remote mutation 없이 closure했다.
+```text
+20260816000000 buildmap_11_app_runtime_privilege_alignment
+20260816001000 buildmap_12_least_privilege_acl_hardening
+```
 
-기존 `00–10`은 immutable history로 취급한다. 과거 migration을 수정하지 않고, 향후 DB 변경은 additive migration으로 처리한다.
+Source-table object privileges are reduced to the RLS operation surface:
 
-상세 설명:
+- `anon`: no direct source-table privileges
+- `authenticated`: `SELECT / INSERT / UPDATE`
+- public-safe views: `anon / authenticated = SELECT only`
+- service-role privileges preserved
 
-- `supabase/README.md`
-- `docs/handoff/CURRENT-HANDOFF.md`
+Existing migrations `00–10` are immutable. New DB changes are additive migrations only.
+
+The hosted Supabase default branch is connected to Git `main`, so migrations under `supabase/migrations/` are automatically applied after merge. Do not manually re-apply an already auto-applied migration.
 
 ## Documentation authority
 
-문서가 Phase별로 누적되어 있으므로 current status와 historical evidence를 구분한다.
+Current product/runtime status:
 
-현재 상태를 확인할 때의 우선순위:
-
-1. `docs/handoff/CURRENT-HANDOFF.md`
+1. `docs/handoff/ACTIVE-HANDOFF.md`
 2. `docs/README.md`
 3. `docs/use-cases/use-case-priorities.md`
 4. `docs/screens/screen-priorities.md`
 5. `docs/data-model/initial-data-scope.md`
 
-과거 Phase 문서의 `PENDING`, `HOLD`, `DRAFT` 문자열은 해당 시점의 상태이며 현재 authoritative status가 아니다.
+`docs/handoff/CURRENT-HANDOFF.md` is a Phase31 hash-protected historical closure snapshot and is intentionally no longer the live handoff.
 
 ## Repository layout
 
@@ -85,7 +99,11 @@ Phase31에서 read-only reconciliation을 수행해 migration history, public ob
 BuildMap/
 ├─ .github/
 │  └─ workflows/
+│     ├─ app-ci.yml
+│     ├─ database-contract.yml
 │     └─ phase31-lifecycle.yml
+├─ apps/
+│  └─ web/
 ├─ docs/
 │  ├─ product/
 │  ├─ use-cases/
@@ -93,13 +111,12 @@ BuildMap/
 │  ├─ wireframes/
 │  ├─ data-model/
 │  ├─ database/
-│  ├─ access-policy/
-│  ├─ access-policy-tests/
-│  ├─ rls/
-│  ├─ rls-security/
+│  ├─ access-policy*/
+│  ├─ rls*/
 │  ├─ migration-*/
 │  └─ handoff/
 ├─ scripts/
+│  ├─ database-contract/
 │  └─ manual-*/
 └─ supabase/
    ├─ migrations_draft/
@@ -107,44 +124,51 @@ BuildMap/
    └─ README.md
 ```
 
-`docs/`와 `scripts/`의 migration/RLS 관련 자료는 단순 정크가 아니라 historical audit/replay 자산이다.
+Historical migration/RLS documents and runners are audit/replay assets, not current product runtime code.
 
-`supabase/.temp/`와 `.local-evidence/`는 local-only이며 Git에 커밋하지 않는다.
+`supabase/.temp/`, `.local-evidence/`, `.env*`, and `.buildmap.local.ps1` are local-only and must not be committed.
 
 ## Next milestone
 
-다음 실질 milestone은 migration readiness Phase를 더 세분화하는 것이 아니라 **실제 MVP application foundation과 첫 vertical slice 구현**이다.
-
-권장 첫 범위:
+First prove the implemented private staging slice end-to-end:
 
 ```text
-Auth
-→ Builder Profile
-→ Project creation
-→ Problem / Hypothesis
+Vercel staging/preview
+→ Supabase Auth Site URL / redirect configuration
+→ signup
+→ email confirmation
+→ signin/session refresh
+→ User + Builder bootstrap
+→ project create/list
+→ signout/signin persistence
+→ browser smoke / E2E
+```
+
+After that, implement the next product slice:
+
+```text
+Problem / Hypothesis
 → Rough Note
 → AI Structured Draft
 → Change Card approval
 → Decision Timeline
-→ Public Project Page
-→ Feedback Request / Feedback
 ```
 
-Scout discovery, heatmap, handoff mode, recruiting, advanced recommendation은 핵심 흐름이 실제 사용자 환경에서 검증된 뒤 확장한다.
+Public project pages, feedback, Scout discovery, heatmap, handoff mode, recruiting, and advanced recommendation follow after the core private decision-recording flow is proven.
 
 ## Security and credentials
 
-다음 값은 저장소에 커밋하지 않는다.
+Never commit:
 
 - database passwords
 - Supabase access tokens
 - service-role keys
-- API keys
+- private API keys
 - connection secrets
 
-credential은 필요한 경우 process environment를 통해 전달하고 실행 후 제거한다.
+The web application uses only Supabase public client values. Database authorization remains RLS-based.
 
-`*_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `PGPASSWORD` 같은 **환경변수 이름 자체는 secret 값이 아니다.** 실제 값은 Git history에 들어가면 안 된다.
+Supabase Security Advisor still reports historical owner-executed public-safe views and callable SECURITY DEFINER helpers/RPCs. These must be explicitly reviewed before the public-facing milestone; they should not be changed blindly because they are part of the existing public-boundary design.
 
 ## Core product principle
 
