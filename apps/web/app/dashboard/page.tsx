@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -9,6 +10,7 @@ import {
 const dashboardErrors: Record<string, string> = {
   "invalid-project": "프로젝트 제목과 설명 길이를 확인해 주세요.",
   "project-create": "프로젝트를 생성하지 못했습니다.",
+  "project-access": "프로젝트에 접근할 수 없습니다.",
 };
 
 export default async function DashboardPage({
@@ -110,7 +112,7 @@ export default async function DashboardPage({
       <section className="panel stack">
         <div>
           <h2>내 프로젝트</h2>
-          <p className="muted">현재는 생성과 목록까지 연결합니다.</p>
+          <p className="muted">프로젝트를 열어 문제, 가설, Rough Note를 기록합니다.</p>
         </div>
 
         {projects.error ? (
@@ -121,7 +123,9 @@ export default async function DashboardPage({
           <ul className="project-list">
             {projects.data.map((project) => (
               <li key={project.id}>
-                <strong>{project.title}</strong>
+                <strong>
+                  <Link href={`/projects/${project.id}`}>{project.title}</Link>
+                </strong>
                 <p className="muted">{project.one_line_description || "설명 없음"}</p>
                 <small>
                   {project.lifecycle_status} · {project.visibility_status}
