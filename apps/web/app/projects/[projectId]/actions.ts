@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
+import {
+  generateStructuredDraft,
+  type ChangeCardType,
+} from "@/lib/buildmap/ai-draft";
 import { createClient } from "@/lib/supabase/server";
 
 const hypothesisStatuses = new Set([
@@ -13,6 +17,24 @@ const hypothesisStatuses = new Set([
   "refuted",
   "held",
 ]);
+
+const changeCardTypes = new Set<ChangeCardType>([
+  "problem_found",
+  "problem_definition_changed",
+  "hypothesis_created",
+  "hypothesis_refuted",
+  "experiment",
+  "user_feedback",
+  "feature_added",
+  "feature_removed",
+  "decision_kept",
+  "decision_changed",
+  "pivot",
+  "release",
+  "handoff_note",
+]);
+
+const importanceValues = new Set(["normal", "major_turning_point"]);
 
 async function ownedProjectContext(projectId: string) {
   const supabase = await createClient();
@@ -42,6 +64,11 @@ function workspacePath(projectId: string, error?: string) {
   return error
     ? `/projects/${projectId}?error=${encodeURIComponent(error)}`
     : `/projects/${projectId}`;
+}
+
+function boundedText(formData: FormData, name: string, maxLength: number) {
+  const value = String(formData.get(name) ?? "").trim();
+  return value.length <= maxLength ? value : null;
 }
 
 export async function saveProblemDefinitionAction(
@@ -154,6 +181,310 @@ export async function createRoughNoteAction(
 
   if (inserted.error) {
     redirect(workspacePath(projectId, "note-create"));
+  }
+
+  revalidatePath(workspacePath(projectId));
+  redirect(workspacePath(projectId));
+}
+
+export async function generateAiDraftAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const roughNoteId = String(formData.get("roughNoteId") ?? "");
+  if (!roughNoteId) {
+    redirect(workspacePath(projectId, "invalid-ai-source"));
+  }
+
+  const { supabase, context } = await ownedProjectContext(projectId);
+  const roughNote = await supabase
+    .from("rough_notes")
+    .select("id, body, converted_to_change_card_at")
+    .eq("id", roughNoteId)
+    .eq("project_id", projectId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (roughNote.error || !roughNote.data || roughNote.data.converted_to_change_card_at) {
+    redirect(workspacePath(projectId, "invalid-ai-source"));
+  }
+
+  const activeDraft = await supabase
+    .from("ai_structured_drafts")
+    .select("id")
+    .eq("rough_note_id", roughNoteId)
+    .eq("project_id", projectId)
+    .in("status", ["generating", "generated", "editing"])
+    .is("archived_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (activeDraft.error) {
+    redirect(workspacePath(projectId, "ai-draft-create"));
+  }
+  if (activeDraft.data) {
+    redirect(workspacePath(projectId, "ai-draft-exists"));
+  }
+
+  const inserted = await supabase
+    .from("ai_structured_drafts")
+    .insert({
+      project_id: projectId,
+      rough_note_id: roughNoteId,
+      requested_by_builder_profile_id: context.builderProfileId,
+      status: "generating",
+    })
+    .select("id")
+    .single();
+
+  if (inserted.error) {
+    redirect(workspacePath(projectId, "ai-draft-create"));
+  }
+
+  try {
+    const generated = await generateStructuredDraft(roughNote.data.body);
+    const updated = await supabase
+      .from("ai_structured_drafts")
+      .update({
+        suggested_type: generated.suggestedType,
+        suggested_title: generated.suggestedTitle,
+        structured_summary: generated.structuredSummary,
+        evidence: generated.evidence || null,
+        decision: generated.decision || null,
+        change_content: generated.changeContent || null,
+        next_check: generated.nextCheck || null,
+        status: "generated",
+        error_message: null,
+      })
+      .eq("id", inserted.data.id)
+      .eq("project_id", projectId)
+      .eq("status", "generating")
+      .select("id")
+      .maybeSingle();
+
+    if (updated.error || !updated.data) {
+      redirect(workspacePath(projectId, "ai-draft-save"));
+    }
+  } catch (error) {
+    const category =
+      error instanceof Error && error.message === "AI_GATEWAY_AUTH_UNAVAILABLE"
+        ? "AI Gateway authentication is unavailable."
+        : "AI generation failed.";
+
+    await supabase
+      .from("ai_structured_drafts")
+      .update({ status: "failed", error_message: category })
+      .eq("id", inserted.data.id)
+      .eq("project_id", projectId);
+
+    redirect(workspacePath(projectId, "ai-generation"));
+  }
+
+  revalidatePath(workspacePath(projectId));
+  redirect(workspacePath(projectId));
+}
+
+export async function updateAiDraftAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const draftId = String(formData.get("draftId") ?? "");
+  const suggestedType = String(formData.get("suggestedType") ?? "") as ChangeCardType;
+  const suggestedTitle = boundedText(formData, "suggestedTitle", 500);
+  const structuredSummary = boundedText(formData, "structuredSummary", 10000);
+  const evidence = boundedText(formData, "evidence", 10000);
+  const decision = boundedText(formData, "decision", 10000);
+  const changeContent = boundedText(formData, "changeContent", 10000);
+  const nextCheck = boundedText(formData, "nextCheck", 10000);
+
+  if (
+    !draftId ||
+    !changeCardTypes.has(suggestedType) ||
+    !suggestedTitle ||
+    !structuredSummary ||
+    evidence === null ||
+    decision === null ||
+    changeContent === null ||
+    nextCheck === null
+  ) {
+    redirect(workspacePath(projectId, "invalid-ai-draft"));
+  }
+
+  const { supabase } = await ownedProjectContext(projectId);
+  const updated = await supabase
+    .from("ai_structured_drafts")
+    .update({
+      suggested_type: suggestedType,
+      suggested_title: suggestedTitle,
+      structured_summary: structuredSummary,
+      evidence: evidence || null,
+      decision: decision || null,
+      change_content: changeContent || null,
+      next_check: nextCheck || null,
+      status: "editing",
+      error_message: null,
+    })
+    .eq("id", draftId)
+    .eq("project_id", projectId)
+    .in("status", ["generated", "editing"])
+    .select("id")
+    .maybeSingle();
+
+  if (updated.error || !updated.data) {
+    redirect(workspacePath(projectId, "ai-draft-save"));
+  }
+
+  revalidatePath(workspacePath(projectId));
+  redirect(workspacePath(projectId));
+}
+
+export async function convertAiDraftAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const draftId = String(formData.get("draftId") ?? "");
+  const cardType = String(formData.get("suggestedType") ?? "") as ChangeCardType;
+  const title = boundedText(formData, "suggestedTitle", 500);
+  const summary = boundedText(formData, "structuredSummary", 10000);
+  const evidence = boundedText(formData, "evidence", 10000);
+  const decision = boundedText(formData, "decision", 10000);
+  const changeContent = boundedText(formData, "changeContent", 10000);
+  const nextCheck = boundedText(formData, "nextCheck", 10000);
+  const problemDefinitionId = String(formData.get("problemDefinitionId") ?? "").trim();
+  const hypothesisId = String(formData.get("hypothesisId") ?? "").trim();
+  const importance = String(formData.get("importance") ?? "normal");
+
+  if (
+    !draftId ||
+    !changeCardTypes.has(cardType) ||
+    !title ||
+    !summary ||
+    evidence === null ||
+    decision === null ||
+    changeContent === null ||
+    nextCheck === null ||
+    !importanceValues.has(importance)
+  ) {
+    redirect(workspacePath(projectId, "invalid-ai-draft"));
+  }
+
+  const { supabase } = await ownedProjectContext(projectId);
+  const source = await supabase
+    .from("ai_structured_drafts")
+    .select("id")
+    .eq("id", draftId)
+    .eq("project_id", projectId)
+    .in("status", ["generated", "editing"])
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (source.error || !source.data) {
+    redirect(workspacePath(projectId, "ai-draft-convert"));
+  }
+
+  const converted = await supabase.rpc("convert_ai_draft_to_change_card", {
+    p_ai_draft_id: draftId,
+    p_card_type: cardType,
+    p_title: title,
+    p_structured_summary: summary,
+    p_evidence: evidence,
+    p_decision: decision,
+    p_change_content: changeContent,
+    p_next_check: nextCheck,
+    p_linked_problem_definition_id: problemDefinitionId || null,
+    p_linked_hypothesis_id: hypothesisId || null,
+    p_importance: importance,
+  });
+
+  if (converted.error || !converted.data) {
+    redirect(workspacePath(projectId, "ai-draft-convert"));
+  }
+
+  revalidatePath(workspacePath(projectId));
+  redirect(workspacePath(projectId));
+}
+
+export async function updateChangeCardDraftAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const changeCardId = String(formData.get("changeCardId") ?? "");
+  const cardType = String(formData.get("cardType") ?? "") as ChangeCardType;
+  const title = boundedText(formData, "title", 500);
+  const summary = boundedText(formData, "structuredSummary", 10000);
+  const evidence = boundedText(formData, "evidence", 10000);
+  const decision = boundedText(formData, "decision", 10000);
+  const changeContent = boundedText(formData, "changeContent", 10000);
+  const nextCheck = boundedText(formData, "nextCheck", 10000);
+  const importance = String(formData.get("importance") ?? "normal");
+
+  if (
+    !changeCardId ||
+    !changeCardTypes.has(cardType) ||
+    !title ||
+    !summary ||
+    evidence === null ||
+    decision === null ||
+    changeContent === null ||
+    nextCheck === null ||
+    !importanceValues.has(importance)
+  ) {
+    redirect(workspacePath(projectId, "invalid-change-card"));
+  }
+
+  const { supabase } = await ownedProjectContext(projectId);
+  const updated = await supabase
+    .from("change_cards")
+    .update({
+      card_type: cardType,
+      title,
+      structured_summary: summary,
+      evidence: evidence || null,
+      decision: decision || null,
+      change_content: changeContent || null,
+      next_check: nextCheck || null,
+      importance,
+      work_status: "editing",
+    })
+    .eq("id", changeCardId)
+    .eq("project_id", projectId)
+    .in("work_status", ["draft", "editing"])
+    .select("id")
+    .maybeSingle();
+
+  if (updated.error || !updated.data) {
+    redirect(workspacePath(projectId, "change-card-save"));
+  }
+
+  revalidatePath(workspacePath(projectId));
+  redirect(workspacePath(projectId));
+}
+
+export async function approveChangeCardAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const changeCardId = String(formData.get("changeCardId") ?? "");
+  if (!changeCardId) {
+    redirect(workspacePath(projectId, "invalid-change-card"));
+  }
+
+  const { supabase, context } = await ownedProjectContext(projectId);
+  const approved = await supabase
+    .from("change_cards")
+    .update({
+      work_status: "approved",
+      approved_by_builder_profile_id: context.builderProfileId,
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", changeCardId)
+    .eq("project_id", projectId)
+    .in("work_status", ["draft", "editing"])
+    .select("id")
+    .maybeSingle();
+
+  if (approved.error || !approved.data) {
+    redirect(workspacePath(projectId, "change-card-approve"));
   }
 
   revalidatePath(workspacePath(projectId));
