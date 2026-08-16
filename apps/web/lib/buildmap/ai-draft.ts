@@ -26,6 +26,16 @@ export type GeneratedAiDraft = {
   nextCheck: string;
 };
 
+type GatewayOutputItem = {
+  type?: unknown;
+  content?: unknown;
+};
+
+type GatewayContentItem = {
+  type?: unknown;
+  text?: unknown;
+};
+
 function isChangeCardType(value: unknown): value is ChangeCardType {
   return typeof value === "string" && changeCardTypes.includes(value as ChangeCardType);
 }
@@ -62,6 +72,34 @@ function parseStructuredDraft(value: unknown): GeneratedAiDraft {
   };
 }
 
+function outputText(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const data = payload as { output_text?: unknown; output?: unknown };
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
+  if (!Array.isArray(data.output)) {
+    return null;
+  }
+
+  for (const rawItem of data.output as GatewayOutputItem[]) {
+    if (rawItem.type !== "message" || !Array.isArray(rawItem.content)) {
+      continue;
+    }
+    for (const rawContent of rawItem.content as GatewayContentItem[]) {
+      if (typeof rawContent.text === "string" && rawContent.text.trim()) {
+        return rawContent.text.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function generateStructuredDraft(roughNote: string): Promise<GeneratedAiDraft> {
   const token = process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN;
   if (!token) {
@@ -78,23 +116,20 @@ export async function generateStructuredDraft(roughNote: string): Promise<Genera
       model: "openai/gpt-5.6-luna",
       input: [
         {
+          type: "message",
           role: "system",
           content: [
-            {
-              type: "input_text",
-              text: [
-                "You structure a Builder's rough project note into a conservative BuildMap Change Card draft.",
-                "Never invent facts, metrics, users, evidence, decisions, changes, or next steps that are not supported by the note.",
-                "Preserve the source language of the rough note.",
-                "If evidence, decision, change content, or next check is not supported, return an empty string for that field.",
-                "Choose the closest supported Change Card type. This output is only an AI draft; the Builder remains the final editor and approver.",
-              ].join(" "),
-            },
-          ],
+            "You structure a Builder's rough project note into a conservative BuildMap Change Card draft.",
+            "Never invent facts, metrics, users, evidence, decisions, changes, or next steps that are not supported by the note.",
+            "Preserve the source language of the rough note.",
+            "If evidence, decision, change content, or next check is not supported, return an empty string for that field.",
+            "Choose the closest supported Change Card type. This output is only an AI draft; the Builder remains the final editor and approver.",
+          ].join(" "),
         },
         {
+          type: "message",
           role: "user",
-          content: [{ type: "input_text", text: roughNote }],
+          content: roughNote,
         },
       ],
       text: {
@@ -135,10 +170,10 @@ export async function generateStructuredDraft(roughNote: string): Promise<Genera
     throw new Error(`AI_GATEWAY_HTTP_${response.status}`);
   }
 
-  const payload = (await response.json()) as { output_text?: unknown };
-  if (typeof payload.output_text !== "string" || !payload.output_text.trim()) {
+  const text = outputText(await response.json());
+  if (!text) {
     throw new Error("AI_GATEWAY_EMPTY_OUTPUT");
   }
 
-  return parseStructuredDraft(JSON.parse(payload.output_text));
+  return parseStructuredDraft(JSON.parse(text));
 }
