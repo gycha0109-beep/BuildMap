@@ -114,6 +114,12 @@ select {
   color: var(--text);
 }
 
+.button:disabled,
+.field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .muted {
   color: var(--muted);
 }

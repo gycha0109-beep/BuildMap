@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signInAction, signUpAction } from "./actions";
+import { AuthForm } from "./auth-form";
 
 const errorMessages: Record<string, string> = {
   "missing-fields": "이메일과 비밀번호를 모두 입력해 주세요.",
@@ -39,30 +39,7 @@ export default async function LoginPage({
         {error ? <p className="error">{error}</p> : null}
         {message ? <p>{message}</p> : null}
 
-        <form className="stack">
-          <label className="field">
-            <span>이메일</span>
-            <input name="email" type="email" autoComplete="email" required />
-          </label>
-          <label className="field">
-            <span>비밀번호</span>
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              minLength={8}
-              required
-            />
-          </label>
-          <div className="row">
-            <button className="button" formAction={signInAction}>
-              로그인
-            </button>
-            <button className="button secondary" formAction={signUpAction}>
-              회원가입
-            </button>
-          </div>
-        </form>
+        <AuthForm />
       </section>
     </main>
   );
