@@ -71,6 +71,45 @@ function boundedText(formData: FormData, name: string, maxLength: number) {
   return value.length <= maxLength ? value : null;
 }
 
+function aiFailureCategory(error: unknown) {
+  const errorObject =
+    error && typeof error === "object" ? (error as Record<string, unknown>) : null;
+  const causeObject =
+    errorObject?.cause && typeof errorObject.cause === "object"
+      ? (errorObject.cause as Record<string, unknown>)
+      : null;
+  const statusCode =
+    typeof errorObject?.statusCode === "number"
+      ? errorObject.statusCode
+      : typeof causeObject?.statusCode === "number"
+        ? causeObject.statusCode
+        : null;
+  const code =
+    typeof errorObject?.code === "string"
+      ? errorObject.code
+      : typeof causeObject?.code === "string"
+        ? causeObject.code
+        : null;
+  const name = error instanceof Error ? error.name : "UnknownError";
+  const message = error instanceof Error ? error.message : String(error);
+
+  console.error("BuildMap AI draft generation failed", {
+    name,
+    statusCode,
+    code,
+    message,
+  });
+
+  if (statusCode === 401) return "AI Gateway authentication failed (401).";
+  if (statusCode === 402) return "AI Gateway credits or billing are unavailable (402).";
+  if (statusCode === 403) return "AI Gateway access was denied (403).";
+  if (statusCode === 404) return "AI Gateway model or endpoint was not found (404).";
+  if (statusCode === 429) return "AI Gateway rate limit was exceeded (429).";
+  if (statusCode) return `AI Gateway request failed (${statusCode}).`;
+  if (code) return `AI generation failed (${code}).`;
+  return `AI generation failed (${name}).`;
+}
+
 export async function saveProblemDefinitionAction(
   projectId: string,
   formData: FormData,
@@ -226,19 +265,77 @@ export async function generateAiDraftAction(
     redirect(workspacePath(projectId, "ai-draft-exists"));
   }
 
-  const inserted = await supabase
+  const failedDrafts = await supabase
     .from("ai_structured_drafts")
-    .insert({
-      project_id: projectId,
-      rough_note_id: roughNoteId,
-      requested_by_builder_profile_id: context.builderProfileId,
-      status: "generating",
-    })
     .select("id")
-    .single();
+    .eq("rough_note_id", roughNoteId)
+    .eq("project_id", projectId)
+    .eq("status", "failed")
+    .is("archived_at", null)
+    .order("created_at", { ascending: false });
 
-  if (inserted.error) {
+  if (failedDrafts.error) {
     redirect(workspacePath(projectId, "ai-draft-create"));
+  }
+
+  let draftId: string;
+  const retryDraft = failedDrafts.data?.[0];
+
+  if (retryDraft) {
+    const duplicateIds = (failedDrafts.data ?? []).slice(1).map((draft) => draft.id);
+    if (duplicateIds.length > 0) {
+      const archived = await supabase
+        .from("ai_structured_drafts")
+        .update({ archived_at: new Date().toISOString() })
+        .in("id", duplicateIds)
+        .eq("project_id", projectId)
+        .eq("status", "failed");
+
+      if (archived.error) {
+        redirect(workspacePath(projectId, "ai-draft-create"));
+      }
+    }
+
+    const reset = await supabase
+      .from("ai_structured_drafts")
+      .update({
+        requested_by_builder_profile_id: context.builderProfileId,
+        suggested_type: null,
+        suggested_title: null,
+        structured_summary: null,
+        evidence: null,
+        decision: null,
+        change_content: null,
+        next_check: null,
+        status: "generating",
+        error_message: null,
+      })
+      .eq("id", retryDraft.id)
+      .eq("project_id", projectId)
+      .eq("status", "failed")
+      .select("id")
+      .maybeSingle();
+
+    if (reset.error || !reset.data) {
+      redirect(workspacePath(projectId, "ai-draft-create"));
+    }
+    draftId = reset.data.id;
+  } else {
+    const inserted = await supabase
+      .from("ai_structured_drafts")
+      .insert({
+        project_id: projectId,
+        rough_note_id: roughNoteId,
+        requested_by_builder_profile_id: context.builderProfileId,
+        status: "generating",
+      })
+      .select("id")
+      .single();
+
+    if (inserted.error) {
+      redirect(workspacePath(projectId, "ai-draft-create"));
+    }
+    draftId = inserted.data.id;
   }
 
   try {
@@ -256,7 +353,7 @@ export async function generateAiDraftAction(
         status: "generated",
         error_message: null,
       })
-      .eq("id", inserted.data.id)
+      .eq("id", draftId)
       .eq("project_id", projectId)
       .eq("status", "generating")
       .select("id")
@@ -266,15 +363,12 @@ export async function generateAiDraftAction(
       redirect(workspacePath(projectId, "ai-draft-save"));
     }
   } catch (error) {
-    const category =
-      error instanceof Error && error.message === "AI_GATEWAY_AUTH_UNAVAILABLE"
-        ? "AI Gateway authentication is unavailable."
-        : "AI generation failed.";
+    const category = aiFailureCategory(error);
 
     await supabase
       .from("ai_structured_drafts")
       .update({ status: "failed", error_message: category })
-      .eq("id", inserted.data.id)
+      .eq("id", draftId)
       .eq("project_id", projectId);
 
     redirect(workspacePath(projectId, "ai-generation"));
