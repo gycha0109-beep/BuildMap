@@ -31,7 +31,8 @@ a {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -39,6 +40,10 @@ textarea {
   width: min(960px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0 72px;
+}
+
+.shell + .shell {
+  padding-top: 0;
 }
 
 .stack {
@@ -51,6 +56,13 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 24px;
+}
+
+.subpanel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fbfcfd;
 }
 
 .row {
@@ -67,12 +79,20 @@ textarea {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select,
+.row select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 11px 12px;
   background: white;
+  color: var(--text);
+}
+
+.row select {
+  width: auto;
+  min-width: 150px;
 }
 
 .field textarea {
@@ -117,6 +137,7 @@ textarea {
 
 h1,
 h2,
+h3,
 p {
   margin-top: 0;
 }
