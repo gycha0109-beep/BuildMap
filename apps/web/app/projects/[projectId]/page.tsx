@@ -8,6 +8,7 @@ import {
   saveProblemDefinitionAction,
   updateHypothesisStatusAction,
 } from "./actions";
+import { WorkspaceSubmitButton } from "./submit-button";
 
 const workspaceErrors: Record<string, string> = {
   "invalid-problem": "문제 정의는 1자 이상 4,000자 이하로 입력해 주세요.",
@@ -38,6 +39,14 @@ const hypothesisStatusLabels: Record<string, string> = {
   refuted: "반박됨",
   held: "보류",
 };
+
+function formatSavedAt(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(value));
+}
 
 export default async function ProjectWorkspacePage({
   params,
@@ -138,8 +147,18 @@ export default async function ProjectWorkspacePage({
                 required
               />
             </label>
-            <div>
-              <button className="button">문제 정의 저장</button>
+            <div className="row save-row">
+              <WorkspaceSubmitButton
+                label="문제 정의 저장"
+                pendingLabel="저장 중…"
+              />
+              {problem.data ? (
+                <span className="success" aria-live="polite">
+                  저장됨 · 마지막 저장 {formatSavedAt(problem.data.updated_at)}
+                </span>
+              ) : (
+                <span className="muted">아직 저장된 문제 정의가 없습니다.</span>
+              )}
             </div>
           </form>
         )}
@@ -156,7 +175,7 @@ export default async function ProjectWorkspacePage({
             <textarea name="statement" maxLength={2000} rows={4} required />
           </label>
           <div>
-            <button className="button">가설 추가</button>
+            <WorkspaceSubmitButton label="가설 추가" pendingLabel="추가 중…" />
           </div>
         </form>
 
@@ -178,7 +197,11 @@ export default async function ProjectWorkspacePage({
                       </option>
                     ))}
                   </select>
-                  <button className="button secondary">상태 저장</button>
+                  <WorkspaceSubmitButton
+                    label="상태 저장"
+                    pendingLabel="저장 중…"
+                    className="button secondary"
+                  />
                 </form>
               </li>
             ))}
@@ -199,7 +222,10 @@ export default async function ProjectWorkspacePage({
             <textarea name="body" maxLength={10000} rows={6} required />
           </label>
           <div>
-            <button className="button">Rough Note 저장</button>
+            <WorkspaceSubmitButton
+              label="Rough Note 저장"
+              pendingLabel="저장 중…"
+            />
           </div>
         </form>
 
