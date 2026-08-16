@@ -117,9 +117,30 @@ foreach ($Leaf in $Additive) {
   $PreviousSequence = $Sequence
 }
 
+$ProjectInsertAlignmentLeaf = '20260817000000_buildmap_14_project_insert_owner_policy_alignment.sql'
+$ProjectInsertAlignmentPath = Join-Path $FormalDirectory $ProjectInsertAlignmentLeaf
+if (-not (Test-Path -LiteralPath $ProjectInsertAlignmentPath -PathType Leaf)) {
+  throw "Required project INSERT ownership alignment migration is missing: $ProjectInsertAlignmentLeaf"
+}
+
+$ProjectInsertAlignmentText = [IO.File]::ReadAllText($ProjectInsertAlignmentPath)
+if ($ProjectInsertAlignmentText -notmatch '(?is)drop\s+policy\s+if\s+exists\s+projects_insert_owner_builder_draft\s+on\s+public\.projects') {
+  throw 'Migration 14 must replace the existing Project INSERT policy.'
+}
+if ($ProjectInsertAlignmentText -notmatch '(?is)create\s+policy\s+projects_insert_owner_builder_draft\s+on\s+public\.projects\s+for\s+insert\s+to\s+authenticated') {
+  throw 'Migration 14 must recreate the authenticated Project INSERT policy.'
+}
+if ($ProjectInsertAlignmentText -notmatch '(?is)public\.is_project_owner_by_builder\s*\(\s*owner_builder_profile_id\s*\)') {
+  throw 'Project INSERT ownership must use public.is_project_owner_by_builder(owner_builder_profile_id).'
+}
+if ($ProjectInsertAlignmentText -match '(?is)join\s+public\.user_profiles') {
+  throw 'Migration 14 must not reintroduce the inline Project INSERT ownership join.'
+}
+
 Write-Host "HistoricalMigrationCount: $($Rows.Count)"
 Write-Host "AdditiveMigrationCount: $($Additive.Count)"
 Write-Host 'HistoricalMigrationIntegrity: PASS'
 Write-Host 'Phase31ProtectedIntegrity: PASS'
+Write-Host 'ProjectInsertOwnerPolicyContract: PASS'
 Write-Host 'ProductionDeploymentDecision: OUT_OF_SCOPE'
 Write-Host 'DatabaseContractResult: PASS'
