@@ -87,7 +87,7 @@ export default async function ProjectWorkspacePage({
       .maybeSingle(),
     supabase
       .from("hypotheses")
-      .select("id, statement, status, created_at")
+      .select("id, statement, status, created_at, updated_at")
       .eq("project_id", projectId)
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
@@ -203,6 +203,11 @@ export default async function ProjectWorkspacePage({
                     className="button secondary"
                   />
                 </form>
+                <small className="success" aria-live="polite">
+                  현재 저장 상태: {hypothesisStatusLabels[hypothesis.status] ?? hypothesis.status}
+                  {" · 마지막 변경 "}
+                  {formatSavedAt(hypothesis.updated_at)}
+                </small>
               </li>
             ))}
           </ul>
