@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { signInAction, signUpAction } from "./actions";
 
 type SubmitIntent = "signin" | "signup" | null;
@@ -9,7 +9,7 @@ export function AuthForm() {
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState<SubmitIntent>(null);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     if (submittingRef.current) {
       event.preventDefault();
       return;
@@ -31,7 +31,13 @@ export function AuthForm() {
     <form className="stack" onSubmit={handleSubmit} aria-busy={busy}>
       <label className="field">
         <span>이메일</span>
-        <input name="email" type="email" autoComplete="email" required disabled={busy} />
+        <input
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          readOnly={busy}
+        />
       </label>
       <label className="field">
         <span>비밀번호</span>
@@ -41,7 +47,7 @@ export function AuthForm() {
           autoComplete="current-password"
           minLength={8}
           required
-          disabled={busy}
+          readOnly={busy}
         />
       </label>
       <div className="row">
