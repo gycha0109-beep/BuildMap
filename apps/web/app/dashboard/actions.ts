@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
@@ -31,23 +32,21 @@ export async function createProjectAction(formData: FormData) {
   }
 
   const { supabase, context } = await authenticatedContext();
+  const projectId = randomUUID();
 
-  const inserted = await supabase
-    .from("projects")
-    .insert({
-      owner_builder_profile_id: context.builderProfileId,
-      title,
-      one_line_description: description || null,
-    })
-    .select("id")
-    .single();
+  const inserted = await supabase.from("projects").insert({
+    id: projectId,
+    owner_builder_profile_id: context.builderProfileId,
+    title,
+    one_line_description: description || null,
+  });
 
   if (inserted.error) {
     redirect("/dashboard?error=project-create");
   }
 
   revalidatePath("/dashboard");
-  redirect(`/projects/${inserted.data.id}`);
+  redirect(`/projects/${projectId}`);
 }
 
 export async function signOutAction() {
