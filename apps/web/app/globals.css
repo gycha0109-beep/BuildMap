@@ -7,6 +7,7 @@
   --line: #dde1e6;
   --accent: #1f5eff;
   --danger: #b42318;
+  --success: #067647;
 }
 
 * {
@@ -73,6 +74,10 @@ select {
   flex-wrap: wrap;
 }
 
+.save-row {
+  justify-content: flex-start;
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -126,6 +131,11 @@ select {
 
 .error {
   color: var(--danger);
+}
+
+.success {
+  color: var(--success);
+  font-weight: 600;
 }
 
 .project-list {
