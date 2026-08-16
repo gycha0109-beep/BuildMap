@@ -18,6 +18,16 @@ const workspaceErrors: Record<string, string> = {
   "hypothesis-update": "가설 상태를 변경하지 못했습니다.",
   "invalid-note": "Rough Note는 1자 이상 10,000자 이하로 입력해 주세요.",
   "note-create": "Rough Note를 저장하지 못했습니다.",
+  "invalid-ai-source": "AI 구조화에 사용할 Rough Note 상태를 확인해 주세요.",
+  "ai-draft-create": "AI Draft 생성 상태를 저장하지 못했습니다.",
+  "ai-draft-exists": "이 Rough Note에는 이미 검토 중인 AI Draft가 있습니다.",
+  "ai-generation": "AI 구조화에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+  "ai-draft-save": "AI Draft를 저장하지 못했습니다.",
+  "invalid-ai-draft": "AI Draft의 유형, 제목, 요약 또는 입력 길이를 확인해 주세요.",
+  "ai-draft-convert": "AI Draft를 Change Card 초안으로 전환하지 못했습니다.",
+  "invalid-change-card": "Change Card의 필수 항목을 확인해 주세요.",
+  "change-card-save": "Change Card를 저장하지 못했습니다.",
+  "change-card-approve": "Change Card를 승인하지 못했습니다.",
 };
 
 const hypothesisStatusLabels: Record<string, string> = {
@@ -180,7 +190,7 @@ export default async function ProjectWorkspacePage({
         <div>
           <h2>Rough Notes</h2>
           <p className="muted">
-            판단 과정에서 나온 거친 메모를 먼저 남깁니다. AI 구조화는 다음 단계에서 연결합니다.
+            판단 과정에서 나온 거친 메모를 먼저 남깁니다. 아래 AI Structured Draft 영역에서 선택한 메모를 구조화할 수 있습니다.
           </p>
         </div>
         <form className="stack" action={createRoughNote}>
