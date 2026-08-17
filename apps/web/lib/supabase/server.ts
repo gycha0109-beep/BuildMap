@@ -11,14 +11,9 @@ function requireEnv(name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_PUB
 
 export async function createClient() {
   const cookieStore = await cookies();
-  const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-
-  console.info("BuildMap Supabase runtime target", {
-    hostname: new URL(supabaseUrl).hostname,
-  });
 
   return createServerClient(
-    supabaseUrl,
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
     {
       cookies: {
