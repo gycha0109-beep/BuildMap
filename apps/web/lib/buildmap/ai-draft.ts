@@ -55,7 +55,7 @@ export async function generateStructuredDraft(
   roughNote: string,
 ): Promise<GeneratedAiDraft> {
   const { object } = await generateObject({
-    model: "openai/gpt-5-mini",
+    model: "openai/gpt-5-nano",
     schema: structuredDraftSchema,
     system: [
       "You structure a Builder's rough project note into a conservative BuildMap Change Card draft.",
