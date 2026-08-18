@@ -93,13 +93,9 @@ export default async function DecisionsPage({
                 {rows.map((card, index) => (
                   <div className="timeline-item" id={`decision-${card.id}`} key={card.id}>
                     <div className="metadata-row" style={{ marginBottom: 7 }}>
-                      {card.approved_at ? <span>{formatDateTime(card.approved_at)}</span> : null}
                       <span>
                         Decision {index + 1} / {rows.length}
                       </span>
-                      {card.importance === "major_turning_point" ? (
-                        <Badge tone="review">주요 전환점</Badge>
-                      ) : null}
                     </div>
                     <DecisionCard card={card} />
                   </div>
