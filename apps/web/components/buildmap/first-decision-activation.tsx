@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import styles from "./first-decision-activation.module.css";
 
 export function FirstDecisionActivation({
   projectId,
@@ -26,33 +27,37 @@ export function FirstDecisionActivation({
       : "프로젝트 설명을 더 작성할 필요 없습니다. 만드는 과정에서 생긴 중요한 일을 그대로 남겨 첫 Decision을 시작하세요.";
 
   return (
-    <section className="activation-card" aria-label="첫 Decision 진행 상태">
-      <div className="activation-head">
+    <section className={styles.card} aria-label="첫 Decision 진행 상태">
+      <div className={styles.head}>
         <div>
           <p className="section-kicker">First decision</p>
           <h2>첫 판단 기록까지</h2>
           <p className="section-help">{message}</p>
         </div>
-        {reviewReady ? <Badge tone="review">Review {reviewCount}</Badge> : <Badge tone="primary">시작하기</Badge>}
+        {reviewReady ? (
+          <Badge tone="review">Review {reviewCount}</Badge>
+        ) : (
+          <Badge tone="primary">시작하기</Badge>
+        )}
       </div>
 
-      <div className="activation-steps">
-        <div className={`activation-step ${hasCapture ? "complete" : "active"}`}>
-          <span className="activation-index">1</span>
+      <div className={styles.steps}>
+        <div className={`${styles.step} ${hasCapture ? styles.complete : styles.active}`}>
+          <span className={styles.index}>1</span>
           <div>
             <strong>Capture</strong>
             <span>{hasCapture ? "첫 기록 저장됨" : "무슨 일이 있었는지 적기"}</span>
           </div>
         </div>
-        <div className={`activation-step ${reviewReady ? "active" : "waiting"}`}>
-          <span className="activation-index">2</span>
+        <div className={`${styles.step} ${reviewReady ? styles.active : styles.waiting}`}>
+          <span className={styles.index}>2</span>
           <div>
             <strong>Review</strong>
             <span>{reviewReady ? "판단 후보 확인 필요" : "AI 후보가 생기면 열림"}</span>
           </div>
         </div>
-        <div className="activation-step waiting">
-          <span className="activation-index">3</span>
+        <div className={`${styles.step} ${styles.waiting}`}>
+          <span className={styles.index}>3</span>
           <div>
             <strong>Decision</strong>
             <span>Builder가 공식 판단으로 확정</span>
@@ -60,7 +65,7 @@ export function FirstDecisionActivation({
         </div>
       </div>
 
-      <div className="activation-action">
+      <div className={styles.action}>
         <Link className="button" href={href}>
           {actionLabel}
         </Link>
