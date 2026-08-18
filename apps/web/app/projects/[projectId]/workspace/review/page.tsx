@@ -1,19 +1,13 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
-import {
-  cardTypeLabels,
-  draftStatusLabels,
-  workspaceErrors,
-} from "@/lib/buildmap/presentation";
+import { cardTypeLabels, workspaceErrors } from "@/lib/buildmap/presentation";
 import { createClient } from "@/lib/supabase/server";
-import {
-  approveChangeCardAction,
-  convertAiDraftAction,
-  updateAiDraftAction,
-  updateChangeCardDraftAction,
-} from "../../actions";
 import { assessExistingCaptureAction } from "../../capture-actions";
+import {
+  finalizeAiCandidateAction,
+  finalizePendingDecisionAction,
+} from "../../decision-actions";
 
 export default async function ReviewQueuePage({
   params,
@@ -47,16 +41,14 @@ export default async function ReviewQueuePage({
       supabase
         .from("ai_structured_drafts")
         .select(
-          "id, rough_note_id, suggested_type, suggested_title, structured_summary, evidence, decision, change_content, next_check, status, error_message, converted_change_card_id, created_at",
+          "id, rough_note_id, suggested_type, suggested_title, structured_summary, evidence, decision, change_content, next_check, status, converted_change_card_id, created_at",
         )
         .eq("project_id", projectId)
         .is("archived_at", null)
         .order("created_at", { ascending: false }),
       supabase
         .from("change_cards")
-        .select(
-          "id, card_type, title, structured_summary, evidence, decision, change_content, next_check, work_status, visibility_status, importance, approved_at, created_at",
-        )
+        .select("id, card_type, title, work_status, importance, created_at")
         .eq("project_id", projectId)
         .is("archived_at", null)
         .order("created_at", { ascending: false }),
@@ -65,28 +57,31 @@ export default async function ReviewQueuePage({
   const query = await searchParams;
   const error = typeof query.error === "string" ? workspaceErrors[query.error] : undefined;
 
-  const generateDraft = assessExistingCaptureAction.bind(null, projectId);
-  const saveDraft = updateAiDraftAction.bind(null, projectId);
-  const convertDraft = convertAiDraftAction.bind(null, projectId);
-  const saveChangeCard = updateChangeCardDraftAction.bind(null, projectId);
-  const approveChangeCard = approveChangeCardAction.bind(null, projectId);
+  const assessCapture = assessExistingCaptureAction.bind(null, projectId);
+  const finalizeCandidate = finalizeAiCandidateAction.bind(null, projectId);
+  const finalizePending = finalizePendingDecisionAction.bind(null, projectId);
 
   const activeDraftNoteIds = new Set(
     (aiDrafts.data ?? [])
-      .filter((draft) => ["generating", "generated", "editing", "held"].includes(draft.status))
+      .filter((draft) =>
+        ["generating", "generated", "editing", "held", "converted_to_change_card"].includes(
+          draft.status,
+        ),
+      )
       .map((draft) => draft.rough_note_id)
       .filter((id): id is string => Boolean(id)),
   );
+
   const eligibleNotes = (roughNotes.data ?? []).filter(
     (note) => !note.converted_to_change_card_at && !activeDraftNoteIds.has(note.id),
   );
   const reviewDrafts = (aiDrafts.data ?? []).filter((draft) =>
     ["generating", "generated", "editing"].includes(draft.status),
   );
-  const reviewCards = (changeCards.data ?? []).filter(
-    (card) => card.work_status !== "approved",
+  const pendingDecisions = (changeCards.data ?? []).filter((card) =>
+    ["draft", "editing"].includes(card.work_status),
   );
-  const totalQueue = eligibleNotes.length + reviewDrafts.length + reviewCards.length;
+  const totalQueue = eligibleNotes.length + reviewDrafts.length + pendingDecisions.length;
 
   return (
     <div className="page-stack">
@@ -95,7 +90,7 @@ export default async function ReviewQueuePage({
           <p className="section-kicker">Workspace</p>
           <h2 style={{ marginBottom: 5 }}>Review</h2>
           <p className="section-help">
-            AI가 중요한 판단 후보로 올린 Capture를 Builder가 검토합니다.
+            AI가 올린 판단 후보를 확인하고 한 번의 승인으로 공식 Decision에 기록합니다.
           </p>
         </div>
         <nav className="workspace-mode-nav" aria-label="Workspace mode">
@@ -113,14 +108,14 @@ export default async function ReviewQueuePage({
 
       {error ? <div className="alert error">{error}</div> : null}
 
-      {roughNotes.error || aiDrafts.error || changeCards.error ? (
+      {roughNotes.error || problemDefinitions.error || hypotheses.error || aiDrafts.error || changeCards.error ? (
         <div className="alert error">검토 대기 항목 일부를 불러오지 못했습니다.</div>
       ) : null}
 
       {totalQueue === 0 ? (
         <div className="empty-state">
           <strong>검토할 항목이 없습니다.</strong>
-          <span>새 Capture를 남기거나 Decisions에서 승인된 기록을 확인하세요.</span>
+          <span>새 Capture를 남기거나 Decisions에서 공식 기록을 확인하세요.</span>
           <Link className="button" href={`/projects/${projectId}/workspace`}>
             Capture 작성
           </Link>
@@ -131,10 +126,10 @@ export default async function ReviewQueuePage({
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">Source captures</p>
-              <h2>AI 판단 대기</h2>
+              <p className="section-kicker">Retry</p>
+              <h2>AI 판단 다시 시도</h2>
               <p className="section-help">
-                원문을 그대로 보존한 채 중요한 판단 후보인지 먼저 분류합니다.
+                Capture 원문은 이미 저장되어 있습니다. AI 판단에 실패한 항목만 다시 처리합니다.
               </p>
             </div>
             <Badge>{eligibleNotes.length}</Badge>
@@ -146,10 +141,12 @@ export default async function ReviewQueuePage({
                 <div className="record-card-body">
                   <div className="row">
                     <Badge>Capture</Badge>
-                    <span className="muted">원문</span>
+                    <span className="muted">원문 보존됨</span>
                   </div>
-                  <p className="note-body" style={{ marginTop: 14 }}>{note.body}</p>
-                  <form action={generateDraft}>
+                  <p className="note-body" style={{ marginTop: 14 }}>
+                    {note.body}
+                  </p>
+                  <form action={assessCapture}>
                     <input type="hidden" name="roughNoteId" value={note.id} />
                     <SubmitButton label="AI 판단 다시 시도" pendingLabel="판단 중…" />
                   </form>
@@ -164,10 +161,10 @@ export default async function ReviewQueuePage({
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">AI candidates</p>
-              <h2>AI Structured Draft</h2>
+              <p className="section-kicker">Decision candidates</p>
+              <h2>검토할 판단 후보</h2>
               <p className="section-help">
-                AI가 중요한 판단 후보로 분류한 제안입니다. Builder가 직접 검토·수정해야 Change Card가 됩니다.
+                필요한 부분만 고친 뒤 Decision으로 기록하세요. 별도 Change Card 작성 단계는 없습니다.
               </p>
             </div>
             <Badge tone="ai">{reviewDrafts.length}</Badge>
@@ -178,10 +175,10 @@ export default async function ReviewQueuePage({
               if (draft.status === "generating") {
                 return (
                   <article className="ai-card" key={draft.id}>
-                    <Badge tone="ai">생성 중</Badge>
-                    <h3 style={{ margin: "12px 0 6px" }}>Capture를 판단하고 있습니다.</h3>
+                    <Badge tone="ai">판단 중</Badge>
+                    <h3 style={{ margin: "12px 0 6px" }}>Capture를 분석하고 있습니다.</h3>
                     <p className="muted" style={{ marginBottom: 0 }}>
-                      완료 후 Builder 검토가 필요한 후보만 표시됩니다.
+                      중요한 판단 후보로 분류된 경우에만 검토 항목으로 남습니다.
                     </p>
                   </article>
                 );
@@ -192,19 +189,19 @@ export default async function ReviewQueuePage({
                   <div className="section-head">
                     <div>
                       <div className="row" style={{ justifyContent: "flex-start" }}>
-                        <Badge tone="ai">AI Draft</Badge>
-                        <Badge tone="review">Builder review required</Badge>
+                        <Badge tone="ai">AI Candidate</Badge>
+                        <Badge tone="review">Builder 확인 필요</Badge>
                       </div>
                       <h3 style={{ margin: "12px 0 5px" }}>
-                        {draft.suggested_title || "제목 없는 AI Draft"}
+                        {draft.suggested_title || "제목 없는 판단 후보"}
                       </h3>
                       <p className="section-help">
-                        AI 내용은 그대로 승인되지 않습니다. 비어 있는 필드는 억지로 채우지 않아도 됩니다.
+                        AI는 후보만 제안합니다. 아래 내용은 Builder가 확인한 뒤에만 공식 Decision이 됩니다.
                       </p>
                     </div>
                   </div>
 
-                  <form className="stack" action={saveDraft}>
+                  <form className="stack" action={finalizeCandidate}>
                     <input type="hidden" name="draftId" value={draft.id} />
 
                     <div className="form-grid-2">
@@ -215,7 +212,9 @@ export default async function ReviewQueuePage({
                           defaultValue={draft.suggested_type || "decision_changed"}
                         >
                           {Object.entries(cardTypeLabels).map(([value, label]) => (
-                            <option value={value} key={value}>{label}</option>
+                            <option value={value} key={value}>
+                              {label}
+                            </option>
                           ))}
                         </select>
                       </label>
@@ -231,7 +230,7 @@ export default async function ReviewQueuePage({
                     </div>
 
                     <label className="field">
-                      <span>구조화 요약</span>
+                      <span>무슨 일이 있었나</span>
                       <textarea
                         name="structuredSummary"
                         defaultValue={draft.structured_summary ?? ""}
@@ -244,25 +243,45 @@ export default async function ReviewQueuePage({
                     <div className="form-grid-2">
                       <label className="field">
                         <span>근거</span>
-                        <textarea name="evidence" defaultValue={draft.evidence ?? ""} maxLength={10000} rows={4} />
+                        <textarea
+                          name="evidence"
+                          defaultValue={draft.evidence ?? ""}
+                          maxLength={10000}
+                          rows={4}
+                        />
                       </label>
                       <label className="field">
                         <span>판단</span>
-                        <textarea name="decision" defaultValue={draft.decision ?? ""} maxLength={10000} rows={4} />
+                        <textarea
+                          name="decision"
+                          defaultValue={draft.decision ?? ""}
+                          maxLength={10000}
+                          rows={4}
+                        />
                       </label>
                       <label className="field">
-                        <span>변경</span>
-                        <textarea name="changeContent" defaultValue={draft.change_content ?? ""} maxLength={10000} rows={4} />
+                        <span>무엇을 바꿨나</span>
+                        <textarea
+                          name="changeContent"
+                          defaultValue={draft.change_content ?? ""}
+                          maxLength={10000}
+                          rows={4}
+                        />
                       </label>
                       <label className="field">
                         <span>다음 확인</span>
-                        <textarea name="nextCheck" defaultValue={draft.next_check ?? ""} maxLength={10000} rows={4} />
+                        <textarea
+                          name="nextCheck"
+                          defaultValue={draft.next_check ?? ""}
+                          maxLength={10000}
+                          rows={4}
+                        />
                       </label>
                     </div>
 
                     <div className="form-grid-3">
                       <label className="field">
-                        <span>연결할 문제 정의</span>
+                        <span>문제 연결 · 선택</span>
                         <select name="problemDefinitionId" defaultValue="">
                           <option value="">연결 안 함</option>
                           {(problemDefinitions.data ?? []).map((problem) => (
@@ -273,7 +292,7 @@ export default async function ReviewQueuePage({
                         </select>
                       </label>
                       <label className="field">
-                        <span>연결할 가설</span>
+                        <span>가설 연결 · 선택</span>
                         <select name="hypothesisId" defaultValue="">
                           <option value="">연결 안 함</option>
                           {(hypotheses.data ?? []).map((hypothesis) => (
@@ -293,13 +312,11 @@ export default async function ReviewQueuePage({
                     </div>
 
                     <div className="card-actions">
-                      <button className="button secondary" type="submit">
-                        AI 초안 저장
-                      </button>
-                      <button className="button" type="submit" formAction={convertDraft}>
-                        Change Card로 전환
-                      </button>
+                      <SubmitButton label="Decision으로 기록" pendingLabel="기록 중…" />
                     </div>
+                    <p className="muted" style={{ marginBottom: 0 }}>
+                      기록하면 현재 검토 내용이 Builder의 공식 Decision으로 확정됩니다.
+                    </p>
                   </form>
                 </article>
               );
@@ -308,101 +325,35 @@ export default async function ReviewQueuePage({
         </section>
       ) : null}
 
-      {reviewCards.length > 0 ? (
+      {pendingDecisions.length > 0 ? (
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">Builder decision</p>
-              <h2>Change Card Review</h2>
+              <p className="section-kicker">Recovery</p>
+              <h2>기록 마무리 필요</h2>
               <p className="section-help">
-                이제 AI 제안이 아니라 Builder가 책임지는 판단입니다. 저장 후 별도 승인으로 공식 기록을 확정합니다.
+                Candidate 변환은 끝났지만 승인까지 완료되지 않은 기록입니다. 저장된 내용을 그대로 확정합니다.
               </p>
             </div>
-            <Badge tone="review">{reviewCards.length}</Badge>
+            <Badge tone="review">{pendingDecisions.length}</Badge>
           </div>
 
-          <div className="page-stack" style={{ gap: 14 }}>
-            {reviewCards.map((card) => (
+          <div className="page-stack" style={{ gap: 12 }}>
+            {pendingDecisions.map((card) => (
               <article className="review-card" key={card.id}>
-                <div className="section-head">
+                <div className="row">
                   <div>
                     <div className="row" style={{ justifyContent: "flex-start" }}>
-                      <Badge tone="review">Builder 검토 중</Badge>
+                      <Badge tone="review">승인 대기</Badge>
                       <Badge>{cardTypeLabels[card.card_type] || card.card_type}</Badge>
                     </div>
-                    <h3 style={{ margin: "12px 0 5px" }}>{card.title}</h3>
-                    <p className="section-help">승인 전까지 자유롭게 내용을 수정할 수 있습니다.</p>
+                    <h3 style={{ margin: "12px 0 0" }}>{card.title}</h3>
                   </div>
+                  <form action={finalizePending}>
+                    <input type="hidden" name="changeCardId" value={card.id} />
+                    <SubmitButton label="Decision으로 확정" pendingLabel="확정 중…" />
+                  </form>
                 </div>
-
-                <form className="stack" action={saveChangeCard}>
-                  <input type="hidden" name="changeCardId" value={card.id} />
-                  <div className="form-grid-2">
-                    <label className="field">
-                      <span>변화 유형</span>
-                      <select name="cardType" defaultValue={card.card_type}>
-                        {Object.entries(cardTypeLabels).map(([value, label]) => (
-                          <option value={value} key={value}>{label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span>제목</span>
-                      <input name="title" defaultValue={card.title} maxLength={500} required />
-                    </label>
-                  </div>
-
-                  <label className="field">
-                    <span>구조화 요약</span>
-                    <textarea
-                      name="structuredSummary"
-                      defaultValue={card.structured_summary}
-                      maxLength={10000}
-                      rows={4}
-                      required
-                    />
-                  </label>
-
-                  <div className="form-grid-2">
-                    <label className="field">
-                      <span>근거</span>
-                      <textarea name="evidence" defaultValue={card.evidence ?? ""} maxLength={10000} rows={4} />
-                    </label>
-                    <label className="field">
-                      <span>판단</span>
-                      <textarea name="decision" defaultValue={card.decision ?? ""} maxLength={10000} rows={4} />
-                    </label>
-                    <label className="field">
-                      <span>변경</span>
-                      <textarea name="changeContent" defaultValue={card.change_content ?? ""} maxLength={10000} rows={4} />
-                    </label>
-                    <label className="field">
-                      <span>다음 확인</span>
-                      <textarea name="nextCheck" defaultValue={card.next_check ?? ""} maxLength={10000} rows={4} />
-                    </label>
-                  </div>
-
-                  <label className="field">
-                    <span>중요도</span>
-                    <select name="importance" defaultValue={card.importance}>
-                      <option value="normal">일반</option>
-                      <option value="major_turning_point">주요 전환점</option>
-                    </select>
-                  </label>
-
-                  <div className="card-actions">
-                    <SubmitButton
-                      label="Change Card 저장"
-                      pendingLabel="저장 중…"
-                      className="button secondary"
-                    />
-                  </div>
-                </form>
-
-                <form className="card-actions" action={approveChangeCard}>
-                  <input type="hidden" name="changeCardId" value={card.id} />
-                  <SubmitButton label="현재 저장된 내용 승인" pendingLabel="승인 중…" />
-                </form>
               </article>
             ))}
           </div>
