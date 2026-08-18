@@ -26,12 +26,12 @@ export const cardTypeLabels: Record<string, string> = {
 };
 
 export const draftStatusLabels: Record<string, string> = {
-  generating: "생성 중",
-  generated: "AI 초안",
-  editing: "Builder 수정 중",
-  converted_to_change_card: "Change Card 전환됨",
+  generating: "판단 중",
+  generated: "판단 후보",
+  editing: "Builder 검토 중",
+  converted_to_change_card: "Decision 기록 전환됨",
   held: "보류",
-  failed: "생성 실패",
+  failed: "판단 실패",
 };
 
 export const workspaceErrors: Record<string, string> = {
@@ -48,21 +48,21 @@ export const workspaceErrors: Record<string, string> = {
   "capture-ai-queue": "Capture는 저장했습니다. AI 판단을 시작하지 못했으므로 Review에서 다시 시도할 수 있습니다.",
   "capture-ai-generation": "Capture는 저장했습니다. AI 판단에 실패했으므로 Review에서 다시 시도할 수 있습니다.",
   "capture-ai-save": "Capture는 저장했습니다. AI 판단 결과를 저장하지 못했으므로 Review에서 다시 시도할 수 있습니다.",
-  "invalid-ai-source": "AI 구조화에 사용할 Capture 상태를 확인해 주세요.",
-  "ai-draft-create": "AI Draft 생성 상태를 저장하지 못했습니다.",
-  "ai-draft-exists": "이 Capture에는 이미 검토 중인 AI Draft가 있습니다.",
-  "ai-generation": "AI 구조화에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-  "ai-draft-save": "AI Draft를 저장하지 못했습니다.",
-  "invalid-ai-draft": "AI Draft의 유형, 제목, 요약 또는 입력 길이를 확인해 주세요.",
-  "ai-draft-convert": "AI Draft를 Change Card 초안으로 전환하지 못했습니다.",
-  "invalid-change-card": "Change Card의 필수 항목을 확인해 주세요.",
-  "change-card-save": "Change Card를 저장하지 못했습니다.",
-  "change-card-approve": "Change Card를 승인하지 못했습니다.",
+  "invalid-ai-source": "AI 판단에 사용할 Capture 상태를 확인해 주세요.",
+  "ai-draft-create": "AI 판단 상태를 저장하지 못했습니다.",
+  "ai-draft-exists": "이 Capture에는 이미 검토 중인 판단 후보가 있습니다.",
+  "ai-generation": "AI 판단에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+  "ai-draft-save": "판단 후보를 저장하지 못했습니다.",
+  "invalid-ai-draft": "판단 후보의 유형, 제목, 요약 또는 입력 길이를 확인해 주세요.",
+  "ai-draft-convert": "판단 후보를 Decision 기록으로 전환하지 못했습니다.",
+  "invalid-change-card": "Decision 기록의 필수 항목을 확인해 주세요.",
+  "change-card-save": "Decision 기록을 저장하지 못했습니다.",
+  "change-card-approve": "Decision을 확정하지 못했습니다.",
   "invalid-decision-candidate": "판단 후보의 유형, 제목, 요약 또는 입력 길이를 확인해 주세요.",
   "decision-candidate-unavailable": "이 판단 후보는 더 이상 기록 가능한 상태가 아닙니다.",
   "decision-finalize-convert": "판단 후보를 Decision 기록으로 전환하지 못했습니다. 다시 시도해 주세요.",
-  "decision-finalize-approve": "Decision 기록은 생성됐지만 최종 승인을 완료하지 못했습니다. 아래 복구 항목에서 다시 확정할 수 있습니다.",
-  "invalid-pending-decision": "승인을 마무리할 Decision 기록 상태를 확인해 주세요.",
+  "decision-finalize-approve": "Decision 기록은 생성됐지만 최종 확정을 완료하지 못했습니다. 아래 복구 항목에서 다시 확정할 수 있습니다.",
+  "invalid-pending-decision": "확정을 마무리할 Decision 기록 상태를 확인해 주세요.",
 };
 
 export const workspaceNotices: Record<string, string> = {
