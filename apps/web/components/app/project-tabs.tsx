@@ -8,7 +8,8 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
   const root = `/projects/${projectId}`;
   const tabs = [
     { href: root, label: "Overview", exact: true },
-    { href: `${root}/workspace`, label: "Workspace", exact: false },
+    { href: `${root}/workspace`, label: "Capture", exact: true },
+    { href: `${root}/workspace/review`, label: "Review", exact: false },
     { href: `${root}/decisions`, label: "Decisions", exact: false },
   ];
 
