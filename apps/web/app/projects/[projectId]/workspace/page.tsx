@@ -59,22 +59,12 @@ export default async function WorkspacePage({
 
   return (
     <div className="page-stack">
-      <div className="row">
-        <div>
-          <p className="section-kicker">Workspace</p>
-          <h2 style={{ marginBottom: 5 }}>Capture</h2>
-          <p className="section-help">
-            정리하지 말고 먼저 적으세요. BuildMap이 중요한 판단 후보인지 보수적으로 분류합니다.
-          </p>
-        </div>
-        <nav className="workspace-mode-nav" aria-label="Workspace mode">
-          <Link className="workspace-mode-link active" href={`/projects/${projectId}/workspace`}>
-            Capture
-          </Link>
-          <Link className="workspace-mode-link" href={`/projects/${projectId}/workspace/review`}>
-            Review
-          </Link>
-        </nav>
+      <div>
+        <p className="section-kicker">Capture</p>
+        <h2 style={{ marginBottom: 5 }}>중요한 변화가 생기면 먼저 남기세요</h2>
+        <p className="section-help">
+          정리하지 말고 먼저 적으세요. BuildMap이 중요한 판단 후보인지 보수적으로 분류합니다.
+        </p>
       </div>
 
       {error ? <div className="alert error">{error}</div> : null}
