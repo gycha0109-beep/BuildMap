@@ -58,6 +58,11 @@ export const workspaceErrors: Record<string, string> = {
   "invalid-change-card": "Change Card의 필수 항목을 확인해 주세요.",
   "change-card-save": "Change Card를 저장하지 못했습니다.",
   "change-card-approve": "Change Card를 승인하지 못했습니다.",
+  "invalid-decision-candidate": "판단 후보의 유형, 제목, 요약 또는 입력 길이를 확인해 주세요.",
+  "decision-candidate-unavailable": "이 판단 후보는 더 이상 기록 가능한 상태가 아닙니다.",
+  "decision-finalize-convert": "판단 후보를 Decision 기록으로 전환하지 못했습니다. 다시 시도해 주세요.",
+  "decision-finalize-approve": "Decision 기록은 생성됐지만 최종 승인을 완료하지 못했습니다. 아래 복구 항목에서 다시 확정할 수 있습니다.",
+  "invalid-pending-decision": "승인을 마무리할 Decision 기록 상태를 확인해 주세요.",
 };
 
 export const workspaceNotices: Record<string, string> = {
