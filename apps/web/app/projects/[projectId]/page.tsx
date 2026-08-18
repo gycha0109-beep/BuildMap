@@ -105,10 +105,17 @@ export default async function ProjectOverviewPage({
         )}
       </section>
 
-      <div className="overview-status-grid">
+      <div className="form-grid-3">
         <Link className="metric-card project-row-link" href={`/projects/${projectId}/decisions`}>
           <span className="metric-label">Latest Decision</span>
-          <strong className="overview-status-title">
+          <strong
+            style={{
+              display: "block",
+              margin: "7px 0 5px",
+              color: "var(--text-strong)",
+              fontSize: 15,
+            }}
+          >
             {latestDecision?.title ?? "아직 Decision 없음"}
           </strong>
           <span className="metric-note">
