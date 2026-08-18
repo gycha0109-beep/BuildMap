@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
 import { ProjectTabs } from "@/components/app/project-tabs";
@@ -27,7 +28,7 @@ export default async function ProjectWorkspaceLayout({
   const [project, builderProfile] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, title, one_line_description, lifecycle_status, visibility_status")
+      .select("id, title, one_line_description, lifecycle_status, visibility_status, public_slug")
       .eq("id", projectId)
       .eq("owner_builder_profile_id", context.builderProfileId)
       .is("archived_at", null)
@@ -82,6 +83,11 @@ export default async function ProjectWorkspaceLayout({
     builderName = userProfile.data?.display_name || builderName;
   }
 
+  const publicMapHref =
+    project.data.visibility_status === "public" && project.data.public_slug
+      ? `/p/${project.data.public_slug}`
+      : null;
+
   return (
     <AppShell
       builderName={builderName}
@@ -102,6 +108,13 @@ export default async function ProjectWorkspaceLayout({
               <Badge>{visibilityLabel(project.data.visibility_status)}</Badge>
             </div>
           </div>
+          {publicMapHref ? (
+            <div className="header-actions">
+              <Link className="button secondary" href={publicMapHref}>
+                Public Map ↗
+              </Link>
+            </div>
+          ) : null}
         </header>
 
         <ProjectTabs projectId={projectId} />
