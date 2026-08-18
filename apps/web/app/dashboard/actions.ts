@@ -21,6 +21,7 @@ async function authenticatedContext() {
 export async function bootstrapAccountAction() {
   await authenticatedContext();
   revalidatePath("/dashboard");
+  redirect("/dashboard");
 }
 
 export async function createProjectAction(formData: FormData) {
@@ -28,7 +29,7 @@ export async function createProjectAction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
 
   if (!title || title.length > 120 || description.length > 280) {
-    redirect("/dashboard?error=invalid-project");
+    redirect("/projects?error=invalid-project");
   }
 
   const { supabase, context } = await authenticatedContext();
@@ -42,11 +43,12 @@ export async function createProjectAction(formData: FormData) {
   });
 
   if (inserted.error) {
-    redirect("/dashboard?error=project-create");
+    redirect("/projects?error=project-create");
   }
 
   revalidatePath("/dashboard");
-  redirect(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  redirect(`/projects/${projectId}/workspace`);
 }
 
 export async function signOutAction() {

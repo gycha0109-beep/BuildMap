@@ -60,10 +60,25 @@ async function ownedProjectContext(projectId: string) {
   return { supabase, context };
 }
 
-function workspacePath(projectId: string, error?: string) {
-  return error
-    ? `/projects/${projectId}?error=${encodeURIComponent(error)}`
-    : `/projects/${projectId}`;
+function workspaceWritePath(projectId: string, error?: string) {
+  const path = `/projects/${projectId}/workspace`;
+  return error ? `${path}?error=${encodeURIComponent(error)}` : path;
+}
+
+function workspaceReviewPath(projectId: string, error?: string) {
+  const path = `/projects/${projectId}/workspace/review`;
+  return error ? `${path}?error=${encodeURIComponent(error)}` : path;
+}
+
+function decisionsPath(projectId: string) {
+  return `/projects/${projectId}/decisions`;
+}
+
+function revalidateProjectSurfaces(projectId: string) {
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(workspaceWritePath(projectId));
+  revalidatePath(workspaceReviewPath(projectId));
+  revalidatePath(decisionsPath(projectId));
 }
 
 function boundedText(formData: FormData, name: string, maxLength: number) {
@@ -116,7 +131,7 @@ export async function saveProblemDefinitionAction(
 ) {
   const currentText = String(formData.get("currentText") ?? "").trim();
   if (!currentText || currentText.length > 4000) {
-    redirect(workspacePath(projectId, "invalid-problem"));
+    redirect(workspaceWritePath(projectId, "invalid-problem"));
   }
 
   const { supabase, context } = await ownedProjectContext(projectId);
@@ -130,7 +145,7 @@ export async function saveProblemDefinitionAction(
     .maybeSingle();
 
   if (existing.error) {
-    redirect(workspacePath(projectId, "problem-save"));
+    redirect(workspaceWritePath(projectId, "problem-save"));
   }
 
   const saved = existing.data
@@ -145,11 +160,11 @@ export async function saveProblemDefinitionAction(
       });
 
   if (saved.error) {
-    redirect(workspacePath(projectId, "problem-save"));
+    redirect(workspaceWritePath(projectId, "problem-save"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceWritePath(projectId));
 }
 
 export async function createHypothesisAction(
@@ -158,7 +173,7 @@ export async function createHypothesisAction(
 ) {
   const statement = String(formData.get("statement") ?? "").trim();
   if (!statement || statement.length > 2000) {
-    redirect(workspacePath(projectId, "invalid-hypothesis"));
+    redirect(workspaceWritePath(projectId, "invalid-hypothesis"));
   }
 
   const { supabase, context } = await ownedProjectContext(projectId);
@@ -169,11 +184,11 @@ export async function createHypothesisAction(
   });
 
   if (inserted.error) {
-    redirect(workspacePath(projectId, "hypothesis-create"));
+    redirect(workspaceWritePath(projectId, "hypothesis-create"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceWritePath(projectId));
 }
 
 export async function updateHypothesisStatusAction(
@@ -184,7 +199,7 @@ export async function updateHypothesisStatusAction(
   const status = String(formData.get("status") ?? "");
 
   if (!hypothesisId || !hypothesisStatuses.has(status)) {
-    redirect(workspacePath(projectId, "invalid-hypothesis-status"));
+    redirect(workspaceWritePath(projectId, "invalid-hypothesis-status"));
   }
 
   const { supabase } = await ownedProjectContext(projectId);
@@ -195,11 +210,11 @@ export async function updateHypothesisStatusAction(
     .eq("project_id", projectId);
 
   if (updated.error) {
-    redirect(workspacePath(projectId, "hypothesis-update"));
+    redirect(workspaceWritePath(projectId, "hypothesis-update"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceWritePath(projectId));
 }
 
 export async function createRoughNoteAction(
@@ -208,7 +223,7 @@ export async function createRoughNoteAction(
 ) {
   const body = String(formData.get("body") ?? "").trim();
   if (!body || body.length > 10000) {
-    redirect(workspacePath(projectId, "invalid-note"));
+    redirect(workspaceWritePath(projectId, "invalid-note"));
   }
 
   const { supabase, context } = await ownedProjectContext(projectId);
@@ -219,11 +234,11 @@ export async function createRoughNoteAction(
   });
 
   if (inserted.error) {
-    redirect(workspacePath(projectId, "note-create"));
+    redirect(workspaceWritePath(projectId, "note-create"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceWritePath(projectId));
 }
 
 export async function generateAiDraftAction(
@@ -232,7 +247,7 @@ export async function generateAiDraftAction(
 ) {
   const roughNoteId = String(formData.get("roughNoteId") ?? "");
   if (!roughNoteId) {
-    redirect(workspacePath(projectId, "invalid-ai-source"));
+    redirect(workspaceReviewPath(projectId, "invalid-ai-source"));
   }
 
   const { supabase, context } = await ownedProjectContext(projectId);
@@ -245,7 +260,7 @@ export async function generateAiDraftAction(
     .maybeSingle();
 
   if (roughNote.error || !roughNote.data || roughNote.data.converted_to_change_card_at) {
-    redirect(workspacePath(projectId, "invalid-ai-source"));
+    redirect(workspaceReviewPath(projectId, "invalid-ai-source"));
   }
 
   const activeDraft = await supabase
@@ -259,10 +274,10 @@ export async function generateAiDraftAction(
     .maybeSingle();
 
   if (activeDraft.error) {
-    redirect(workspacePath(projectId, "ai-draft-create"));
+    redirect(workspaceReviewPath(projectId, "ai-draft-create"));
   }
   if (activeDraft.data) {
-    redirect(workspacePath(projectId, "ai-draft-exists"));
+    redirect(workspaceReviewPath(projectId, "ai-draft-exists"));
   }
 
   const failedDrafts = await supabase
@@ -275,7 +290,7 @@ export async function generateAiDraftAction(
     .order("created_at", { ascending: false });
 
   if (failedDrafts.error) {
-    redirect(workspacePath(projectId, "ai-draft-create"));
+    redirect(workspaceReviewPath(projectId, "ai-draft-create"));
   }
 
   let draftId: string;
@@ -292,7 +307,7 @@ export async function generateAiDraftAction(
         .eq("status", "failed");
 
       if (archived.error) {
-        redirect(workspacePath(projectId, "ai-draft-create"));
+        redirect(workspaceReviewPath(projectId, "ai-draft-create"));
       }
     }
 
@@ -317,7 +332,7 @@ export async function generateAiDraftAction(
       .maybeSingle();
 
     if (reset.error || !reset.data) {
-      redirect(workspacePath(projectId, "ai-draft-create"));
+      redirect(workspaceReviewPath(projectId, "ai-draft-create"));
     }
     draftId = reset.data.id;
   } else {
@@ -333,7 +348,7 @@ export async function generateAiDraftAction(
       .single();
 
     if (inserted.error) {
-      redirect(workspacePath(projectId, "ai-draft-create"));
+      redirect(workspaceReviewPath(projectId, "ai-draft-create"));
     }
     draftId = inserted.data.id;
   }
@@ -360,7 +375,7 @@ export async function generateAiDraftAction(
       .maybeSingle();
 
     if (updated.error || !updated.data) {
-      redirect(workspacePath(projectId, "ai-draft-save"));
+      redirect(workspaceReviewPath(projectId, "ai-draft-save"));
     }
   } catch (error) {
     const category = aiFailureCategory(error);
@@ -371,11 +386,11 @@ export async function generateAiDraftAction(
       .eq("id", draftId)
       .eq("project_id", projectId);
 
-    redirect(workspacePath(projectId, "ai-generation"));
+    redirect(workspaceReviewPath(projectId, "ai-generation"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceReviewPath(projectId));
 }
 
 export async function updateAiDraftAction(
@@ -401,7 +416,7 @@ export async function updateAiDraftAction(
     changeContent === null ||
     nextCheck === null
   ) {
-    redirect(workspacePath(projectId, "invalid-ai-draft"));
+    redirect(workspaceReviewPath(projectId, "invalid-ai-draft"));
   }
 
   const { supabase } = await ownedProjectContext(projectId);
@@ -425,11 +440,11 @@ export async function updateAiDraftAction(
     .maybeSingle();
 
   if (updated.error || !updated.data) {
-    redirect(workspacePath(projectId, "ai-draft-save"));
+    redirect(workspaceReviewPath(projectId, "ai-draft-save"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceReviewPath(projectId));
 }
 
 export async function convertAiDraftAction(
@@ -459,7 +474,7 @@ export async function convertAiDraftAction(
     nextCheck === null ||
     !importanceValues.has(importance)
   ) {
-    redirect(workspacePath(projectId, "invalid-ai-draft"));
+    redirect(workspaceReviewPath(projectId, "invalid-ai-draft"));
   }
 
   const { supabase } = await ownedProjectContext(projectId);
@@ -473,7 +488,7 @@ export async function convertAiDraftAction(
     .maybeSingle();
 
   if (source.error || !source.data) {
-    redirect(workspacePath(projectId, "ai-draft-convert"));
+    redirect(workspaceReviewPath(projectId, "ai-draft-convert"));
   }
 
   const converted = await supabase.rpc("convert_ai_draft_to_change_card", {
@@ -491,11 +506,11 @@ export async function convertAiDraftAction(
   });
 
   if (converted.error || !converted.data) {
-    redirect(workspacePath(projectId, "ai-draft-convert"));
+    redirect(workspaceReviewPath(projectId, "ai-draft-convert"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceReviewPath(projectId));
 }
 
 export async function updateChangeCardDraftAction(
@@ -523,7 +538,7 @@ export async function updateChangeCardDraftAction(
     nextCheck === null ||
     !importanceValues.has(importance)
   ) {
-    redirect(workspacePath(projectId, "invalid-change-card"));
+    redirect(workspaceReviewPath(projectId, "invalid-change-card"));
   }
 
   const { supabase } = await ownedProjectContext(projectId);
@@ -547,11 +562,11 @@ export async function updateChangeCardDraftAction(
     .maybeSingle();
 
   if (updated.error || !updated.data) {
-    redirect(workspacePath(projectId, "change-card-save"));
+    redirect(workspaceReviewPath(projectId, "change-card-save"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(workspaceReviewPath(projectId));
 }
 
 export async function approveChangeCardAction(
@@ -560,7 +575,7 @@ export async function approveChangeCardAction(
 ) {
   const changeCardId = String(formData.get("changeCardId") ?? "");
   if (!changeCardId) {
-    redirect(workspacePath(projectId, "invalid-change-card"));
+    redirect(workspaceReviewPath(projectId, "invalid-change-card"));
   }
 
   const { supabase, context } = await ownedProjectContext(projectId);
@@ -578,9 +593,9 @@ export async function approveChangeCardAction(
     .maybeSingle();
 
   if (approved.error || !approved.data) {
-    redirect(workspacePath(projectId, "change-card-approve"));
+    redirect(workspaceReviewPath(projectId, "change-card-approve"));
   }
 
-  revalidatePath(workspacePath(projectId));
-  redirect(workspacePath(projectId));
+  revalidateProjectSurfaces(projectId);
+  redirect(decisionsPath(projectId));
 }
