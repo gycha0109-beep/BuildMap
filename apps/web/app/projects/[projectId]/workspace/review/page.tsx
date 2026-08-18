@@ -10,10 +10,10 @@ import { createClient } from "@/lib/supabase/server";
 import {
   approveChangeCardAction,
   convertAiDraftAction,
-  generateAiDraftAction,
   updateAiDraftAction,
   updateChangeCardDraftAction,
 } from "../../actions";
+import { assessExistingCaptureAction } from "../../capture-actions";
 
 export default async function ReviewQueuePage({
   params,
@@ -65,7 +65,7 @@ export default async function ReviewQueuePage({
   const query = await searchParams;
   const error = typeof query.error === "string" ? workspaceErrors[query.error] : undefined;
 
-  const generateDraft = generateAiDraftAction.bind(null, projectId);
+  const generateDraft = assessExistingCaptureAction.bind(null, projectId);
   const saveDraft = updateAiDraftAction.bind(null, projectId);
   const convertDraft = convertAiDraftAction.bind(null, projectId);
   const saveChangeCard = updateChangeCardDraftAction.bind(null, projectId);
@@ -73,15 +73,15 @@ export default async function ReviewQueuePage({
 
   const activeDraftNoteIds = new Set(
     (aiDrafts.data ?? [])
-      .filter((draft) => ["generating", "generated", "editing"].includes(draft.status))
+      .filter((draft) => ["generating", "generated", "editing", "held"].includes(draft.status))
       .map((draft) => draft.rough_note_id)
       .filter((id): id is string => Boolean(id)),
   );
   const eligibleNotes = (roughNotes.data ?? []).filter(
     (note) => !note.converted_to_change_card_at && !activeDraftNoteIds.has(note.id),
   );
-  const reviewDrafts = (aiDrafts.data ?? []).filter(
-    (draft) => draft.status !== "converted_to_change_card",
+  const reviewDrafts = (aiDrafts.data ?? []).filter((draft) =>
+    ["generating", "generated", "editing"].includes(draft.status),
   );
   const reviewCards = (changeCards.data ?? []).filter(
     (card) => card.work_status !== "approved",
@@ -93,20 +93,20 @@ export default async function ReviewQueuePage({
       <div className="row">
         <div>
           <p className="section-kicker">Workspace</p>
-          <h2 style={{ marginBottom: 5 }}>Review Queue</h2>
+          <h2 style={{ marginBottom: 5 }}>Review</h2>
           <p className="section-help">
-            Rough Note를 구조화하고 Builder 판단으로 다듬은 뒤 공식 Decision으로 승인합니다.
+            AI가 중요한 판단 후보로 올린 Capture를 Builder가 검토합니다.
           </p>
         </div>
         <nav className="workspace-mode-nav" aria-label="Workspace mode">
           <Link className="workspace-mode-link" href={`/projects/${projectId}/workspace`}>
-            Write
+            Capture
           </Link>
           <Link
             className="workspace-mode-link active"
             href={`/projects/${projectId}/workspace/review`}
           >
-            Review Queue · {totalQueue}
+            Review · {totalQueue}
           </Link>
         </nav>
       </div>
@@ -120,9 +120,9 @@ export default async function ReviewQueuePage({
       {totalQueue === 0 ? (
         <div className="empty-state">
           <strong>검토할 항목이 없습니다.</strong>
-          <span>새 Rough Note를 작성하거나 Decisions에서 승인된 기록을 확인하세요.</span>
+          <span>새 Capture를 남기거나 Decisions에서 승인된 기록을 확인하세요.</span>
           <Link className="button" href={`/projects/${projectId}/workspace`}>
-            Rough Note 작성
+            Capture 작성
           </Link>
         </div>
       ) : null}
@@ -131,10 +131,10 @@ export default async function ReviewQueuePage({
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">Step 1 · Source notes</p>
-              <h2>AI 구조화 대기</h2>
+              <p className="section-kicker">Source captures</p>
+              <h2>AI 판단 대기</h2>
               <p className="section-help">
-                원문을 그대로 보존한 채 구조화 초안을 생성합니다. AI 결과는 공식 판단이 아닙니다.
+                원문을 그대로 보존한 채 중요한 판단 후보인지 먼저 분류합니다.
               </p>
             </div>
             <Badge>{eligibleNotes.length}</Badge>
@@ -145,13 +145,13 @@ export default async function ReviewQueuePage({
               <article className="record-card" key={note.id}>
                 <div className="record-card-body">
                   <div className="row">
-                    <Badge>Rough Note</Badge>
+                    <Badge>Capture</Badge>
                     <span className="muted">원문</span>
                   </div>
                   <p className="note-body" style={{ marginTop: 14 }}>{note.body}</p>
                   <form action={generateDraft}>
                     <input type="hidden" name="roughNoteId" value={note.id} />
-                    <SubmitButton label="AI로 구조화" pendingLabel="구조화 중…" />
+                    <SubmitButton label="AI 판단 다시 시도" pendingLabel="판단 중…" />
                   </form>
                 </div>
               </article>
@@ -164,10 +164,10 @@ export default async function ReviewQueuePage({
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">Step 2 · AI draft</p>
+              <p className="section-kicker">AI candidates</p>
               <h2>AI Structured Draft</h2>
               <p className="section-help">
-                AI가 정리한 제안입니다. Builder가 직접 검토·수정해야 Change Card가 됩니다.
+                AI가 중요한 판단 후보로 분류한 제안입니다. Builder가 직접 검토·수정해야 Change Card가 됩니다.
               </p>
             </div>
             <Badge tone="ai">{reviewDrafts.length}</Badge>
@@ -175,37 +175,14 @@ export default async function ReviewQueuePage({
 
           <div className="page-stack" style={{ gap: 14 }}>
             {reviewDrafts.map((draft) => {
-              if (draft.status === "failed") {
-                return (
-                  <article className="ai-card" key={draft.id}>
-                    <div className="row">
-                      <Badge tone="danger">{draftStatusLabels[draft.status]}</Badge>
-                      <span className="muted">다시 구조화하면 이 실패 Draft를 재사용합니다.</span>
-                    </div>
-                    <div className="alert error" style={{ marginTop: 14 }}>
-                      {draft.error_message || "AI 구조화에 실패했습니다."}
-                    </div>
-                  </article>
-                );
-              }
-
               if (draft.status === "generating") {
                 return (
                   <article className="ai-card" key={draft.id}>
                     <Badge tone="ai">생성 중</Badge>
-                    <h3 style={{ margin: "12px 0 6px" }}>Rough Note를 구조화하고 있습니다.</h3>
+                    <h3 style={{ margin: "12px 0 6px" }}>Capture를 판단하고 있습니다.</h3>
                     <p className="muted" style={{ marginBottom: 0 }}>
-                      완료 후 Builder 검토 가능한 Draft로 표시됩니다.
+                      완료 후 Builder 검토가 필요한 후보만 표시됩니다.
                     </p>
-                  </article>
-                );
-              }
-
-              if (draft.status === "held") {
-                return (
-                  <article className="ai-card" key={draft.id}>
-                    <Badge tone="review">보류</Badge>
-                    <h3 style={{ margin: "12px 0 0" }}>{draft.suggested_title || "AI Draft"}</h3>
                   </article>
                 );
               }
@@ -335,7 +312,7 @@ export default async function ReviewQueuePage({
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">Step 3 · Builder decision</p>
+              <p className="section-kicker">Builder decision</p>
               <h2>Change Card Review</h2>
               <p className="section-help">
                 이제 AI 제안이 아니라 Builder가 책임지는 판단입니다. 저장 후 별도 승인으로 공식 기록을 확정합니다.

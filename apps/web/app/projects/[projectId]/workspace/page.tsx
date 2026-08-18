@@ -6,14 +6,15 @@ import {
   hypothesisStatusLabels,
   hypothesisTone,
   workspaceErrors,
+  workspaceNotices,
 } from "@/lib/buildmap/presentation";
 import { createClient } from "@/lib/supabase/server";
 import {
   createHypothesisAction,
-  createRoughNoteAction,
   saveProblemDefinitionAction,
   updateHypothesisStatusAction,
 } from "../actions";
+import { captureAndAssessAction } from "../capture-actions";
 
 export default async function WorkspacePage({
   params,
@@ -49,40 +50,119 @@ export default async function WorkspacePage({
 
   const query = await searchParams;
   const error = typeof query.error === "string" ? workspaceErrors[query.error] : undefined;
+  const notice = typeof query.notice === "string" ? workspaceNotices[query.notice] : undefined;
 
+  const captureAndAssess = captureAndAssessAction.bind(null, projectId);
   const saveProblem = saveProblemDefinitionAction.bind(null, projectId);
   const createHypothesis = createHypothesisAction.bind(null, projectId);
   const updateHypothesisStatus = updateHypothesisStatusAction.bind(null, projectId);
-  const createRoughNote = createRoughNoteAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
       <div className="row">
         <div>
           <p className="section-kicker">Workspace</p>
-          <h2 style={{ marginBottom: 5 }}>작성과 관찰</h2>
+          <h2 style={{ marginBottom: 5 }}>Capture</h2>
           <p className="section-help">
-            문제를 정의하고 가설과 Rough Note를 축적합니다. 검토 단계는 별도 Queue에서 진행합니다.
+            정리하지 말고 먼저 적으세요. BuildMap이 중요한 판단 후보인지 보수적으로 분류합니다.
           </p>
         </div>
         <nav className="workspace-mode-nav" aria-label="Workspace mode">
           <Link className="workspace-mode-link active" href={`/projects/${projectId}/workspace`}>
-            Write
+            Capture
           </Link>
           <Link className="workspace-mode-link" href={`/projects/${projectId}/workspace/review`}>
-            Review Queue
+            Review
           </Link>
         </nav>
       </div>
 
       {error ? <div className="alert error">{error}</div> : null}
+      {notice ? <div className="alert">{notice}</div> : null}
+
+      <section className="editor-card">
+        <div className="section-head">
+          <div>
+            <p className="section-kicker">Quick capture</p>
+            <h2>오늘 프로젝트에서 무슨 일이 있었나요?</h2>
+            <p className="section-help">
+              구현 중 발견, 사용자 반응, 방향 변경, 고민을 자유롭게 적어 주세요. 원문은 AI 처리 전에 먼저 저장됩니다.
+            </p>
+          </div>
+          <Badge tone="ai">AI triage</Badge>
+        </div>
+
+        <form className="stack" action={captureAndAssess}>
+          <label className="field">
+            <span>Capture</span>
+            <textarea
+              name="body"
+              maxLength={10000}
+              rows={7}
+              placeholder="예: 거리 기반 추천으로 가려 했는데 사용자들은 여행 스타일 차이를 더 중요하게 봐서 두 신호를 같이 쓰기로 했다."
+              required
+            />
+          </label>
+          <div className="row save-row">
+            <SubmitButton label="정리하기" pendingLabel="저장하고 판단 중…" />
+            <span className="muted">단순 작업은 보관하고, 의미 있는 판단만 Review로 올립니다.</span>
+          </div>
+        </form>
+      </section>
+
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <p className="section-kicker">Recent captures</p>
+            <h2>최근 기록</h2>
+          </div>
+          <Link className="button secondary" href={`/projects/${projectId}/workspace/review`}>
+            Review 열기
+          </Link>
+        </div>
+
+        {roughNotes.error ? (
+          <div className="alert error">Capture 목록을 불러오지 못했습니다.</div>
+        ) : (roughNotes.data ?? []).length === 0 ? (
+          <div className="empty-state">
+            <strong>아직 Capture가 없습니다.</strong>
+            <span>정리되지 않은 생각 그대로 첫 기록을 남겨보세요.</span>
+          </div>
+        ) : (
+          <ul className="compact-list">
+            {(roughNotes.data ?? []).slice(0, 8).map((note) => (
+              <li className="compact-item" key={note.id}>
+                <p className="note-body">{note.body}</p>
+                <div className="row">
+                  <span className="metadata-row">{formatDateTime(note.created_at)}</span>
+                  {note.converted_to_change_card_at ? (
+                    <Badge tone="success">Decision 연결됨</Badge>
+                  ) : (
+                    <Badge>Capture 보존됨</Badge>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="row">
+        <div>
+          <p className="section-kicker">Project context · optional</p>
+          <h2 style={{ marginBottom: 5 }}>필요할 때만 맥락을 정리하세요</h2>
+          <p className="section-help">
+            문제 정의와 가설은 Capture의 선행 조건이 아닙니다. 프로젝트 맥락이 필요할 때만 유지합니다.
+          </p>
+        </div>
+      </div>
 
       <div className="workspace-grid">
         <div className="workspace-column">
           <section className="editor-card">
             <div className="section-head">
               <div>
-                <p className="section-kicker">01 · Problem definition</p>
+                <p className="section-kicker">Current problem</p>
                 <h2>현재 문제 정의</h2>
                 <p className="section-help">
                   프로젝트가 지금 해결하려는 문제를 최신 문장으로 유지합니다.
@@ -119,13 +199,15 @@ export default async function WorkspacePage({
               </form>
             )}
           </section>
+        </div>
 
+        <div className="workspace-column">
           <section className="editor-card">
             <div className="section-head">
               <div>
-                <p className="section-kicker">02 · Hypotheses</p>
+                <p className="section-kicker">Hypotheses</p>
                 <h2>가설</h2>
-                <p className="section-help">문제를 둘러싼 가정을 기록하고 검증 상태를 갱신합니다.</p>
+                <p className="section-help">필요한 경우에만 가정을 기록하고 검증 상태를 갱신합니다.</p>
               </div>
               <Badge tone="primary">{hypotheses.data?.length ?? 0}</Badge>
             </div>
@@ -153,7 +235,7 @@ export default async function WorkspacePage({
             ) : (hypotheses.data ?? []).length === 0 ? (
               <div className="empty-state">
                 <strong>아직 가설이 없습니다.</strong>
-                <span>검증하고 싶은 가정을 하나 추가하세요.</span>
+                <span>필요할 때 검증하고 싶은 가정을 추가하세요.</span>
               </div>
             ) : (
               <ul className="compact-list">
@@ -182,73 +264,6 @@ export default async function WorkspacePage({
                     </form>
                     <div className="metadata-row" style={{ marginTop: 9 }}>
                       <span>마지막 변경 {formatDateTime(hypothesis.updated_at)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        <div className="workspace-column">
-          <section className="editor-card">
-            <div className="section-head">
-              <div>
-                <p className="section-kicker">03 · Rough note</p>
-                <h2>거친 메모 남기기</h2>
-                <p className="section-help">
-                  정리하지 않아도 됩니다. 관찰, 피드백, 구현 중 발견을 먼저 남기세요.
-                </p>
-              </div>
-            </div>
-
-            <form className="stack" action={createRoughNote}>
-              <label className="field">
-                <span>새 메모</span>
-                <textarea
-                  name="body"
-                  maxLength={10000}
-                  rows={7}
-                  placeholder="예: 저장은 성공하지만 같은 화면으로 돌아와 성공 여부를 알기 어렵다."
-                  required
-                />
-              </label>
-              <div>
-                <SubmitButton label="Rough Note 저장" pendingLabel="저장 중…" />
-              </div>
-            </form>
-          </section>
-
-          <section className="surface-card">
-            <div className="section-head">
-              <div>
-                <p className="section-kicker">Recent notes</p>
-                <h2>최근 Rough Notes</h2>
-              </div>
-              <Link className="button secondary" href={`/projects/${projectId}/workspace/review`}>
-                Review Queue
-              </Link>
-            </div>
-
-            {roughNotes.error ? (
-              <div className="alert error">Rough Note 목록을 불러오지 못했습니다.</div>
-            ) : (roughNotes.data ?? []).length === 0 ? (
-              <div className="empty-state">
-                <strong>아직 Rough Note가 없습니다.</strong>
-                <span>거친 관찰을 남기면 AI 구조화 대상으로 사용할 수 있습니다.</span>
-              </div>
-            ) : (
-              <ul className="compact-list">
-                {(roughNotes.data ?? []).slice(0, 8).map((note) => (
-                  <li className="compact-item" key={note.id}>
-                    <p className="note-body">{note.body}</p>
-                    <div className="row">
-                      <span className="metadata-row">{formatDateTime(note.created_at)}</span>
-                      {note.converted_to_change_card_at ? (
-                        <Badge tone="success">Change Card 변환됨</Badge>
-                      ) : (
-                        <Badge>검토 대기</Badge>
-                      )}
                     </div>
                   </li>
                 ))}
