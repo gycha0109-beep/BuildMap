@@ -3,23 +3,61 @@ import { DecisionCard } from "@/components/buildmap/decision-card";
 import { Badge } from "@/components/ui/badge";
 import { cardTypeLabels, formatDateTime } from "@/lib/buildmap/presentation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  hideDecisionAction,
+  markDecisionNormalAction,
+  markDecisionSensitiveAction,
+  publishDecisionAction,
+  publishProjectAction,
+  unpublishProjectAction,
+} from "../publication-actions";
+
+const updateMessages: Record<string, string> = {
+  "project-published": "Public Project Map을 공개했습니다.",
+  "project-private": "프로젝트를 비공개로 전환했습니다. 기존 Decision 공개 선택은 보존됩니다.",
+  "decision-published": "Decision을 Public Map에 공개했습니다.",
+  "decision-hidden": "Decision을 Public Map에서 내렸습니다.",
+  "decision-sensitive": "Decision을 민감 정보로 표시하고 공개에서 내렸습니다.",
+  "decision-normal": "Decision의 민감 표시를 해제했습니다. 공개 여부는 별도로 선택할 수 있습니다.",
+};
+
+const errorMessages: Record<string, string> = {
+  "project-publish": "프로젝트 공개 상태를 변경하지 못했습니다.",
+  "project-unpublish": "프로젝트를 비공개로 전환하지 못했습니다.",
+  "invalid-decision": "대상 Decision을 확인할 수 없습니다.",
+  "decision-publish": "Decision을 공개하지 못했습니다. 승인 상태와 민감 정보 여부를 확인하세요.",
+  "decision-hide": "Decision 공개 상태를 변경하지 못했습니다.",
+  "decision-sensitive": "Decision의 민감 정보 상태를 변경하지 못했습니다.",
+  "decision-normal": "Decision의 민감 정보 상태를 변경하지 못했습니다.",
+};
 
 export default async function DecisionsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ error?: string; updated?: string }>;
 }) {
   const { projectId } = await params;
+  const query = await searchParams;
   const supabase = await createClient();
-  const decisions = await supabase
-    .from("change_cards")
-    .select(
-      "id, card_type, title, structured_summary, evidence, decision, change_content, next_check, work_status, visibility_status, importance, approved_at",
-    )
-    .eq("project_id", projectId)
-    .eq("work_status", "approved")
-    .is("archived_at", null)
-    .order("approved_at", { ascending: true });
+  const [project, decisions] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, title, visibility_status, public_slug")
+      .eq("id", projectId)
+      .is("archived_at", null)
+      .maybeSingle(),
+    supabase
+      .from("change_cards")
+      .select(
+        "id, card_type, title, structured_summary, evidence, decision, change_content, next_check, work_status, visibility_status, sensitivity_status, importance, approved_at",
+      )
+      .eq("project_id", projectId)
+      .eq("work_status", "approved")
+      .is("archived_at", null)
+      .order("approved_at", { ascending: true }),
+  ]);
 
   const rows = decisions.data ?? [];
   const latestDecision = rows.length > 0 ? rows[rows.length - 1] : null;
@@ -29,6 +67,19 @@ export default async function DecisionsPage({
   const majorTurningPoints = rows.filter(
     (card) => card.importance === "major_turning_point",
   );
+  const publishedDecisions = rows.filter(
+    (card) => card.visibility_status === "published" && card.sensitivity_status === "normal",
+  );
+  const sensitiveDecisions = rows.filter((card) => card.sensitivity_status === "sensitive");
+  const isPublic = project.data?.visibility_status === "public";
+  const publicHref = project.data?.public_slug ? `/p/${project.data.public_slug}` : null;
+
+  const publishProject = publishProjectAction.bind(null, projectId);
+  const unpublishProject = unpublishProjectAction.bind(null, projectId);
+  const publishDecision = publishDecisionAction.bind(null, projectId);
+  const hideDecision = hideDecisionAction.bind(null, projectId);
+  const markSensitive = markDecisionSensitiveAction.bind(null, projectId);
+  const markNormal = markDecisionNormalAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
@@ -48,6 +99,123 @@ export default async function DecisionsPage({
           </Link>
         </div>
       </div>
+
+      {query.updated && updateMessages[query.updated] ? (
+        <div className="alert success">{updateMessages[query.updated]}</div>
+      ) : null}
+      {query.error && errorMessages[query.error] ? (
+        <div className="alert error">{errorMessages[query.error]}</div>
+      ) : null}
+
+      {project.error || !project.data ? (
+        <div className="alert error">프로젝트 공개 상태를 불러오지 못했습니다.</div>
+      ) : (
+        <section className="surface-card">
+          <div className="section-head">
+            <div>
+              <p className="section-kicker">Publication</p>
+              <h2>Public Project Map</h2>
+              <p className="section-help">
+                프로젝트 공개 여부와 외부에 보여줄 공식 Decision을 Builder가 직접 선택합니다. 공개 화면에는 승인됨 + 공개됨 + 민감 정보 없음 Decision만 나타납니다.
+              </p>
+            </div>
+            <div className="header-actions">
+              <Badge tone={isPublic ? "success" : "neutral"}>
+                {isPublic ? "Project public" : "Project private"}
+              </Badge>
+              <Badge tone="primary">{publishedDecisions.length} public decisions</Badge>
+              {sensitiveDecisions.length > 0 ? (
+                <Badge tone="danger">{sensitiveDecisions.length} sensitive</Badge>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="subpanel">
+            <div className="row">
+              <div>
+                <strong style={{ display: "block", color: "var(--text-strong)" }}>
+                  {isPublic ? "현재 외부에서 읽을 수 있습니다." : "현재 Builder에게만 보입니다."}
+                </strong>
+                <span className="muted">
+                  {isPublic
+                    ? "아래에서 공개로 선택한 Decision만 Scout의 Public Map에 포함됩니다."
+                    : "Decision 공개 선택을 미리 준비한 뒤 Project Map 전체를 공개할 수 있습니다."}
+                </span>
+              </div>
+              <div className="header-actions">
+                {isPublic && publicHref ? (
+                  <Link className="button secondary" href={publicHref} target="_blank" rel="noreferrer">
+                    Public Map 열기 ↗
+                  </Link>
+                ) : null}
+                {isPublic ? (
+                  <form action={unpublishProject}>
+                    <button className="button secondary" type="submit">
+                      프로젝트 비공개
+                    </button>
+                  </form>
+                ) : (
+                  <form action={publishProject}>
+                    <button className="button" type="submit">
+                      Public Map 공개
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {rows.length > 0 ? (
+            <div className="stack" style={{ marginTop: 16 }}>
+              <div>
+                <strong style={{ color: "var(--text-strong)" }}>Decision 공개 선택</strong>
+                <p className="section-help" style={{ marginBottom: 0 }}>
+                  공식 기록의 내용은 수정하지 않고 공개 상태와 민감도만 관리합니다.
+                </p>
+              </div>
+              <ul className="compact-list">
+                {rows.map((card) => {
+                  const sensitive = card.sensitivity_status === "sensitive";
+                  const published = card.visibility_status === "published" && !sensitive;
+                  const publishable = card.visibility_status === "publishable" && !sensitive;
+
+                  return (
+                    <li className="compact-item" key={`publication-${card.id}`}>
+                      <div className="row" style={{ alignItems: "flex-start" }}>
+                        <div style={{ minWidth: 0, flex: "1 1 280px" }}>
+                          <p style={{ marginBottom: 6 }}>{card.title}</p>
+                          <div className="metadata-row">
+                            <span>{cardTypeLabels[card.card_type] ?? card.card_type}</span>
+                            {card.approved_at ? <span>{formatDateTime(card.approved_at)}</span> : null}
+                            {published ? <Badge tone="success">Public</Badge> : null}
+                            {publishable ? <Badge tone="primary">Publishable</Badge> : null}
+                            {!published && !publishable && !sensitive ? <Badge>Internal</Badge> : null}
+                            {sensitive ? <Badge tone="danger">Sensitive · hidden</Badge> : null}
+                          </div>
+                        </div>
+                        <div className="header-actions">
+                          <form action={published ? hideDecision : publishDecision}>
+                            <input name="changeCardId" type="hidden" value={card.id} />
+                            <button className={published ? "button secondary" : "button"} disabled={sensitive} type="submit">
+                              {published ? "공개에서 내리기" : "Public Map에 공개"}
+                            </button>
+                          </form>
+                          <form action={sensitive ? markNormal : markSensitive}>
+                            <input name="changeCardId" type="hidden" value={card.id} />
+                            <button className="button secondary" type="submit">
+                              {sensitive ? "민감 해제" : "민감 처리"}
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      )}
 
       {decisions.error ? (
         <div className="alert error">Project Map을 불러오지 못했습니다.</div>
@@ -96,6 +264,13 @@ export default async function DecisionsPage({
                       <span>
                         Decision {index + 1} / {rows.length}
                       </span>
+                      {card.visibility_status === "published" && card.sensitivity_status === "normal" ? (
+                        <Badge tone="success">Public</Badge>
+                      ) : card.sensitivity_status === "sensitive" ? (
+                        <Badge tone="danger">Sensitive</Badge>
+                      ) : (
+                        <Badge>Internal</Badge>
+                      )}
                     </div>
                     <DecisionCard card={card} />
                   </div>
