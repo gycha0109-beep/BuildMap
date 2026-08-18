@@ -63,7 +63,7 @@ export default async function ProjectsPage({
             <p className="eyebrow">Projects</p>
             <h1>프로젝트</h1>
             <p className="page-description">
-              BuildMap의 판단 흐름은 프로젝트 단위로 축적됩니다.
+              프로젝트를 만들면 바로 Capture를 시작할 수 있습니다. 문제 정의나 가설을 먼저 작성할 필요는 없습니다.
             </p>
           </div>
           <Link className="button secondary" href="/dashboard">
@@ -89,7 +89,7 @@ export default async function ProjectsPage({
             ) : (projects.data ?? []).length === 0 ? (
               <div className="empty-state">
                 <strong>아직 프로젝트가 없습니다.</strong>
-                <span>오른쪽 폼에서 첫 프로젝트를 생성하세요.</span>
+                <span>이름만 정하고 만든 뒤 바로 첫 Capture를 남겨보세요.</span>
               </div>
             ) : (
               <ul className="project-list">
@@ -121,9 +121,9 @@ export default async function ProjectsPage({
             <div className="section-head">
               <div>
                 <p className="section-kicker">New project</p>
-                <h2>새 판단 흐름 시작</h2>
+                <h2>이름만 정하고 시작하세요</h2>
                 <p className="section-help">
-                  먼저 프로젝트 컨텍스트를 만들고 Workspace에서 문제를 정의합니다.
+                  생성 직후 Capture로 이동합니다. 프로젝트 설명은 필요할 때만 짧게 남기면 됩니다.
                 </p>
               </div>
             </div>
@@ -134,17 +134,17 @@ export default async function ProjectsPage({
                 <input name="title" maxLength={120} placeholder="예: BuildMap MVP" required />
               </label>
               <label className="field">
-                <span>한 줄 설명</span>
+                <span>한 줄 설명 · 선택</span>
                 <textarea
                   name="description"
                   maxLength={280}
                   rows={4}
-                  placeholder="이 프로젝트가 무엇을 검증하는지 짧게 적어 주세요."
+                  placeholder="예: AI Builder의 중요한 판단과 방향 변화를 기록하는 서비스"
                 />
               </label>
               <div>
                 <button className="button" type="submit">
-                  프로젝트 만들기
+                  만들고 Capture 시작
                 </button>
               </div>
             </form>
