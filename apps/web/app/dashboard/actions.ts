@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { captureAndAssessAction } from "@/app/projects/[projectId]/capture-actions";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,6 +23,16 @@ export async function bootstrapAccountAction() {
   await authenticatedContext();
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+export async function captureFromDashboardAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+
+  if (!projectId) {
+    redirect("/dashboard?error=invalid-capture-project");
+  }
+
+  await captureAndAssessAction(projectId, formData);
 }
 
 export async function createProjectAction(formData: FormData) {
