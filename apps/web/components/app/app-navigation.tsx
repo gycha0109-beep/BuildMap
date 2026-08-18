@@ -42,11 +42,18 @@ export function AppNavigation({ projectId }: { projectId?: string }) {
             Overview
           </Link>
           <Link
-            className={`nav-link ${isActive(pathname, `${projectRoot}/workspace`) ? "active" : ""}`}
+            className={`nav-link ${isActive(pathname, `${projectRoot}/workspace`, true) ? "active" : ""}`}
             href={`${projectRoot}/workspace`}
           >
-            <span className="nav-icon">W</span>
-            Workspace
+            <span className="nav-icon">C</span>
+            Capture
+          </Link>
+          <Link
+            className={`nav-link ${isActive(pathname, `${projectRoot}/workspace/review`) ? "active" : ""}`}
+            href={`${projectRoot}/workspace/review`}
+          >
+            <span className="nav-icon">R</span>
+            Review
           </Link>
           <Link
             className={`nav-link ${isActive(pathname, `${projectRoot}/decisions`) ? "active" : ""}`}

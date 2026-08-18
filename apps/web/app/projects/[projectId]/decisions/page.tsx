@@ -27,16 +27,16 @@ export default async function DecisionsPage({
     <div className="page-stack">
       <div className="row">
         <div>
-          <p className="section-kicker">Decision timeline</p>
+          <p className="section-kicker">Decisions</p>
           <h2 style={{ marginBottom: 5 }}>공식 판단 기록</h2>
           <p className="section-help">
-            Builder가 승인한 Change Card만 이곳에 남습니다. 작성 도구가 아니라 다시 읽는 기록입니다.
+            Builder가 확인하고 확정한 Decision만 이곳에 남습니다. 프로젝트가 왜 지금의 모습이 되었는지 다시 읽는 기록입니다.
           </p>
         </div>
         <div className="header-actions">
-          <Badge tone="success">{rows.length} approved</Badge>
+          <Badge tone="success">{rows.length} decisions</Badge>
           <Link className="button secondary" href={`/projects/${projectId}/workspace/review`}>
-            Review Queue
+            Review
           </Link>
         </div>
       </div>
@@ -46,9 +46,9 @@ export default async function DecisionsPage({
       ) : rows.length === 0 ? (
         <div className="empty-state">
           <strong>아직 공식 판단이 없습니다.</strong>
-          <span>Review Queue에서 Change Card를 승인하면 여기에 read-only 기록으로 추가됩니다.</span>
+          <span>Review에서 판단 후보를 확인하고 기록하면 이곳에 공식 Decision으로 추가됩니다.</span>
           <Link className="button" href={`/projects/${projectId}/workspace/review`}>
-            검토하러 가기
+            Review 열기
           </Link>
         </div>
       ) : (

@@ -85,25 +85,12 @@ export default async function ReviewQueuePage({
 
   return (
     <div className="page-stack">
-      <div className="row">
-        <div>
-          <p className="section-kicker">Workspace</p>
-          <h2 style={{ marginBottom: 5 }}>Review</h2>
-          <p className="section-help">
-            AI가 올린 판단 후보를 확인하고 한 번의 승인으로 공식 Decision에 기록합니다.
-          </p>
-        </div>
-        <nav className="workspace-mode-nav" aria-label="Workspace mode">
-          <Link className="workspace-mode-link" href={`/projects/${projectId}/workspace`}>
-            Capture
-          </Link>
-          <Link
-            className="workspace-mode-link active"
-            href={`/projects/${projectId}/workspace/review`}
-          >
-            Review · {totalQueue}
-          </Link>
-        </nav>
+      <div>
+        <p className="section-kicker">Review</p>
+        <h2 style={{ marginBottom: 5 }}>판단 후보를 확인하세요</h2>
+        <p className="section-help">
+          AI가 올린 판단 후보를 확인하고 한 번의 승인으로 공식 Decision에 기록합니다.
+        </p>
       </div>
 
       {error ? <div className="alert error">{error}</div> : null}
@@ -164,7 +151,7 @@ export default async function ReviewQueuePage({
               <p className="section-kicker">Decision candidates</p>
               <h2>검토할 판단 후보</h2>
               <p className="section-help">
-                필요한 부분만 고친 뒤 Decision으로 기록하세요. 별도 Change Card 작성 단계는 없습니다.
+                필요한 부분만 고친 뒤 Decision으로 기록하세요. 추가 작성 단계 없이 바로 공식 기록으로 확정됩니다.
               </p>
             </div>
             <Badge tone="ai">{reviewDrafts.length}</Badge>
@@ -332,7 +319,7 @@ export default async function ReviewQueuePage({
               <p className="section-kicker">Recovery</p>
               <h2>기록 마무리 필요</h2>
               <p className="section-help">
-                Candidate 변환은 끝났지만 승인까지 완료되지 않은 기록입니다. 저장된 내용을 그대로 확정합니다.
+                Decision 기록은 만들어졌지만 최종 확정이 완료되지 않았습니다. 저장된 내용을 그대로 확정합니다.
               </p>
             </div>
             <Badge tone="review">{pendingDecisions.length}</Badge>
@@ -344,7 +331,7 @@ export default async function ReviewQueuePage({
                 <div className="row">
                   <div>
                     <div className="row" style={{ justifyContent: "flex-start" }}>
-                      <Badge tone="review">승인 대기</Badge>
+                      <Badge tone="review">확정 대기</Badge>
                       <Badge>{cardTypeLabels[card.card_type] || card.card_type}</Badge>
                     </div>
                     <h3 style={{ margin: "12px 0 0" }}>{card.title}</h3>
