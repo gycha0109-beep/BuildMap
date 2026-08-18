@@ -41,11 +41,16 @@ export const workspaceErrors: Record<string, string> = {
   "hypothesis-create": "가설을 추가하지 못했습니다.",
   "invalid-hypothesis-status": "가설 상태 값이 올바르지 않습니다.",
   "hypothesis-update": "가설 상태를 변경하지 못했습니다.",
-  "invalid-note": "Rough Note는 1자 이상 10,000자 이하로 입력해 주세요.",
-  "note-create": "Rough Note를 저장하지 못했습니다.",
-  "invalid-ai-source": "AI 구조화에 사용할 Rough Note 상태를 확인해 주세요.",
+  "invalid-note": "Capture는 1자 이상 10,000자 이하로 입력해 주세요.",
+  "note-create": "Capture를 저장하지 못했습니다.",
+  "invalid-capture": "Capture는 1자 이상 10,000자 이하로 입력해 주세요.",
+  "capture-create": "Capture를 저장하지 못했습니다.",
+  "capture-ai-queue": "Capture는 저장했습니다. AI 판단을 시작하지 못했으므로 Review에서 다시 시도할 수 있습니다.",
+  "capture-ai-generation": "Capture는 저장했습니다. AI 판단에 실패했으므로 Review에서 다시 시도할 수 있습니다.",
+  "capture-ai-save": "Capture는 저장했습니다. AI 판단 결과를 저장하지 못했으므로 Review에서 다시 시도할 수 있습니다.",
+  "invalid-ai-source": "AI 구조화에 사용할 Capture 상태를 확인해 주세요.",
   "ai-draft-create": "AI Draft 생성 상태를 저장하지 못했습니다.",
-  "ai-draft-exists": "이 Rough Note에는 이미 검토 중인 AI Draft가 있습니다.",
+  "ai-draft-exists": "이 Capture에는 이미 검토 중인 AI Draft가 있습니다.",
   "ai-generation": "AI 구조화에 실패했습니다. 잠시 후 다시 시도해 주세요.",
   "ai-draft-save": "AI Draft를 저장하지 못했습니다.",
   "invalid-ai-draft": "AI Draft의 유형, 제목, 요약 또는 입력 길이를 확인해 주세요.",
@@ -53,6 +58,10 @@ export const workspaceErrors: Record<string, string> = {
   "invalid-change-card": "Change Card의 필수 항목을 확인해 주세요.",
   "change-card-save": "Change Card를 저장하지 못했습니다.",
   "change-card-approve": "Change Card를 승인하지 못했습니다.",
+};
+
+export const workspaceNotices: Record<string, string> = {
+  "capture-held": "Capture를 저장했습니다. AI가 공식 Decision으로 올릴 필요가 낮다고 판단해 원문만 보관했습니다.",
 };
 
 export function formatDateTime(value: string) {
