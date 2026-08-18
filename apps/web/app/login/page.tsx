@@ -25,21 +25,25 @@ export default async function LoginPage({
       : null;
 
   return (
-    <main className="shell stack">
-      <div className="row">
-        <Link href="/">← BuildMap</Link>
-      </div>
+    <main className="public-shell">
+      <section className="public-card narrow">
+        <Link className="public-brand" href="/">
+          <span className="brand-mark">BM</span>
+          BuildMap
+        </Link>
 
-      <section className="panel stack">
-        <div>
-          <p className="muted">Builder account</p>
-          <h1>로그인 또는 회원가입</h1>
+        <div className="auth-title">
+          <p className="eyebrow">Builder account</p>
+          <h1>다시 판단 흐름으로 돌아가기</h1>
+          <p>로그인하거나 새 Builder 계정을 만드세요.</p>
         </div>
 
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p>{message}</p> : null}
+        {error ? <div className="alert error">{error}</div> : null}
+        {message ? <div className="alert success">{message}</div> : null}
 
-        <AuthForm />
+        <div style={{ marginTop: error || message ? 18 : 0 }}>
+          <AuthForm />
+        </div>
       </section>
     </main>
   );

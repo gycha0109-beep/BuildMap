@@ -2,17 +2,17 @@
 
 import { useFormStatus } from "react-dom";
 
-type WorkspaceSubmitButtonProps = {
+type SubmitButtonProps = {
   label: string;
   pendingLabel: string;
   className?: string;
 };
 
-export function WorkspaceSubmitButton({
+export function SubmitButton({
   label,
   pendingLabel,
   className = "button",
-}: WorkspaceSubmitButtonProps) {
+}: SubmitButtonProps) {
   const { pending } = useFormStatus();
 
   return (
