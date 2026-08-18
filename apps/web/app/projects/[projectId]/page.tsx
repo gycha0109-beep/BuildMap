@@ -144,14 +144,14 @@ export default async function ProjectOverviewPage({
         <section className="surface-card">
           <div className="section-head">
             <div>
-              <p className="section-kicker">Decision history</p>
+              <p className="section-kicker">Project map preview</p>
               <h2>How this project got here</h2>
               <p className="section-help">
-                최근 공식 판단을 오래된 순서부터 이어서 봅니다.
+                최근 공식 판단을 오래된 순서부터 현재 방향까지 이어서 봅니다.
               </p>
             </div>
             <Link className="button secondary" href={`/projects/${projectId}/decisions`}>
-              전체 Decisions
+              전체 Project Map
             </Link>
           </div>
 
@@ -165,15 +165,26 @@ export default async function ProjectOverviewPage({
               {timelineCards.map((card) => (
                 <div className="timeline-item" key={card.id}>
                   {card.approved_at ? <time>{formatDateTime(card.approved_at)}</time> : null}
+                  {card.importance === "major_turning_point" ? (
+                    <div style={{ margin: "5px 0 6px" }}>
+                      <Badge tone="review">주요 전환점</Badge>
+                    </div>
+                  ) : null}
                   <strong>{card.title}</strong>
                   <p>
                     {cardTypeLabels[card.card_type] ?? card.card_type}
-                    {card.importance === "major_turning_point" ? " · 주요 전환점" : ""}
                     {" — "}
                     {card.change_content || card.decision || card.structured_summary}
                   </p>
                 </div>
               ))}
+              {currentDirection ? (
+                <div className="timeline-item">
+                  <time>현재</time>
+                  <strong>Current direction</strong>
+                  <p>{currentDirection}</p>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
