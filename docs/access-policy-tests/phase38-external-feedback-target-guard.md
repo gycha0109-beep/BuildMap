@@ -12,7 +12,7 @@ External Feedback이 공개된 Project / 공개된 Feedback Request / 공개 가
 - 새 Feedback은 기본 `internal_review`다.
 - Builder가 선택한 Feedback만 외부에 노출한다.
 
-## Phase 38 추가 회귀 케이스
+## Phase 38 회귀 케이스
 
 | ID | 사전 조건 | 행위 | 기대 |
 | --- | --- | --- | --- |
@@ -41,11 +41,12 @@ Scout 제출 Server Action도 다음 순서로 현재 상태를 다시 확인한
 
 UI에서 Request가 보였다는 과거 사실만 믿고 insert하지 않는다.
 
-## DB guard additive migration
+## Existing DB guard 재확인
 
-`20260819000000_buildmap_16_external_feedback_target_guard.sql`은 다음 두 경계를 보강한다.
+Phase 38 검토 중 초기 04/05 draft만 보면 linked Decision 재검사가 빠진 것처럼 보였으나, 이후 historical migration `20260720000000_buildmap_09_p1_access_integrity_hardening_draft.sql`에서 이미 다음 경계가 보강되어 있음을 재확인했다.
 
-- `feedback_requests_select_public_draft`: linked Decision이 public-safe가 아니면 source-table public read 차단
-- `can_insert_feedback()`: linked Decision의 현재 public-safe 상태를 insert 시점에 재검사
+- `feedback_requests_select_public_draft`는 `change_card_id`가 있으면 `public.can_read_public_change_card(change_card_id)`를 요구한다.
+- `public.can_insert_feedback()` 역시 linked Decision에 대해 `public.can_read_public_change_card(fr.change_card_id)`를 요구한다.
+- 해당 SECURITY DEFINER helper의 `search_path`는 `pg_catalog, pg_temp`로 고정되어 있다.
 
-파일은 post-Phase31 additive migration naming contract를 따르며, 이 Phase에서는 연결된 live BuildMap DB가 없어 실제 DB에는 적용하지 않는다. Production promotion 전에는 local dry-run / db lint / Data API regression / Security Advisor 확인이 필요하다.
+따라서 Phase 38에서는 DB migration을 추가하지 않는다. Application layer에서도 같은 조건을 다시 검사하여 stale UI/request ID에 대한 defense in depth를 유지한다.
