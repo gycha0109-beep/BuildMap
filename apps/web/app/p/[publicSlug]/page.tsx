@@ -39,6 +39,10 @@ const lifecycleLabels: Record<string, string> = {
   ended: "종료",
 };
 
+function isCanonicalGitHubRepositoryUrl(value: string) {
+  return /^https:\/\/github\.com\/[A-Za-z0-9-]{1,100}\/[A-Za-z0-9._-]{1,100}$/.test(value);
+}
+
 function Decision({ card }: { card: PublicDecision }) {
   return (
     <article className={styles.decisionCard}>
@@ -127,7 +131,9 @@ export default async function PublicProjectMapPage({
   }
 
   const rows = (timeline.data ?? []) as PublicDecision[];
-  const githubLinks = (projectLinks.data ?? []) as PublicProjectLink[];
+  const githubLinks = ((projectLinks.data ?? []) as PublicProjectLink[]).filter((link) =>
+    isCanonicalGitHubRepositoryUrl(link.url),
+  );
   const latestDecision = rows.length > 0 ? rows[rows.length - 1] : null;
   const currentDirection = latestDecision
     ? latestDecision.change_content || latestDecision.decision || latestDecision.structured_summary
