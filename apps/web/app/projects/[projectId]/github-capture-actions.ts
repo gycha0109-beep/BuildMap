@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { generateStructuredDraft } from "@/lib/buildmap/ai-draft";
-import { isGitHubAppConfigured, verifyGitHubBindingProof } from "@/lib/github/app";
+import {
+  createGitHubCaptureSourceProof,
+  isGitHubAppConfigured,
+  verifyGitHubBindingProof,
+  verifyGitHubCaptureSourceProof,
+} from "@/lib/github/app";
 import {
   GitHubProviderError,
   readGitHubObservation,
@@ -210,7 +215,7 @@ export async function captureGitHubObservationAction(
 
   const existingSource = await supabase
     .from("capture_source_refs")
-    .select("rough_note_id")
+    .select("rough_note_id, canonical_url, source_proof")
     .eq("project_link_id", linkId)
     .eq("provider", "github")
     .eq("source_type", sourceType)
@@ -220,6 +225,19 @@ export async function captureGitHubObservationAction(
     redirect(integrationsPath(projectId, "github-capture-source"));
   }
   if (existingSource.data) {
+    const existingProofValid = verifyGitHubCaptureSourceProof(
+      {
+        roughNoteId: existingSource.data.rough_note_id,
+        projectLinkId: linkId,
+        sourceType,
+        sourceId,
+        canonicalUrl: existingSource.data.canonical_url,
+      },
+      existingSource.data.source_proof,
+    );
+    if (!existingProofValid) {
+      redirect(integrationsPath(projectId, "github-capture-source-integrity"));
+    }
     revalidateCaptureSurfaces(projectId);
     redirect(reviewPath(projectId));
   }
@@ -267,6 +285,13 @@ export async function captureGitHubObservationAction(
     redirect(integrationsPath(projectId, "github-capture-create"));
   }
 
+  const sourceProof = createGitHubCaptureSourceProof({
+    roughNoteId: capture.data.id,
+    projectLinkId: linkId,
+    sourceType: observation.sourceType,
+    sourceId: observation.sourceId,
+    canonicalUrl: observation.url,
+  });
   const sourceRef = await supabase
     .from("capture_source_refs")
     .insert({
@@ -281,6 +306,7 @@ export async function captureGitHubObservationAction(
       source_context: observation.context?.slice(0, 1000) || null,
       occurred_at: observation.occurredAt,
       observed_at: observedAt,
+      source_proof: sourceProof,
     })
     .select("id")
     .single();
