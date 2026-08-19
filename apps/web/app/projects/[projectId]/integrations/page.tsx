@@ -96,6 +96,7 @@ const errorMessages: Record<string, string> = {
   "notion-link-save": "Notion resource pointer를 저장하지 못했습니다.",
   "notion-link-update": "Notion resource 공개 설정을 변경하지 못했습니다.",
   "notion-link-remove": "Notion resource pointer를 제거하지 못했습니다.",
+  "notion-link-read-connected": "Notion read access를 먼저 해제한 뒤 pointer를 제거해 주세요.",
   "notion-oauth-not-configured": "서버의 Notion OAuth/read 설정이 아직 완료되지 않았습니다.",
   "notion-oauth-config-invalid": "Notion OAuth 보안 설정을 사용할 수 없습니다. 서버 설정을 확인해 주세요.",
   "notion-read-link-invalid": "Notion read access를 연결할 resource pointer를 확인해 주세요.",
@@ -121,8 +122,8 @@ const successMessages: Record<string, string> = {
   "notion-visibility": "Notion resource 공개 설정을 변경했습니다.",
   "notion-removed": "Notion resource pointer를 제거했습니다.",
   "notion-read-connected": "Notion read authorization과 exact resource access를 검증하고 연결했습니다.",
-  "notion-read-disconnected": "Notion token을 revoke하고 로컬 read authorization을 비활성화했습니다.",
-  "notion-read-disconnected-local": "로컬 Notion read authorization은 즉시 비활성화했습니다. Provider revoke 확인은 완료하지 못했습니다.",
+  "notion-read-disconnected": "이 pointer의 Notion read access를 해제했습니다.",
+  "notion-read-disconnected-local": "로컬 Notion read authorization은 즉시 비활성화했습니다. 마지막 authorization의 provider revoke 확인은 완료하지 못했습니다.",
 };
 
 export default async function ProjectIntegrationsPage({
@@ -518,7 +519,9 @@ export default async function ProjectIntegrationsPage({
                       </form>
                       <form action={removeNotionResource}>
                         <input name="linkId" type="hidden" value={link.id} />
-                        <button className="button secondary" type="submit">Pointer 제거</button>
+                        <button className="button secondary" disabled={storedBindingExists} type="submit">
+                          {storedBindingExists ? "Read access 먼저 해제" : "Pointer 제거"}
+                        </button>
                       </form>
                     </div>
                   </div>
@@ -536,26 +539,33 @@ export default async function ProjectIntegrationsPage({
                           </p>
                         ) : null}
                       </div>
-                      {binding ? (
-                        <form action={disconnectNotionReadConnection}>
-                          <input name="linkId" type="hidden" value={link.id} />
-                          <button className="button secondary" type="submit">Read access 해제</button>
-                        </form>
-                      ) : (
-                        <form action={beginNotionReadConnection}>
-                          <input name="linkId" type="hidden" value={link.id} />
-                          <button className="button" disabled={!notionOAuthConfigured} type="submit">
-                            {bindingInvalid ? "Notion 다시 연결" : "Connect Notion read access"}
-                          </button>
-                        </form>
-                      )}
+                      <div className="header-actions">
+                        {storedBindingExists ? (
+                          <form action={disconnectNotionReadConnection}>
+                            <input name="linkId" type="hidden" value={link.id} />
+                            <button className="button secondary" type="submit">Read access 해제</button>
+                          </form>
+                        ) : null}
+                        {!binding ? (
+                          <form action={beginNotionReadConnection}>
+                            <input name="linkId" type="hidden" value={link.id} />
+                            <button className="button" disabled={!notionOAuthConfigured} type="submit">
+                              {bindingInvalid ? "Notion 다시 연결" : "Connect Notion read access"}
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
                     </div>
 
                     {binding ? (
                       <NotionResourcePreview projectId={projectId} linkId={link.id} />
+                    ) : bindingInvalid ? (
+                      <div className="alert" style={{ marginTop: 14 }}>
+                        저장된 read binding이 현재 Project pointer와 보안 검증을 통과하지 못했습니다. 해제하거나 Notion authorization을 다시 완료해 주세요.
+                      </div>
                     ) : !notionOAuthConfigured ? (
                       <div className="alert" style={{ marginTop: 14 }}>
-                        서버에 Notion public OAuth credentials, state secret, AES-256-GCM encryption key를 구성하면 read access 연결을 활성화할 수 있습니다.
+                        서버에 Notion public OAuth credentials, state secret, AES-256-GCM encryption key를 구성하면 read access 연결을 활성화할 수 있습니다. 기존 binding은 별도로 해제할 수 있습니다.
                       </div>
                     ) : (
                       <div className="alert" style={{ marginTop: 14 }}>
