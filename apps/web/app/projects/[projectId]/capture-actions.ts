@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { assessCapture, generateStructuredDraft } from "@/lib/buildmap/ai-draft";
+import {
+  isGitHubAppConfigured,
+  verifyGitHubCaptureSourceProof,
+} from "@/lib/github/app";
 import { createClient } from "@/lib/supabase/server";
 
 function workspacePath(projectId: string, error?: string, notice?: string) {
@@ -433,11 +437,37 @@ export async function assessExistingCaptureAction(
 
   const providerSource = await supabase
     .from("capture_source_refs")
-    .select("id")
+    .select(
+      "provider, project_link_id, source_type, external_source_id, canonical_url, source_proof",
+    )
     .eq("rough_note_id", roughNoteId)
     .maybeSingle();
   if (providerSource.error) {
     redirect(reviewPath(projectId, "invalid-ai-source"));
+  }
+
+  let verifiedProviderEvidence = false;
+  if (providerSource.data) {
+    if (
+      providerSource.data.provider !== "github" ||
+      !["merged_pull_request", "release"].includes(providerSource.data.source_type) ||
+      !isGitHubAppConfigured()
+    ) {
+      redirect(reviewPath(projectId, "invalid-ai-source"));
+    }
+    verifiedProviderEvidence = verifyGitHubCaptureSourceProof(
+      {
+        roughNoteId,
+        projectLinkId: providerSource.data.project_link_id,
+        sourceType: providerSource.data.source_type as "merged_pull_request" | "release",
+        sourceId: providerSource.data.external_source_id,
+        canonicalUrl: providerSource.data.canonical_url,
+      },
+      providerSource.data.source_proof,
+    );
+    if (!verifiedProviderEvidence) {
+      redirect(reviewPath(projectId, "invalid-ai-source"));
+    }
   }
 
   const existingDraft = await supabase
@@ -521,7 +551,7 @@ export async function assessExistingCaptureAction(
     draftId = inserted.data.id;
   }
 
-  const isSelectedEvidence = Boolean(capture.data.source_feedback_id || providerSource.data);
+  const isSelectedEvidence = Boolean(capture.data.source_feedback_id || verifiedProviderEvidence);
   const result = isSelectedEvidence
     ? await structureEvidenceAndPersist(supabase, projectId, draftId, capture.data.body)
     : await assessAndPersist(supabase, projectId, draftId, capture.data.body);
