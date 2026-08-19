@@ -9,6 +9,7 @@ export type StoredNotionCredential = {
   refreshTokenCiphertext: string;
   encryptionKeyVersion: number;
   credentialVersion: number;
+  activeBindingCount: number;
 };
 
 export type NotionRefreshClaim = {
@@ -43,13 +44,15 @@ function parseCredential(value: unknown): StoredNotionCredential | null {
   const refreshTokenCiphertext = stringValue(row, "refresh_token_ciphertext");
   const encryptionKeyVersion = numberValue(row, "encryption_key_version");
   const credentialVersion = numberValue(row, "credential_version");
+  const activeBindingCount = numberValue(row, "active_binding_count");
   if (
     !botId ||
     !workspaceId ||
     !accessTokenCiphertext ||
     !refreshTokenCiphertext ||
     encryptionKeyVersion === null ||
-    credentialVersion === null
+    credentialVersion === null ||
+    activeBindingCount === null
   ) {
     return null;
   }
@@ -66,6 +69,7 @@ function parseCredential(value: unknown): StoredNotionCredential | null {
     refreshTokenCiphertext,
     encryptionKeyVersion,
     credentialVersion,
+    activeBindingCount,
   };
 }
 
@@ -161,6 +165,7 @@ export async function disconnectStoredNotionAuthorization(
   const row = asRecord(result.data);
   return {
     disconnected: !result.error && row?.ok === true,
+    providerRevokeRequired: !result.error && row?.provider_revoke_required === true,
     error: result.error,
   };
 }
