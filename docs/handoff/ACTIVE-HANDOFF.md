@@ -9,24 +9,25 @@
 ## Current main baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- implementation baseline entering this closeout: `472b6ac5bdb69daff36e9d7def743d348bee9684`
-- implementation tree: `f05b9d3794714b27d73440c261f860e2c50b18e9`
-- implementation state: **Phase 45 — GitHub App Read Access Bootstrap merged**
+- implementation baseline: `8b66e24c4b20509aa7d8cf38873f126810733ad5`
+- implementation tree: `15ff9c8a37eff3622511a3133766242b886dbc75`
+- implementation state: **Phase 46 — GitHub Observation → Explicit Capture Provenance merged**
 - P2 closure verdict: `PASS WITH CONSISTENCY HARDENING`
-- P3 state: GitHub repository pointer + read architecture + read runtime bootstrap complete
+- P3 GitHub slice: **STRUCTURALLY CLOSED AT REPOSITORY/APPLICATION-CONTRACT LEVEL**
 - production deployment: `OUT_OF_SCOPE`
 - Vercel Git deployment: disabled in `apps/web/vercel.json`
 
 Important activation boundary:
 
 ```text
-Repository implementation: COMPLETE
-Live GitHub App environment configuration: NOT VERIFIED
+Repository implementation through Phase 46: COMPLETE
 Migration 17 live BuildMap DB application: NOT VERIFIED
+Migration 18 live BuildMap DB application: NOT VERIFIED
+Live GitHub App environment configuration: NOT VERIFIED
 Production deployment: NOT PERFORMED
 ```
 
-Do not claim GitHub read access is live in any deployed BuildMap environment until the actual target environment has both the GitHub App server configuration and migration 17 applied.
+Do not infer live GitHub read/Capture behavior from repository merge alone.
 
 ---
 
@@ -44,110 +45,82 @@ Positioning:
 - Notion = Knowledge History
 - BuildMap = Decision History
 
-Primary user mental model:
+Primary mental model:
 
 ```text
 Capture → Review → Decision
 ```
 
-AI remains non-authoritative. Builder owns official judgment and approval.
+Authority:
 
-Problem/Hypothesis remain optional context.
+- BuildMap owns Project and Decision identities.
+- Builder owns official Decision approval.
+- AI is conservative/non-authoritative.
+- external provider IDs remain additive source identities only.
+- public-safe views/RLS/grants remain Scout/public read authority.
 
 ---
 
-## Completed application foundation
+## Completed core product state
 
-### Capture / Review / Decision
+### P0 / P1
 
 Implemented:
 
 - authenticated Builder workspace
 - Capture-first Rough Notes
-- conservative AI decision-worthiness triage for ordinary Capture
+- conservative AI triage for ordinary Capture
 - AI Structured Draft generation
-- Review surface
-- Builder-only edit/approve authority
-- approved Change Card as official Decision Record
-- Current Direction derived from approved Decisions
-
-### Project Map / Decision Timeline
-
-Implemented:
-
-- internal Decision Timeline / Project Map
-- chronological approved Decision history
+- Review + Builder approval
+- approved Change Card as official Decision
 - Current Direction
-- Major Turning Points
-- Latest Decision
-- first-Decision activation/onboarding guidance
+- Decision Timeline / Project Map
+- Major Turning Points / Latest Decision
+- first-Decision activation guidance
 
-### Public Project Map / publication
+### P2
 
-Implemented:
+Implemented and structurally closed:
 
-- Scout-facing `/p/[publicSlug]`
-- public-safe Project/Decision reads
-- Project public/private controls
-- Builder-selected public Decisions
-- sensitive Decision exclusion
-- approved + published + normal public Decision boundary
+- Scout Public Project Map
+- publication controls
+- public-safe Decision timeline
+- External Feedback Requests / Scout Feedback
+- Builder `Capture as evidence`
+- Feedback → Rough Note → AI Draft → Review → Decision
+- Decision ↔ Evidence traceability
+- Feedback Outcome closure
+- Phase 42 cross-surface consistency hardening
 
-`link_shared` token UX remains intentionally unimplemented.
-
-### External Feedback and evidence loop
-
-Implemented:
+Closed Feedback evidence path:
 
 ```text
-Public Project Map
-→ Feedback Request
-→ Scout Feedback
-→ Builder review
-→ Capture as evidence
+Scout Feedback
+→ Builder Capture as evidence
 → private Rough Note
 → AI structuring
-→ Decision Candidate
-→ Builder Review
-→ Decision
-→ Evidence traceability
-→ explicit Feedback Outcome closure
+→ Review
+→ Builder-approved Decision
+→ Evidence trace
+→ explicit Feedback Outcome
 ```
 
-Important invariants:
-
-- Feedback never automatically becomes a Decision.
-- Builder explicitly chooses `Capture as evidence`.
-- provenance uses explicit stored links rather than text/AI inference.
-- approved Decision does not automatically imply `reflected`.
-- `feedbacks.review_status` remains Builder outcome authority.
-
-### P2 end-to-end closure
-
-Phase 42 closed cross-surface consistency gaps without schema expansion:
-
-1. Decision approval revalidates Evidence and Outcomes.
-2. publication mutations revalidate affected Feedback/Public Feedback surfaces.
-3. Feedback Requests cannot be reopened while Project is private; Decision-target reopen still requires an eligible public target.
-
-P2 is structurally closed at repository/application-contract level.
+Feedback never automatically becomes a Decision or `reflected` outcome.
 
 ---
 
-## GitHub integration state
+# GitHub integration state
 
-### Phase 43 — Repository Pointer Foundation
+## Phase 43 — Repository Pointer Foundation
 
 Implemented:
 
-- Builder-only `Integrations` Project tab
-- canonical GitHub repository root association through existing `project_links`
+- Builder Project `Integrations` surface
+- canonical GitHub repository root pointer through `project_links`
 - `link_type = github`
-- canonical `https://github.com/{owner}/{repository}` normalization
-- nested commit/branch/PR/issue URLs rejected as repository identity
-- internal/public repository pointer visibility
+- internal/public pointer visibility
+- Scout public pointer through `public_project_links` only
 - archive-on-remove
-- Scout Public Map repository pointer display through `public_project_links`
 
 Authority:
 
@@ -158,201 +131,250 @@ GitHub repository pointer
 ≠ BuildMap Evidence authority
 ```
 
-Authoritative decision:
+Decision:
 
 `docs/decisions/phase43-github-integration-foundation.md`
 
-### Phase 44 — Read Integration Architecture & Sync Boundary
+---
 
-Architecture contract fixed:
+## Phase 44 — Read Integration Architecture & Sync Boundary
+
+Approved architecture:
 
 - GitHub App installation model
-- no stored PAT/classic broad OAuth App as primary integration
-- repository permissions initially limited to Metadata read + Contents read + Pull requests read
-- primary signals = merged Pull Requests + Releases
-- commits are supporting drill-down, not default intake
+- initial read envelope: Metadata read + Contents read + Pull Requests read
+- primary signals: merged Pull Requests + Releases
+- commits only as supporting drill-down
 - Issues deferred
-- first read mode = Builder-triggered on-demand Refresh
-- no webhook/polling/cron/background sync
-- GitHub observation must pass explicit Builder Capture before Review/Decision
-- provider failures are non-blocking
-- `project_links` is not credential, installation, sync, event, or Evidence storage
+- Builder-triggered on-demand read
+- no webhook / polling / cron / continuous background sync
+- GitHub observation must cross an explicit Builder Capture boundary before entering BuildMap workflow
 
-Authoritative decision:
+Decision:
 
 `docs/decisions/phase44-github-read-integration-architecture.md`
 
-Regression contract:
+---
 
-`docs/access-policy-tests/phase44-github-read-integration-boundary.md`
+## Phase 45 — GitHub App Read Access Bootstrap
 
-### Phase 45 — GitHub App Read Access Bootstrap
-
-Implemented runtime boundary:
+Implemented:
 
 ```text
-BuildMap Project
-→ canonical GitHub Project Link
-→ Builder starts GitHub App connection
-→ HMAC-signed installation state
+Project Link
+→ signed installation state
 → GitHub App installation
-→ BuildMap Setup URL
-→ BuildMap validates state + Builder session + Project ownership
-→ explicit GitHub App user authorization with PKCE
-→ callback exchanges authorization code server-side
-→ GitHub user token verifies exact App installation + exact linked repository
-→ private provider-neutral integration binding
-→ GitHub user token discarded
-→ Builder clicks Refresh GitHub activity
-→ binding integrity proof verified
-→ repository- and permission-scoped installation token minted server-side
-→ merged PR + Release reads
-→ normalized ephemeral observation response
-→ installation token discarded
+→ explicit GitHub App user authorization + PKCE
+→ exact installation + exact repository verification
+→ private integration binding
+→ Builder Refresh
+→ binding proof verification
+→ request-local installation token
+→ merged PR / non-draft Release read
+→ ephemeral normalized preview
 ```
 
-Implemented application surfaces/code:
+Security:
 
-- server-only GitHub App configuration boundary
-- signed installation state
-- PKCE user authorization flow
-- dedicated installation Setup route
-- dedicated OAuth callback route
-- exact linked-repository verification
-- request-local App JWT / installation token minting
-- Builder-triggered activity API
-- merged PR + non-draft Release normalization
-- Builder-only ephemeral preview UI
-- non-mutating provider/reconnect errors
-- pointer removal archives its active GitHub read binding
+- `installation_id` redirect value is never trusted alone.
+- GitHub user token is callback-local and never persisted.
+- installation token is request-local and never persisted/sent to browser.
+- installation token is restricted to one repository plus `contents: read` and `pull_requests: read`.
+- no service-role web runtime was introduced.
+- `integration_bindings` is private and has no public-safe view.
+- provider failure does not mutate Project/Decision/Feedback/publication state.
 
-Server-only environment names:
+Migration 17:
 
-- `GITHUB_APP_ID`
-- `GITHUB_APP_CLIENT_ID`
-- `GITHUB_APP_CLIENT_SECRET`
-- `GITHUB_APP_PRIVATE_KEY`
-- `GITHUB_APP_SLUG`
-- `GITHUB_APP_STATE_SECRET`
-- optional `GITHUB_APP_CALLBACK_URL`
+`supabase/migrations/20260819002000_buildmap_17_integration_bindings.sql`
 
-No secret values are committed and no GitHub secret uses a `NEXT_PUBLIC_*` prefix.
-
-Phase 45 environment runbook:
-
-`docs/runbooks/phase45-github-app-bootstrap.md`
-
-Authoritative implementation decision:
+Decision:
 
 `docs/decisions/phase45-github-app-read-bootstrap.md`
 
+Runbook:
+
+`docs/runbooks/phase45-github-app-bootstrap.md`
+
+---
+
+## Phase 46 — GitHub Observation → Explicit Capture Provenance
+
+Implemented end-to-end repository flow:
+
+```text
+Builder Refresh
+→ ephemeral merged PR / Release observations
+→ Builder explicitly selects Capture as evidence
+→ server re-validates BuildMap Project + GitHub binding
+→ server exact-re-reads the selected provider object
+→ private Rough Note
+→ immutable private provider source reference
+→ evidence-mode AI structuring
+→ Builder Review
+→ Builder-approved Decision
+→ Builder-only Evidence trace back to provider source
+```
+
+### Explicit Capture boundary
+
+The browser supplies only source identity/context needed to request Capture:
+
+- Project Link ID
+- source type
+- stable source ID
+
+The browser does not become authority for provider title, URL, summary, occurrence timestamp, or repository metadata.
+
+Before mutation, server code re-reads:
+
+- exact Pull Request by PR number and requires `merged_at`, or
+- exact Release by Release ID and rejects draft releases.
+
+Refresh by itself remains non-mutating and ephemeral.
+
+### Provider-neutral Capture provenance
+
+Migration 18 adds private:
+
+`capture_source_refs`
+
+It stores normalized external source provenance linked to a Rough Note:
+
+- `rough_note_id`
+- `project_link_id`
+- creator Builder profile
+- provider
+- source type
+- external source ID
+- canonical URL
+- source title/context
+- provider occurrence time
+- BuildMap observation time
+- server integrity proof
+
+It does not store:
+
+- provider access tokens
+- GitHub App private keys/client secrets
+- raw GitHub API payloads
+- synchronized event feeds
+- provider Decision authority
+
+`capture_source_refs` is insert-only from the authenticated application privilege surface; authenticated UPDATE/DELETE and all anonymous privileges are denied.
+
+No public-safe source-reference view was added.
+
+### Source integrity hardening
+
+Important distinction:
+
+```text
+owner-readable capture_source_refs row
+≠ provider-verified GitHub provenance
+```
+
+After exact GitHub re-read, BuildMap server creates an HMAC `source_proof` sealing:
+
+```text
+rough_note_id
+project_link_id
+source_type
+external_source_id
+canonical_url
+```
+
+Current application paths verify this proof before treating a source row as verified GitHub provenance:
+
+- duplicate explicit-Capture handling
+- failed AI Draft retry mode selection
+- Builder Evidence trace
+
+If proof is unavailable/invalid, the application fails closed for GitHub-specific provenance rather than inferring or repairing source identity by title, URL, Rough Note text, or AI similarity.
+
+Decision addendum:
+
+`docs/decisions/phase46-github-source-integrity-hardening.md`
+
+### AI boundary
+
+Ordinary Builder Capture continues through conservative decision-worthiness triage.
+
+A Builder-selected External Feedback or verified GitHub observation has already crossed an explicit evidence-selection boundary, so its AI path performs evidence structuring rather than repeating ordinary worthiness triage.
+
+Failed provider-origin AI Draft retry stays evidence-mode only when stored provider provenance is verifiable.
+
+### Idempotency / failure behavior
+
+- same `(project_link_id, provider, source_type, external_source_id)` cannot create multiple provider source records.
+- application pre-check handles normal duplicates; DB uniqueness handles races.
+- a race-losing newly-created Rough Note is archived if source provenance insertion fails.
+- provider/binding/source verification failure before Capture creation is non-mutating.
+- AI failure after successful Capture/provenance preserves the Builder-selected evidence for retry.
+
+### Decision trace
+
+No GitHub source ID is added to `change_cards`.
+
+Trace remains:
+
+```text
+Change Card
+→ rough_note_id
+→ capture_source_refs
+→ source_proof verification
+→ project_link
+→ canonical GitHub source
+```
+
+The Builder-only Evidence surface displays this explicit stored trace.
+
+Archived repository pointers do not erase historical Capture provenance.
+
+### Public boundary
+
+Scout/Public Map continues to expose only Builder-selected repository pointers/approved BuildMap Decisions through existing public-safe boundaries.
+
+Raw PR/Release observations, `capture_source_refs`, `source_proof`, integration bindings, and GitHub authorization state remain Builder-private.
+
+Decision:
+
+`docs/decisions/phase46-github-observation-explicit-capture-provenance.md`
+
 Regression contract:
 
-`docs/access-policy-tests/phase45-github-app-read-bootstrap.md`
+`docs/access-policy-tests/phase46-github-observation-explicit-capture-provenance.md`
 
-#### Durable integration binding
+---
 
-Phase 45 proved that a durable provider connection association is necessary for private repository reads.
+## GitHub P3 slice closure verdict
 
-Migration 17 adds private provider-neutral:
-
-`integration_bindings`
-
-It stores normalized association identity only:
-
-- Project Link reference
-- provider
-- external connection identity
-- optional external account identity/label
-- external resource identity/label
-- server-generated tamper-evidence binding proof
-- connection status
-
-It does **not** store:
-
-- GitHub App private key
-- GitHub client secret
-- GitHub user access token
-- GitHub installation access token
-- webhook secret
-- raw GitHub provider payload
-- PR/Release observation rows
-- sync cursor
-
-No public-safe view is created for `integration_bindings`.
-
-#### Binding integrity boundary
-
-Phase 45 does not introduce a Supabase service-role web runtime.
-
-Authenticated source rows are therefore not treated as token-mint authority by themselves.
-
-After GitHub verification, the server creates an HMAC proof bound to:
+At repository/application-contract level, the bounded GitHub integration now covers:
 
 ```text
-provider = github
-project_link_id
-installation_id
-repository_id
-canonical repository full name
+Repository association
+→ read authorization
+→ explicit on-demand observation read
+→ Builder-selected Capture
+→ durable source provenance
+→ AI Review path
+→ Decision
+→ reverse Evidence trace
 ```
 
-Every Refresh verifies this proof before an installation token may be minted.
+Therefore the current **GitHub integration slice is structurally closed** for the V2 roadmap scope.
 
-This prevents a directly forged/tampered binding row from becoming provider authorization.
+This does not authorize or require:
 
-#### Token boundary
+- webhook ingestion
+- polling/cron/background sync
+- Issues intake
+- raw commit-stream ingestion
+- automatic Capture
+- automatic Decision candidate detection
+- GitHub write permissions
 
-GitHub user access token:
-
-- created only during callback verification,
-- used to verify the installation and exact repository,
-- never persisted,
-- never sent to browser,
-- discarded after callback processing.
-
-GitHub installation token:
-
-- created only for Builder-triggered Refresh,
-- restricted to the single bound repository ID,
-- explicitly restricted to `contents: read` and `pull_requests: read`,
-- never persisted,
-- never sent to browser,
-- discarded after request processing.
-
-#### Observation boundary
-
-Phase 45 activity is ephemeral:
-
-```text
-GitHub API
-→ normalized response
-→ Builder browser component state
-```
-
-No GitHub observation table is created.
-
-A merged PR or Release never automatically:
-
-- creates a Rough Note,
-- invokes AI structuring,
-- creates a Change Card,
-- approves a Decision,
-- changes Current Direction,
-- marks a Major Turning Point,
-- publishes anything,
-- closes Feedback Outcome.
-
-#### Public boundary
-
-Scout/Public behavior remains Phase 43 behavior:
-
-```text
-public_project_links
-→ optional public GitHub repository pointer only
-```
-
-GitHub authorization, binding state, and PR/Release observations remain Builder-private.
+Automatic Decision candidate detection remains a later distinct P3 capability and must preserve Builder approval.
 
 ---
 
@@ -360,52 +382,51 @@ GitHub authorization, binding state, and PR/Release observations remain Builder-
 
 Historical migrations `00–10` remain immutable.
 
-Repository additive migrations currently extend through sequence 17:
+Repository additive migrations currently extend through sequence 18:
 
 - 11: app runtime privilege alignment
 - 12: least-privilege ACL hardening
 - 13: AI draft conversion RPC
 - 14: project insert owner-policy alignment
 - 15: Rough Note conversion RLS alignment
-- 16: External Feedback evidence provenance alignment
-- 17: provider-neutral private integration bindings
+- 16: External Feedback evidence provenance bridge
+- 17: private provider-neutral integration bindings
+- 18: private provider-neutral Capture source references
 
-Phase 45 migration:
+Phase 46 migration:
 
-`supabase/migrations/20260819002000_buildmap_17_integration_bindings.sql`
+`supabase/migrations/20260819003000_buildmap_18_capture_source_refs.sql`
 
-Phase 45 exact-head Database Contract Gate passed on:
+Database Contract Gate validates repository migration integrity only. It does not apply migrations to a BuildMap database.
 
-`24b646ef04d61d7749b96d319c42e0781cec1060`
+### Live DB boundary
 
-The gate verified repository migration integrity and no remote DB access. It does not prove migration 17 is applied to a live BuildMap database.
+Current claims:
 
-### Live DB verification boundary
+```text
+Migration 17 repository state: PRESENT + CONTRACT-VALID
+Migration 18 repository state: PRESENT + CONTRACT-VALID
+Migration 17 live target DB state: NOT VERIFIED
+Migration 18 live target DB state: NOT VERIFIED
+```
 
-The actual BuildMap production/staging DB migration state was not verified during Phase 45.
-
-Therefore:
-
-- repository migration: PRESENT + CONTRACT-VALID
-- live BuildMap migration application: UNKNOWN / NOT CLAIMED
-
-Do not claim GitHub read binding works in a deployed environment until migration 17 is explicitly confirmed there.
+Do not claim either migration is live without target-environment evidence.
 
 ---
 
-## CI / merge evidence
+## Phase 46 CI / merge evidence
 
-Phase 45 implementation PR: `#53`
+Implementation PR: `#55`
 
-Exact tested head:
+Exact final tested head:
 
-`24b646ef04d61d7749b96d319c42e0781cec1060`
+`85c94ab64798f27e4d8e9dda4b35152b1366e027`
 
 Exact tested tree:
 
-`f05b9d3794714b27d73440c261f860e2c50b18e9`
+`15ff9c8a37eff3622511a3133766242b886dbc75`
 
-Web App CI #80 passed:
+Web App CI #84 passed:
 
 - exact event SHA checkout
 - Node 22
@@ -414,67 +435,30 @@ Web App CI #80 passed:
 - typecheck
 - production build
 
-Database Contract Gate #19 passed:
+Database Contract Gate #23 passed:
 
 - exact event SHA checkout
 - exact SHA verification
-- historical migration integrity / additive migration contract
+- historical integrity + additive migration contract
 - safety boundary / no remote DB mutation
 
 Squash merge commit:
 
-`472b6ac5bdb69daff36e9d7def743d348bee9684`
+`8b66e24c4b20509aa7d8cf38873f126810733ad5`
 
-Merged tree:
+Merged implementation tree:
 
-`f05b9d3794714b27d73440c261f860e2c50b18e9`
+`15ff9c8a37eff3622511a3133766242b886dbc75`
 
 Therefore:
 
 ```text
-CI-tested tree == merged implementation main tree
+CI-TESTED TREE == MERGED IMPLEMENTATION TREE
 ```
-
----
-
-## Public / private authority boundary
-
-Public-safe views and RLS/grants remain authority for Scout/public reads.
-
-Never expose through Scout/Public surfaces:
-
-- Rough Notes
-- AI Structured Drafts
-- internal/unpublished/sensitive Change Cards
-- internal Feedback review/outcome state
-- private author/auth/profile identifiers
-- Builder-only provenance
-- GitHub credentials/tokens
-- `integration_bindings`
-- GitHub installation/account state
-- raw or normalized private GitHub observations
-
-Current public-safe surfaces include:
-
-- `public_project_pages`
-- `public_decision_timeline`
-- `public_feedback_requests`
-- `public_feedbacks`
-- `public_project_links`
 
 ---
 
 ## PIE architecture compatibility boundary
-
-Current verdict:
-
-```text
-PIE integration readiness: STRUCTURALLY COMPATIBLE
-Core redesign required now: NO
-Runtime integration required now: NO
-Current roadmap conflict: NO
-BLOCKER: NONE
-```
 
 Authoritative decision:
 
@@ -486,44 +470,17 @@ Operating stance:
 
 > Align now, integrate later.
 
-Hard constraints:
+Still required:
 
-- BuildMap owns Project and Decision identities.
-- External IDs never replace `projects.id` or `change_cards.id`.
-- provider references/bindings remain additive.
-- `project_links` must not become a PIE evidence registry.
+- BuildMap Project/Decision IDs remain authoritative.
+- provider identities/references remain external/additive.
+- `project_links`, `integration_bindings`, and `capture_source_refs` must not become PIE Evidence authority.
 - `change_cards.evidence` remains BuildMap decision-context evidence text.
-- BuildMap Decision != PIE Technical Decision.
 - BuildMap must work when PIE is absent/unavailable.
 - PIE core remains BuildMap-independent.
 - Factory Intelligence remains out of scope.
 
-`integration_bindings` is provider-neutral infrastructure required by the GitHub read boundary. It must not be reinterpreted as PIE Evidence authority or Factory Intelligence infrastructure.
-
----
-
-## Explicit non-goals / prohibited expansion
-
-Unless a later explicit phase authorizes them, do not add:
-
-- GitHub repository write permissions
-- stored PATs
-- persistent GitHub user/installation tokens
-- GitHub webhook ingestion
-- periodic polling / cron / background sync
-- Issue ingestion
-- raw broad commit-stream ingestion
-- automatic Capture from GitHub
-- automatic Decision creation/approval
-- public raw GitHub activity feed
-- PIE client/API/SDK/auth
-- PIE webhook/polling
-- PIE IDs on BuildMap core entities
-- PIE evidence ingestion
-- Factory Intelligence
-- cross-project/factory intelligence models
-- scoring/gamification
-- GitHub/Notion/Jira replacement behavior
+No PIE runtime/schema/API/auth/webhook/polling implementation is authorized by the current roadmap.
 
 ---
 
@@ -533,76 +490,61 @@ Production deployment remains out of scope.
 
 `apps/web/vercel.json` keeps Git deployment disabled.
 
-Merging `main` must not be described as production deployment.
+Real GitHub execution additionally requires explicit target-environment activation:
 
-Phase 45 code is repository-complete but requires explicit environment activation before it can perform real GitHub reads:
+1. migration 17 applied to the actual BuildMap database,
+2. migration 18 applied to the actual BuildMap database,
+3. GitHub App registered/configured according to the Phase45 runbook,
+4. server-only GitHub App environment values configured in that runtime.
 
-1. migration 17 applied to the actual BuildMap DB,
-2. GitHub App registered/configured according to the Phase45 runbook,
-3. server-only GitHub App environment variables configured in the target runtime.
-
-None of those live-environment facts were inferred merely from repository merge.
+These live facts were not inferred from CI or merge.
 
 ---
 
 ## Current roadmap position
 
-Completed through **Phase 45 — GitHub App Read Access Bootstrap**.
-
-P3 GitHub state:
+Completed:
 
 ```text
-Phase 43: repository pointer foundation ✅
-Phase 44: read/auth/sync/provenance architecture ✅
-Phase 45: verified read-only GitHub App bootstrap ✅
+P0 ✅ Capture / AI triage / Review / Current Direction
+P1 ✅ Decision Timeline / Project Map / first Decision activation
+P2 ✅ Public Project Map / Scout read / External Feedback / evidence + outcome closure
+P3 GitHub integration ✅ structurally closed at repository/application-contract level
 ```
 
-Current bounded flow:
+V2 P3 source roadmap order remains:
 
-```text
-Repository pointer
-→ verified GitHub App binding
-→ Builder-triggered Refresh
-→ ephemeral merged PR / Release observations
-```
-
-The observation does not yet enter BuildMap Capture.
-
-V2 P3 order remains:
-
-1. GitHub integration
-2. Notion integration
+1. GitHub integration ✅
+2. Notion integration ← NEXT
 3. Figma / Slack intake
 4. automatic Decision candidate detection
 
 ### Recommended next phase
 
-**Phase 46 — GitHub Observation → Explicit Capture Provenance**
+**Phase 47 — Notion Integration Foundation**
 
-Goal:
+Phase 47 must begin audit-first before auth/API/schema implementation.
 
-Allow a Builder to explicitly select one ephemeral GitHub observation and create a private BuildMap Capture while preserving normalized source provenance.
+Required audit questions:
 
-Phase 46 must begin with a focused provenance audit before schema/runtime expansion.
+1. What Notion resource is a BuildMap Project associated with: page, database/data source, workspace selection, or a smaller explicit pointer?
+2. Which knowledge-history signals are useful to BuildMap without turning BuildMap into a Notion mirror?
+3. What authorization model and least-privilege scopes are currently appropriate for Notion?
+4. Should initial read be Builder-triggered/on-demand, preserving the GitHub integration's optional-provider failure isolation without mechanically copying GitHub-specific auth semantics?
+5. Can `project_links`, `integration_bindings`, and `capture_source_refs` be reused as genuinely provider-neutral boundaries, and where would Notion-specific fields actually be required?
+6. What Notion observation must be explicitly selected by Builder before entering Capture?
+7. How will source provenance remain explicit without raw page/workspace mirroring or provider authority transfer?
 
-Required decisions:
+Hard invariants for Phase 47:
 
-1. whether existing Rough Note fields can preserve provider source provenance safely or an additive provider-neutral source-reference table/field is necessary,
-2. minimum stable source identity for merged PR and Release captures,
-3. idempotency / duplicate explicit Capture behavior,
-4. what normalized GitHub text is copied into the Rough Note versus kept as metadata,
-5. how provenance survives AI Draft → Change Card conversion,
-6. how Evidence UI should trace a resulting Decision back to GitHub without exposing provider credentials or raw private payloads.
-
-Hard invariants:
-
-- Builder explicitly clicks Capture; no auto-Capture.
-- GitHub observation remains external source context, not Decision authority.
-- no webhook/polling/background sync.
-- no Issues intake.
-- no automatic Decision candidate detection merely because an observation exists.
-- no public raw GitHub activity.
-- PIE/Factory Intelligence remain out of scope.
+- audit before implementation,
+- do not assume GitHub App concepts map directly to Notion,
+- Notion knowledge objects never become official Decisions automatically,
+- Builder approval remains mandatory,
+- BuildMap core remains usable when Notion is absent/unavailable,
+- no speculative generalized integration platform,
+- no PIE / Factory Intelligence expansion,
+- schema only if the audit proves it necessary.
 
 ---
 
@@ -610,11 +552,13 @@ Hard invariants:
 
 - do not modify historical migrations `00–10`
 - additive migrations only when actually required
-- do not claim live DB deployment without environment evidence
-- do not commit secrets/private keys/tokens/service-role credentials
+- do not claim live DB deployment without explicit environment evidence
+- do not commit provider secrets/tokens/service-role credentials
 - do not enable production deployment implicitly
 - preserve Builder approval authority over Decisions
 - preserve Scout/public safe-read boundaries
-- preserve BuildMap core independence from GitHub and PIE
-- preserve provider identities as external/additive rather than replacing BuildMap identities
-- Factory Intelligence remains out of scope
+- preserve provider source identity as external/additive
+- do not infer provenance from text/AI similarity
+- keep GitHub/Notion optional to BuildMap core operation
+- automatic Decision candidate detection remains a separate later capability
+- PIE / Factory Intelligence remain out of scope
