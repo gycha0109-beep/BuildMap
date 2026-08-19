@@ -10,7 +10,6 @@ import {
   completeNotionRefresh,
   loadNotionCredential,
   releaseNotionRefresh,
-  StoredNotionCredential,
 } from "@/lib/notion/credential";
 import {
   isNotionOAuthConfigured,
@@ -95,7 +94,6 @@ async function refreshCredentialAndRead(input: {
   linkId: string;
   resourceId: string;
   resourceType: NotionResourceType;
-  currentCredential: StoredNotionCredential;
 }) {
   const claimed = await claimNotionRefresh(input.supabase, input.linkId);
   if (claimed.error) {
@@ -108,7 +106,7 @@ async function refreshCredentialAndRead(input: {
   const claim = claimed.claim;
   try {
     const refreshToken = openNotionCredential(
-      input.linkId,
+      claim.botId,
       "refresh",
       claim.refreshTokenCiphertext,
       claim.encryptionKeyVersion,
@@ -116,16 +114,16 @@ async function refreshCredentialAndRead(input: {
     const rotated = await refreshNotionTokens(refreshToken);
     if (rotated.botId !== claim.botId || rotated.workspaceId !== claim.workspaceId) {
       await releaseNotionRefresh(input.supabase, input.linkId, claim.lockId);
-      return { kind: "identity_changed" as const };
+      return { kind: "reconnect" as const };
     }
 
     const accessTokenCiphertext = sealNotionCredential(
-      input.linkId,
+      claim.botId,
       "access",
       rotated.accessToken,
     );
     const refreshTokenCiphertext = sealNotionCredential(
-      input.linkId,
+      claim.botId,
       "refresh",
       rotated.refreshToken,
     );
@@ -141,10 +139,10 @@ async function refreshCredentialAndRead(input: {
     if (!completed.completed) {
       const latest = await loadNotionCredential(input.supabase, input.linkId);
       if (!latest.credential) {
-        return { kind: "identity_changed" as const };
+        return { kind: "reconnect" as const };
       }
       const latestAccessToken = openNotionCredential(
-        input.linkId,
+        latest.credential.botId,
         "access",
         latest.credential.accessTokenCiphertext,
         latest.credential.encryptionKeyVersion,
@@ -165,6 +163,12 @@ async function refreshCredentialAndRead(input: {
     return { kind: "ok" as const, preview };
   } catch (error) {
     await releaseNotionRefresh(input.supabase, input.linkId, claim.lockId);
+    if (
+      error instanceof NotionProviderError &&
+      [400, 401, 403].includes(error.status)
+    ) {
+      return { kind: "reconnect" as const };
+    }
     throw error;
   }
 }
@@ -297,7 +301,7 @@ export async function GET(
 
   try {
     const accessToken = openNotionCredential(
-      linkId,
+      loaded.credential.botId,
       "access",
       loaded.credential.accessTokenCiphertext,
       loaded.credential.encryptionKeyVersion,
@@ -329,19 +333,18 @@ export async function GET(
       linkId,
       resourceId: resource.resourceId,
       resourceType,
-      currentCredential: loaded.credential,
     });
     if (refreshed.kind === "busy") {
       return jsonError(
         "notion_refresh_in_progress",
-        "Another request is rotating this Notion credential. Retry the read.",
+        "Another request is rotating this Notion authorization. Retry the read.",
         409,
       );
     }
-    if (refreshed.kind === "identity_changed") {
+    if (refreshed.kind === "reconnect") {
       return jsonError(
         "notion_reconnect_required",
-        "Notion authorization changed while refreshing. Reconnect read access.",
+        "Notion authorization changed or could not be refreshed. Reconnect read access.",
         409,
       );
     }
