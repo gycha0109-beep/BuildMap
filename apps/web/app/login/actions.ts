@@ -75,7 +75,18 @@ export async function signUpAction(formData: FormData) {
     redirect(loginPath({ error: "password-length", next }));
   }
 
-  const result = await supabase.auth.signUp({ email, password });
+  const result = await supabase.auth.signUp({
+    email,
+    password,
+    options: next
+      ? {
+          data: {
+            buildmap_signup_intent: "scout",
+            buildmap_return_path: next,
+          },
+        }
+      : undefined,
+  });
   if (result.error) {
     if (result.error.code === "over_email_send_rate_limit") {
       redirect(loginPath({ error: "email-rate-limit", next }));
