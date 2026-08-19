@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { captureNotionObservationAction } from "@/app/projects/[projectId]/notion-capture-actions";
 import { Badge } from "@/components/ui/badge";
 
 type PagePreview = {
@@ -46,15 +47,14 @@ function formatDateTime(value: string) {
 export function NotionResourcePreview({
   projectId,
   linkId,
-  captureAction,
 }: {
   projectId: string;
   linkId: string;
-  captureAction: (formData: FormData) => void | Promise<void>;
 }) {
   const [resource, setResource] = useState<NotionReadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const captureAction = captureNotionObservationAction.bind(null, projectId);
 
   async function refresh() {
     setLoading(true);
