@@ -55,11 +55,16 @@ $$;
 revoke execute on function public.validate_rough_note_feedback_source()
   from public, anon, authenticated;
 
-drop trigger if exists rough_notes_validate_feedback_source
+drop trigger if exists rough_notes_validate_feedback_source_insert
   on public.rough_notes;
-create trigger rough_notes_validate_feedback_source
-before insert or update of source_feedback_id, project_id
-on public.rough_notes
+create trigger rough_notes_validate_feedback_source_insert
+before insert on public.rough_notes
+for each row execute function public.validate_rough_note_feedback_source();
+
+drop trigger if exists rough_notes_validate_feedback_source_update
+  on public.rough_notes;
+create trigger rough_notes_validate_feedback_source_update
+before update of source_feedback_id, project_id on public.rough_notes
 for each row execute function public.validate_rough_note_feedback_source();
 
 -- Preserve the existing RPC signature so application callers remain compatible.
