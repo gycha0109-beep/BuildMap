@@ -14,6 +14,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { href: `${root}/evidence`, label: "Evidence", exact: false },
     { href: `${root}/feedback`, label: "Feedback", exact: true },
     { href: `${root}/feedback/outcomes`, label: "Outcomes", exact: false },
+    { href: `${root}/integrations`, label: "Integrations", exact: false },
   ];
 
   return (
