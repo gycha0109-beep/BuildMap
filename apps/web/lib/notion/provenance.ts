@@ -1,8 +1,8 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { BoundedNotionPreview } from "@/lib/notion/api";
-import { getNotionOAuthConfig } from "@/lib/notion/oauth";
 
 const NOTION_CAPTURE_TOKEN_TTL_SECONDS = 10 * 60;
+const NOTION_PROOF_SECRET_MIN_BYTES = 32;
 
 export type NotionCaptureSourceType = "page_current_state" | "database_current_state";
 
@@ -37,6 +37,23 @@ export type NotionCaptureSourceProofInput = {
   captureBody: string;
 };
 
+function proofSecret() {
+  const value = process.env.NOTION_OAUTH_STATE_SECRET?.trim();
+  if (!value || Buffer.byteLength(value, "utf8") < NOTION_PROOF_SECRET_MIN_BYTES) {
+    throw new Error(
+      `NOTION_OAUTH_STATE_SECRET must contain at least ${NOTION_PROOF_SECRET_MIN_BYTES} bytes of secret material.`,
+    );
+  }
+  return value;
+}
+
+export function isNotionCaptureProofConfigured() {
+  const value = process.env.NOTION_OAUTH_STATE_SECRET?.trim();
+  return Boolean(
+    value && Buffer.byteLength(value, "utf8") >= NOTION_PROOF_SECRET_MIN_BYTES,
+  );
+}
+
 function secureEqual(left: string, right: string) {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -44,9 +61,7 @@ function secureEqual(left: string, right: string) {
 }
 
 function hmac(value: string) {
-  return createHmac("sha256", getNotionOAuthConfig().stateSecret)
-    .update(value)
-    .digest("base64url");
+  return createHmac("sha256", proofSecret()).update(value).digest("base64url");
 }
 
 function encodeSignedPayload(value: object) {
