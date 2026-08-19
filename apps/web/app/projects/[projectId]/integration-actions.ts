@@ -148,11 +148,24 @@ export async function removeGitHubRepositoryAction(projectId: string, formData: 
   }
 
   const { supabase, project } = await ownedProjectContext(projectId);
+  const now = new Date().toISOString();
+  const disconnected = await supabase
+    .from("integration_bindings")
+    .update({ status: "disconnected", archived_at: now })
+    .eq("project_link_id", linkId)
+    .eq("provider", "github")
+    .is("archived_at", null)
+    .select("id");
+
+  if (disconnected.error) {
+    redirect(integrationsPath(projectId, { error: "github-link-remove" }));
+  }
+
   const archived = await supabase
     .from("project_links")
     .update({
       visibility_status: "internal",
-      archived_at: new Date().toISOString(),
+      archived_at: now,
     })
     .eq("id", linkId)
     .eq("project_id", projectId)
