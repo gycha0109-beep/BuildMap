@@ -22,7 +22,7 @@ export default async function ReviewQueuePage({
     await Promise.all([
       supabase
         .from("rough_notes")
-        .select("id, body, converted_to_change_card_at, created_at")
+        .select("id, body, source_feedback_id, converted_to_change_card_at, created_at")
         .eq("project_id", projectId)
         .is("archived_at", null)
         .order("created_at", { ascending: false }),
@@ -60,6 +60,7 @@ export default async function ReviewQueuePage({
   const assessCapture = assessExistingCaptureAction.bind(null, projectId);
   const finalizeCandidate = finalizeAiCandidateAction.bind(null, projectId);
   const finalizePending = finalizePendingDecisionAction.bind(null, projectId);
+  const roughNoteById = new Map((roughNotes.data ?? []).map((note) => [note.id, note]));
 
   const activeDraftNoteIds = new Set(
     (aiDrafts.data ?? [])
@@ -89,7 +90,7 @@ export default async function ReviewQueuePage({
         <p className="section-kicker">Review</p>
         <h2 style={{ marginBottom: 5 }}>판단 후보를 확인하세요</h2>
         <p className="section-help">
-          AI가 올린 판단 후보를 확인하고 한 번의 승인으로 공식 Decision에 기록합니다.
+          AI가 구조화한 판단 후보를 확인하고 한 번의 승인으로 공식 Decision에 기록합니다. External Feedback evidence도 같은 승인 경계를 거칩니다.
         </p>
       </div>
 
@@ -102,10 +103,15 @@ export default async function ReviewQueuePage({
       {totalQueue === 0 ? (
         <div className="empty-state">
           <strong>검토할 항목이 없습니다.</strong>
-          <span>새 Capture를 남기거나 Decisions에서 공식 기록을 확인하세요.</span>
-          <Link className="button" href={`/projects/${projectId}/workspace`}>
-            Capture 작성
-          </Link>
+          <span>새 Capture를 남기거나 External Feedback에서 근거를 가져오세요.</span>
+          <div className="header-actions">
+            <Link className="button" href={`/projects/${projectId}/workspace`}>
+              Capture 작성
+            </Link>
+            <Link className="button secondary" href={`/projects/${projectId}/feedback`}>
+              External Feedback
+            </Link>
+          </div>
         </div>
       ) : null}
 
@@ -114,32 +120,41 @@ export default async function ReviewQueuePage({
           <div className="section-head">
             <div>
               <p className="section-kicker">Retry</p>
-              <h2>AI 판단 다시 시도</h2>
+              <h2>AI 처리 다시 시도</h2>
               <p className="section-help">
-                Capture 원문은 이미 저장되어 있습니다. AI 판단에 실패한 항목만 다시 처리합니다.
+                Capture 원문은 이미 저장되어 있습니다. External Feedback evidence는 다시 triage하지 않고 판단 후보로 구조화합니다.
               </p>
             </div>
             <Badge>{eligibleNotes.length}</Badge>
           </div>
 
           <div className="page-stack" style={{ gap: 12 }}>
-            {eligibleNotes.map((note) => (
-              <article className="record-card" key={note.id}>
-                <div className="record-card-body">
-                  <div className="row">
-                    <Badge>Capture</Badge>
-                    <span className="muted">원문 보존됨</span>
+            {eligibleNotes.map((note) => {
+              const feedbackEvidence = Boolean(note.source_feedback_id);
+              return (
+                <article className="record-card" key={note.id}>
+                  <div className="record-card-body">
+                    <div className="row">
+                      <div className="header-actions">
+                        <Badge>Capture</Badge>
+                        {feedbackEvidence ? <Badge tone="review">External feedback evidence</Badge> : null}
+                      </div>
+                      <span className="muted">원문 보존됨</span>
+                    </div>
+                    <p className="note-body" style={{ marginTop: 14 }}>
+                      {note.body}
+                    </p>
+                    <form action={assessCapture}>
+                      <input type="hidden" name="roughNoteId" value={note.id} />
+                      <SubmitButton
+                        label={feedbackEvidence ? "AI 구조화 다시 시도" : "AI 판단 다시 시도"}
+                        pendingLabel="처리 중…"
+                      />
+                    </form>
                   </div>
-                  <p className="note-body" style={{ marginTop: 14 }}>
-                    {note.body}
-                  </p>
-                  <form action={assessCapture}>
-                    <input type="hidden" name="roughNoteId" value={note.id} />
-                    <SubmitButton label="AI 판단 다시 시도" pendingLabel="판단 중…" />
-                  </form>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -151,7 +166,7 @@ export default async function ReviewQueuePage({
               <p className="section-kicker">Decision candidates</p>
               <h2>검토할 판단 후보</h2>
               <p className="section-help">
-                필요한 부분만 고친 뒤 Decision으로 기록하세요. 추가 작성 단계 없이 바로 공식 기록으로 확정됩니다.
+                필요한 부분만 고친 뒤 Decision으로 기록하세요. 후보의 출처가 Feedback이어도 자동 승인되지 않습니다.
               </p>
             </div>
             <Badge tone="ai">{reviewDrafts.length}</Badge>
@@ -159,13 +174,23 @@ export default async function ReviewQueuePage({
 
           <div className="page-stack" style={{ gap: 14 }}>
             {reviewDrafts.map((draft) => {
+              const sourceNote = draft.rough_note_id ? roughNoteById.get(draft.rough_note_id) : undefined;
+              const feedbackEvidence = Boolean(sourceNote?.source_feedback_id);
+
               if (draft.status === "generating") {
                 return (
                   <article className="ai-card" key={draft.id}>
-                    <Badge tone="ai">판단 중</Badge>
-                    <h3 style={{ margin: "12px 0 6px" }}>Capture를 분석하고 있습니다.</h3>
+                    <div className="header-actions">
+                      <Badge tone="ai">구조화 중</Badge>
+                      {feedbackEvidence ? <Badge tone="review">External feedback evidence</Badge> : null}
+                    </div>
+                    <h3 style={{ margin: "12px 0 6px" }}>
+                      {feedbackEvidence ? "Feedback evidence를 구조화하고 있습니다." : "Capture를 분석하고 있습니다."}
+                    </h3>
                     <p className="muted" style={{ marginBottom: 0 }}>
-                      중요한 판단 후보로 분류된 경우에만 검토 항목으로 남습니다.
+                      {feedbackEvidence
+                        ? "Builder가 근거로 선택한 Feedback이므로 구조화 후 반드시 Review 후보로 남습니다."
+                        : "중요한 판단 후보로 분류된 경우에만 검토 항목으로 남습니다."}
                     </p>
                   </article>
                 );
@@ -178,6 +203,7 @@ export default async function ReviewQueuePage({
                       <div className="row" style={{ justifyContent: "flex-start" }}>
                         <Badge tone="ai">AI Candidate</Badge>
                         <Badge tone="review">Builder 확인 필요</Badge>
+                        {feedbackEvidence ? <Badge tone="primary">External feedback evidence</Badge> : null}
                       </div>
                       <h3 style={{ margin: "12px 0 5px" }}>
                         {draft.suggested_title || "제목 없는 판단 후보"}
