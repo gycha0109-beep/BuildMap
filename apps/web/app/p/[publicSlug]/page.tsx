@@ -20,6 +20,15 @@ type PublicDecision = {
   created_at: string;
 };
 
+type PublicProjectLink = {
+  project_link_id: string;
+  project_id: string;
+  label: string;
+  url: string;
+  link_type: string;
+  sort_order: number;
+};
+
 const lifecycleLabels: Record<string, string> = {
   idea: "아이디어",
   building: "만드는 중",
@@ -97,19 +106,28 @@ export default async function PublicProjectMapPage({
     notFound();
   }
 
-  const timeline = await supabase
-    .from("public_decision_timeline")
-    .select(
-      "change_card_id, project_id, card_type, title, structured_summary, evidence, decision, change_content, next_check, importance, approved_at, created_at",
-    )
-    .eq("project_id", project.data.project_id)
-    .order("approved_at", { ascending: true });
+  const [timeline, projectLinks] = await Promise.all([
+    supabase
+      .from("public_decision_timeline")
+      .select(
+        "change_card_id, project_id, card_type, title, structured_summary, evidence, decision, change_content, next_check, importance, approved_at, created_at",
+      )
+      .eq("project_id", project.data.project_id)
+      .order("approved_at", { ascending: true }),
+    supabase
+      .from("public_project_links")
+      .select("project_link_id, project_id, label, url, link_type, sort_order")
+      .eq("project_id", project.data.project_id)
+      .eq("link_type", "github")
+      .order("sort_order", { ascending: true }),
+  ]);
 
-  if (timeline.error) {
-    throw new Error("Failed to load public decision timeline.");
+  if (timeline.error || projectLinks.error) {
+    throw new Error("Failed to load public project map.");
   }
 
   const rows = (timeline.data ?? []) as PublicDecision[];
+  const githubLinks = (projectLinks.data ?? []) as PublicProjectLink[];
   const latestDecision = rows.length > 0 ? rows[rows.length - 1] : null;
   const currentDirection = latestDecision
     ? latestDecision.change_content || latestDecision.decision || latestDecision.structured_summary
@@ -275,6 +293,28 @@ export default async function PublicProjectMapPage({
               )}
             </section>
 
+            {githubLinks.length > 0 ? (
+              <section className={styles.sideCard}>
+                <div className={styles.sectionHead}>
+                  <div>
+                    <p className="section-kicker">Build history</p>
+                    <h2>GitHub repositories</h2>
+                  </div>
+                  <Badge tone="primary">{githubLinks.length}</Badge>
+                </div>
+                <ul className={styles.compactList}>
+                  {githubLinks.map((link) => (
+                    <li className={styles.compactItem} key={link.project_link_id}>
+                      <a href={link.url} rel="noreferrer" target="_blank">
+                        <strong>{link.label}</strong>
+                        <small>GitHub ↗</small>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             {project.data.current_need_summary ? (
               <section className={styles.sideCard}>
                 <div className={styles.sectionHead}>
@@ -291,7 +331,7 @@ export default async function PublicProjectMapPage({
 
         <footer className={styles.footer}>
           <span>
-            이 화면은 Builder가 공개한 Project 정보와 공개 승인 Decision만으로 구성됩니다.
+            이 화면은 Builder가 공개한 Project 정보, 승인 Decision, 외부 Project link만으로 구성됩니다.
           </span>
           {project.data.builder_bio ? <span>{project.data.builder_bio}</span> : null}
         </footer>
