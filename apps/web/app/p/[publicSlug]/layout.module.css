@@ -1,0 +1,43 @@
+.switcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  display: inline-flex;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 6px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+
+.switcher a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.switcher a:hover {
+  background: var(--surface-soft);
+}
+
+@media (max-width: 640px) {
+  .switcher {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    justify-content: stretch;
+  }
+
+  .switcher a {
+    flex: 1 1 0;
+  }
+}

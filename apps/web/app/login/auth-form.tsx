@@ -5,7 +5,7 @@ import { signInAction, signUpAction } from "./actions";
 
 type SubmitIntent = "signin" | "signup" | null;
 
-export function AuthForm() {
+export function AuthForm({ next }: { next?: string | null }) {
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState<SubmitIntent>(null);
 
@@ -29,6 +29,7 @@ export function AuthForm() {
 
   return (
     <form className="stack" onSubmit={handleSubmit} aria-busy={busy}>
+      {next ? <input name="next" type="hidden" value={next} /> : null}
       <label className="field">
         <span>이메일</span>
         <input
@@ -68,7 +69,7 @@ export function AuthForm() {
           {submitting === "signup" ? "회원가입 중…" : "회원가입"}
         </button>
       </div>
-      {busy ? <p className="muted">요청을 처리하고 있습니다. 잠시 기다려 주세요.</p> : null}
+      {busy ? <p className="muted">요청을 처리하고 있습니다.</p> : null}
     </form>
   );
 }
