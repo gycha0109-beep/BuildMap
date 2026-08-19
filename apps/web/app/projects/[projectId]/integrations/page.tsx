@@ -1,6 +1,16 @@
 import { Badge } from "@/components/ui/badge";
+import { GitHubActivityPreview } from "@/components/buildmap/github-activity-preview";
 import { formatDateTime } from "@/lib/buildmap/presentation";
+import {
+  isGitHubAppConfigured,
+  verifyGitHubBindingProof,
+} from "@/lib/github/app";
+import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
 import { createClient } from "@/lib/supabase/server";
+import {
+  beginGitHubReadConnectionAction,
+  disconnectGitHubReadConnectionAction,
+} from "../github-integration-actions";
 import {
   addGitHubRepositoryAction,
   removeGitHubRepositoryAction,
@@ -15,17 +25,43 @@ type GitHubLink = {
   created_at: string;
 };
 
+type GitHubBinding = {
+  id: string;
+  project_link_id: string;
+  external_connection_id: string;
+  external_resource_id: string;
+  external_resource_label: string;
+  binding_proof: string;
+  status: string;
+  created_at: string;
+};
+
 const errorMessages: Record<string, string> = {
   "invalid-github-repository": "GitHub repository URL과 공개 설정을 확인해 주세요.",
   "github-link-save": "GitHub repository 연결을 저장하지 못했습니다.",
   "github-link-update": "GitHub repository 공개 설정을 변경하지 못했습니다.",
   "github-link-remove": "GitHub repository 연결을 제거하지 못했습니다.",
+  "github-app-not-configured": "서버의 GitHub App 설정이 아직 완료되지 않았습니다.",
+  "github-read-link-invalid": "GitHub read access를 연결할 repository pointer를 확인해 주세요.",
+  "github-read-disconnect": "GitHub read access 연결을 해제하지 못했습니다.",
+  "github-install-invalid": "GitHub App installation 응답이 올바르지 않습니다.",
+  "github-install-state": "GitHub App installation state를 검증하지 못했습니다. 다시 연결해 주세요.",
+  "github-install-user": "GitHub App installation을 시작한 BuildMap 사용자와 현재 사용자가 다릅니다.",
+  "github-oauth-state": "GitHub authorization state를 검증하지 못했습니다. 다시 연결해 주세요.",
+  "github-oauth-denied": "GitHub authorization이 취소되었습니다.",
+  "github-oauth-user": "GitHub authorization을 시작한 BuildMap 사용자와 현재 사용자가 다릅니다.",
+  "github-repository-not-authorized": "설치한 GitHub App이 이 repository에 접근할 수 없습니다.",
+  "github-binding-save": "검증된 GitHub read binding을 저장하지 못했습니다.",
+  "github-authorization-invalid": "GitHub authorization을 검증하지 못했습니다. 다시 연결해 주세요.",
+  "github-provider-unavailable": "GitHub 응답을 확인하지 못했습니다. BuildMap 데이터는 변경되지 않았습니다.",
 };
 
 const successMessages: Record<string, string> = {
   "github-linked": "GitHub repository 연결을 저장했습니다.",
   "github-visibility": "GitHub repository 공개 설정을 변경했습니다.",
   "github-removed": "GitHub repository 연결을 제거했습니다.",
+  "github-read-connected": "GitHub App read access를 검증하고 연결했습니다.",
+  "github-read-disconnected": "GitHub App read access 연결을 해제했습니다.",
 };
 
 export default async function ProjectIntegrationsPage({
@@ -38,31 +74,76 @@ export default async function ProjectIntegrationsPage({
   const { projectId } = await params;
   const query = await searchParams;
   const supabase = await createClient();
+  const githubAppConfigured = isGitHubAppConfigured();
 
-  const links = await supabase
-    .from("project_links")
-    .select("id, label, url, visibility_status, created_at")
-    .eq("project_id", projectId)
-    .eq("link_type", "github")
-    .is("archived_at", null)
-    .order("created_at", { ascending: true });
+  const [links, bindings] = await Promise.all([
+    supabase
+      .from("project_links")
+      .select("id, label, url, visibility_status, created_at")
+      .eq("project_id", projectId)
+      .eq("link_type", "github")
+      .is("archived_at", null)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("integration_bindings")
+      .select(
+        "id, project_link_id, external_connection_id, external_resource_id, external_resource_label, binding_proof, status, created_at",
+      )
+      .eq("provider", "github")
+      .eq("status", "active")
+      .is("archived_at", null),
+  ]);
 
   const rows = (links.data ?? []) as GitHubLink[];
+  const bindingRows = (bindings.data ?? []) as GitHubBinding[];
+  const linkById = new Map(rows.map((link) => [link.id, link]));
+  const validBindings = new Map<string, GitHubBinding>();
+  const invalidBindingIds = new Set<string>();
+
+  if (githubAppConfigured) {
+    for (const binding of bindingRows) {
+      const link = linkById.get(binding.project_link_id);
+      const repository = link ? parseCanonicalGitHubRepositoryUrl(link.url) : null;
+      const valid =
+        Boolean(repository) &&
+        binding.external_resource_label.toLowerCase() === repository?.fullName.toLowerCase() &&
+        verifyGitHubBindingProof(
+          {
+            projectLinkId: binding.project_link_id,
+            installationId: binding.external_connection_id,
+            repositoryId: binding.external_resource_id,
+            fullName: repository?.fullName ?? "",
+          },
+          binding.binding_proof,
+        );
+      if (valid) {
+        validBindings.set(binding.project_link_id, binding);
+      } else {
+        invalidBindingIds.add(binding.project_link_id);
+      }
+    }
+  }
+
   const addRepository = addGitHubRepositoryAction.bind(null, projectId);
   const setVisibility = setGitHubRepositoryVisibilityAction.bind(null, projectId);
   const removeRepository = removeGitHubRepositoryAction.bind(null, projectId);
+  const beginReadConnection = beginGitHubReadConnectionAction.bind(null, projectId);
+  const disconnectReadConnection = disconnectGitHubReadConnectionAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
       <div className="row">
         <div>
           <p className="section-kicker">Integrations</p>
-          <h2 style={{ marginBottom: 5 }}>GitHub repository 연결</h2>
+          <h2 style={{ marginBottom: 5 }}>GitHub Build History 연결</h2>
           <p className="section-help">
-            BuildMap Project가 어떤 GitHub repository와 연결되는지 명시합니다. 이 단계에서는 repository URL만 보존하며 GitHub 계정 권한이나 코드를 읽지 않습니다.
+            Repository pointer는 Project 연결을 나타내고, GitHub App read access는 Builder가 요청할 때만 merged PR과 Release를 읽습니다.
           </p>
         </div>
-        <Badge tone="primary">{rows.length} repositories</Badge>
+        <div className="header-actions">
+          <Badge tone="primary">{rows.length} repositories</Badge>
+          {githubAppConfigured ? <Badge tone="success">GitHub App ready</Badge> : <Badge>App config missing</Badge>}
+        </div>
       </div>
 
       {query.error && errorMessages[query.error] ? (
@@ -74,6 +155,9 @@ export default async function ProjectIntegrationsPage({
       {links.error ? (
         <div className="alert error">GitHub repository 연결 상태를 불러오지 못했습니다.</div>
       ) : null}
+      {bindings.error ? (
+        <div className="alert error">GitHub read binding 상태를 불러오지 못했습니다.</div>
+      ) : null}
 
       <section className="surface-card">
         <div className="section-head">
@@ -81,7 +165,7 @@ export default async function ProjectIntegrationsPage({
             <p className="section-kicker">Repository pointer</p>
             <h2>Repository 추가</h2>
             <p className="section-help">
-              `https://github.com/owner/repository` 형태의 repository root URL만 허용합니다. commit, branch, PR, issue URL은 integration identity로 저장하지 않습니다.
+              `https://github.com/owner/repository` 형태의 root URL만 저장합니다. 이 pointer 자체에는 credential이나 installation ID를 넣지 않습니다.
             </p>
           </div>
         </div>
@@ -115,7 +199,7 @@ export default async function ProjectIntegrationsPage({
             <button className="button" type="submit">
               Repository 연결
             </button>
-            <span className="muted">OAuth · token · webhook · repository ID는 저장하지 않습니다.</span>
+            <span className="muted">Repository pointer는 GitHub read authorization과 분리됩니다.</span>
           </div>
         </form>
       </section>
@@ -131,19 +215,24 @@ export default async function ProjectIntegrationsPage({
         {rows.length === 0 ? (
           <div className="empty-state">
             <strong>연결된 GitHub repository가 없습니다.</strong>
-            <span>Repository를 연결해도 BuildMap의 Project/Decision identity는 바뀌지 않습니다.</span>
+            <span>먼저 repository pointer를 추가한 뒤 필요한 repository에만 read access를 연결합니다.</span>
           </div>
         ) : (
           <div className="stack">
             {rows.map((link) => {
               const isPublic = link.visibility_status === "public";
+              const binding = validBindings.get(link.id);
+              const bindingInvalid = invalidBindingIds.has(link.id);
+
               return (
                 <article className="subpanel" key={link.id}>
                   <div className="section-head">
                     <div style={{ minWidth: 0 }}>
                       <div className="metadata-row" style={{ marginBottom: 8 }}>
                         <Badge tone="primary">GitHub</Badge>
-                        {isPublic ? <Badge tone="success">Public</Badge> : <Badge>Internal</Badge>}
+                        {isPublic ? <Badge tone="success">Public pointer</Badge> : <Badge>Internal pointer</Badge>}
+                        {binding ? <Badge tone="success">Read connected</Badge> : null}
+                        {bindingInvalid ? <Badge tone="review">Reconnect required</Badge> : null}
                         <span>Linked {formatDateTime(link.created_at)}</span>
                       </div>
                       <h3 style={{ marginBottom: 6 }}>{link.label}</h3>
@@ -166,10 +255,44 @@ export default async function ProjectIntegrationsPage({
                       <form action={removeRepository}>
                         <input name="linkId" type="hidden" value={link.id} />
                         <button className="button secondary" type="submit">
-                          연결 제거
+                          Pointer 제거
                         </button>
                       </form>
                     </div>
+                  </div>
+
+                  <div className="subpanel" style={{ marginTop: 14 }}>
+                    <div className="row">
+                      <div>
+                        <strong>GitHub App read access</strong>
+                        <p className="section-help" style={{ margin: "4px 0 0" }}>
+                          Contents: read + Pull requests: read 범위에서 이 repository 하나만 읽도록 연결합니다.
+                        </p>
+                      </div>
+                      {binding ? (
+                        <form action={disconnectReadConnection}>
+                          <input name="linkId" type="hidden" value={link.id} />
+                          <button className="button secondary" type="submit">
+                            Read access 해제
+                          </button>
+                        </form>
+                      ) : (
+                        <form action={beginReadConnection}>
+                          <input name="linkId" type="hidden" value={link.id} />
+                          <button className="button" disabled={!githubAppConfigured} type="submit">
+                            {bindingInvalid ? "GitHub App 다시 연결" : "GitHub App 연결"}
+                          </button>
+                        </form>
+                      )}
+                    </div>
+
+                    {binding ? (
+                      <GitHubActivityPreview projectId={projectId} linkId={link.id} />
+                    ) : !githubAppConfigured ? (
+                      <div className="alert" style={{ marginTop: 14 }}>
+                        서버에 GitHub App credentials와 callback 설정을 추가하면 read access 연결을 활성화할 수 있습니다.
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               );
@@ -180,9 +303,9 @@ export default async function ProjectIntegrationsPage({
 
       <section className="surface-card">
         <p className="section-kicker">Authority boundary</p>
-        <h2>GitHub는 BuildMap Decision authority가 아닙니다.</h2>
+        <h2>GitHub observation은 BuildMap Decision이 아닙니다.</h2>
         <p className="section-help" style={{ marginBottom: 0 }}>
-          Repository 연결은 외부 Build History 위치를 가리키는 포인터입니다. GitHub의 commit·PR·issue가 자동으로 BuildMap Decision이 되지 않으며, 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
+          Phase 45 Refresh 결과는 Builder-private ephemeral observation입니다. 자동 Capture·AI Draft·Decision·publication은 발생하지 않으며 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
         </p>
       </section>
     </div>
