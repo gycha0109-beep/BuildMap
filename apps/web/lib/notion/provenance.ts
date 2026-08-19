@@ -80,44 +80,48 @@ function decodeSignedPayload<T>(value: string): T | null {
   }
 }
 
-function canonicalObservationLines(observation: NotionObservedResource) {
-  const lines = [
-    "notion-bounded-observation-v1",
-    observation.resourceId.replaceAll("-", "").toLowerCase(),
-    observation.objectType,
-    observation.title,
-    observation.lastEditedTime ?? "",
-    observation.canonicalUrl,
-    observation.preview.kind,
-  ];
+function canonicalObservationPayload(observation: NotionObservedResource) {
+  const common = {
+    version: "notion-bounded-observation-v1",
+    resourceId: observation.resourceId.replaceAll("-", "").toLowerCase(),
+    objectType: observation.objectType,
+    title: observation.title,
+    lastEditedTime: observation.lastEditedTime,
+    canonicalUrl: observation.canonicalUrl,
+  } as const;
 
   if (observation.preview.kind === "page") {
-    lines.push(
-      observation.preview.text,
-      String(observation.preview.topLevelBlocksRead),
-      observation.preview.truncated ? "1" : "0",
-    );
-  } else {
-    const stableDataSources = [...observation.preview.dataSources].sort((left, right) => {
-      const leftId = left.id.replaceAll("-", "").toLowerCase();
-      const rightId = right.id.replaceAll("-", "").toLowerCase();
-      return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
-    });
-    for (const dataSource of stableDataSources) {
-      lines.push(
-        dataSource.id.replaceAll("-", "").toLowerCase(),
-        dataSource.name,
-      );
-    }
-    lines.push(observation.preview.truncated ? "1" : "0");
+    return {
+      ...common,
+      preview: {
+        kind: "page" as const,
+        text: observation.preview.text,
+        topLevelBlocksRead: observation.preview.topLevelBlocksRead,
+        truncated: observation.preview.truncated,
+      },
+    };
   }
 
-  return lines;
+  const dataSources = [...observation.preview.dataSources]
+    .map((dataSource) => ({
+      id: dataSource.id.replaceAll("-", "").toLowerCase(),
+      name: dataSource.name,
+    }))
+    .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+
+  return {
+    ...common,
+    preview: {
+      kind: "database" as const,
+      dataSources,
+      truncated: observation.preview.truncated,
+    },
+  };
 }
 
 export function createNotionObservationKey(observation: NotionObservedResource) {
   return createHash("sha256")
-    .update(canonicalObservationLines(observation).join("\n"))
+    .update(JSON.stringify(canonicalObservationPayload(observation)), "utf8")
     .digest("hex");
 }
 
@@ -163,19 +167,19 @@ function captureBodyHash(value: string) {
 }
 
 function captureSourceProofPayload(input: NotionCaptureSourceProofInput) {
-  return [
-    "notion-capture-source-v1",
-    input.roughNoteId,
-    input.projectLinkId,
-    input.sourceType,
-    input.sourceId.replaceAll("-", "").toLowerCase(),
-    input.observationKey,
-    input.canonicalUrl,
-    input.sourceTitle,
-    input.occurredAt ?? "",
-    input.observedAt,
-    captureBodyHash(input.captureBody),
-  ].join("\n");
+  return JSON.stringify({
+    version: "notion-capture-source-v1",
+    roughNoteId: input.roughNoteId,
+    projectLinkId: input.projectLinkId,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId.replaceAll("-", "").toLowerCase(),
+    observationKey: input.observationKey,
+    canonicalUrl: input.canonicalUrl,
+    sourceTitle: input.sourceTitle,
+    occurredAt: input.occurredAt,
+    observedAt: input.observedAt,
+    captureBodySha256: captureBodyHash(input.captureBody),
+  });
 }
 
 export function createNotionCaptureSourceProof(input: NotionCaptureSourceProofInput) {
