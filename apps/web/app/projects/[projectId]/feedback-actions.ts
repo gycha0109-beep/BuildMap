@@ -139,6 +139,10 @@ export async function setFeedbackRequestStatusAction(projectId: string, formData
   }
 
   const { supabase, project } = await ownedProjectContext(projectId);
+  if (status === "open" && project.visibility_status !== "public") {
+    redirect(feedbackPath(projectId, { error: "project-private" }));
+  }
+
   const request = await supabase
     .from("feedback_requests")
     .select("id, change_card_id")

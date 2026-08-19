@@ -49,8 +49,10 @@ async function ownedProjectContext(projectId: string) {
 function revalidatePublicationSurfaces(projectId: string, publicSlug?: string | null) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/decisions`);
+  revalidatePath(`/projects/${projectId}/feedback`);
   if (publicSlug) {
     revalidatePath(`/p/${publicSlug}`);
+    revalidatePath(`/p/${publicSlug}/feedback`);
   }
 }
 

@@ -38,6 +38,8 @@ function revalidateProjectSurfaces(projectId: string) {
   revalidatePath(`/projects/${projectId}/workspace`);
   revalidatePath(reviewPath(projectId));
   revalidatePath(decisionsPath(projectId));
+  revalidatePath(`/projects/${projectId}/evidence`);
+  revalidatePath(`/projects/${projectId}/feedback/outcomes`);
 }
 
 function boundedText(formData: FormData, name: string, maxLength: number) {
