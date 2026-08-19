@@ -33,13 +33,13 @@ export class GitHubProviderError extends Error {
 }
 
 async function githubFetchJson<T>(url: string, init: RequestInit = {}) {
+  const headers = new Headers(githubRequestHeaders);
+  new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+
   const response = await fetch(url, {
     ...init,
     cache: "no-store",
-    headers: {
-      ...githubRequestHeaders,
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
