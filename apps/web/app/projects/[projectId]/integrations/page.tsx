@@ -7,6 +7,7 @@ import {
 } from "@/lib/github/app";
 import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
 import { createClient } from "@/lib/supabase/server";
+import { captureGitHubObservationAction } from "../github-capture-actions";
 import {
   beginGitHubReadConnectionAction,
   disconnectGitHubReadConnectionAction,
@@ -54,6 +55,12 @@ const errorMessages: Record<string, string> = {
   "github-binding-save": "검증된 GitHub read binding을 저장하지 못했습니다.",
   "github-authorization-invalid": "GitHub authorization을 검증하지 못했습니다. 다시 연결해 주세요.",
   "github-provider-unavailable": "GitHub 응답을 확인하지 못했습니다. BuildMap 데이터는 변경되지 않았습니다.",
+  "github-observation-invalid": "선택한 GitHub observation identity가 올바르지 않습니다.",
+  "github-observation-read-access": "이 repository의 검증된 GitHub read access가 필요합니다.",
+  "github-observation-unavailable": "선택한 PR/Release를 GitHub에서 다시 검증하지 못했습니다. BuildMap 데이터는 변경되지 않았습니다.",
+  "github-observation-too-large": "선택한 GitHub observation이 Capture 허용 크기를 초과했습니다.",
+  "github-capture-create": "GitHub observation을 private Capture로 보존하지 못했습니다.",
+  "github-capture-source": "GitHub source provenance를 보존하지 못했습니다. Capture는 완료 처리되지 않았습니다.",
 };
 
 const successMessages: Record<string, string> = {
@@ -129,6 +136,7 @@ export default async function ProjectIntegrationsPage({
   const removeRepository = removeGitHubRepositoryAction.bind(null, projectId);
   const beginReadConnection = beginGitHubReadConnectionAction.bind(null, projectId);
   const disconnectReadConnection = disconnectGitHubReadConnectionAction.bind(null, projectId);
+  const captureObservation = captureGitHubObservationAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
@@ -137,7 +145,7 @@ export default async function ProjectIntegrationsPage({
           <p className="section-kicker">Integrations</p>
           <h2 style={{ marginBottom: 5 }}>GitHub Build History 연결</h2>
           <p className="section-help">
-            Repository pointer는 Project 연결을 나타내고, GitHub App read access는 Builder가 요청할 때만 merged PR과 Release를 읽습니다.
+            Repository pointer와 GitHub App read access를 분리해 관리합니다. Refresh 결과 중 Builder가 직접 선택한 PR/Release만 private Capture로 전환할 수 있습니다.
           </p>
         </div>
         <div className="header-actions">
@@ -287,7 +295,11 @@ export default async function ProjectIntegrationsPage({
                     </div>
 
                     {binding ? (
-                      <GitHubActivityPreview projectId={projectId} linkId={link.id} />
+                      <GitHubActivityPreview
+                        captureAction={captureObservation}
+                        projectId={projectId}
+                        linkId={link.id}
+                      />
                     ) : !githubAppConfigured ? (
                       <div className="alert" style={{ marginTop: 14 }}>
                         서버에 GitHub App credentials와 callback 설정을 추가하면 read access 연결을 활성화할 수 있습니다.
@@ -303,9 +315,9 @@ export default async function ProjectIntegrationsPage({
 
       <section className="surface-card">
         <p className="section-kicker">Authority boundary</p>
-        <h2>GitHub observation은 BuildMap Decision이 아닙니다.</h2>
+        <h2>GitHub observation은 Capture 후보일 뿐 Decision authority가 아닙니다.</h2>
         <p className="section-help" style={{ marginBottom: 0 }}>
-          Phase 45 Refresh 결과는 Builder-private ephemeral observation입니다. 자동 Capture·AI Draft·Decision·publication은 발생하지 않으며 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
+          Refresh는 읽기 전용입니다. Builder가 `Capture as evidence`를 명시적으로 선택하면 검증된 source identity와 함께 private Rough Note가 생성되고 AI가 Review 초안을 구조화합니다. 공식 Decision은 여전히 Builder Review와 승인으로만 생성됩니다.
         </p>
       </section>
     </div>

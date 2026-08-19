@@ -33,9 +33,11 @@ function formatDateTime(value: string) {
 export function GitHubActivityPreview({
   projectId,
   linkId,
+  captureAction,
 }: {
   projectId: string;
   linkId: string;
+  captureAction: (formData: FormData) => void | Promise<void>;
 }) {
   const [activity, setActivity] = useState<ActivityResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function GitHubActivityPreview({
         <div>
           <strong>Read-only Build History</strong>
           <p className="section-help" style={{ margin: "4px 0 0" }}>
-            버튼을 누를 때만 merged PR과 Release를 GitHub에서 읽습니다. 결과는 DB에 저장하지 않습니다.
+            Refresh는 merged PR과 Release를 임시로 읽기만 합니다. Builder가 직접 `Capture as evidence`를 선택한 observation만 private Capture로 보존됩니다.
           </p>
         </div>
         <button className="button secondary" disabled={loading} onClick={refresh} type="button">
@@ -85,13 +87,13 @@ export function GitHubActivityPreview({
           <div className="metadata-row">
             <span>{activity.repository}</span>
             <span>Observed {formatDateTime(activity.observedAt)}</span>
-            <span>ephemeral · not persisted</span>
+            <span>preview is ephemeral</span>
           </div>
 
           {activity.observations.length === 0 ? (
             <div className="empty-state">
               <strong>최근 merged PR 또는 Release가 없습니다.</strong>
-              <span>Commit 전체 스트림은 Phase 45 기본 intake에 포함하지 않습니다.</span>
+              <span>Commit 전체 스트림은 기본 intake에 포함하지 않습니다.</span>
             </div>
           ) : (
             activity.observations.map((observation) => (
@@ -108,13 +110,26 @@ export function GitHubActivityPreview({
                     {observation.title} ↗
                   </a>
                 </h3>
-                {observation.summary ? <p style={{ marginBottom: 0 }}>{observation.summary}</p> : null}
+                {observation.summary ? <p>{observation.summary}</p> : null}
+                <div className="row" style={{ marginTop: 12 }}>
+                  <span className="muted">
+                    Capture 시 서버가 이 source를 GitHub에서 다시 검증하고 provenance를 별도 보존합니다.
+                  </span>
+                  <form action={captureAction}>
+                    <input name="linkId" type="hidden" value={linkId} />
+                    <input name="sourceType" type="hidden" value={observation.sourceType} />
+                    <input name="sourceId" type="hidden" value={observation.sourceId} />
+                    <button className="button" type="submit">
+                      Capture as evidence
+                    </button>
+                  </form>
+                </div>
               </article>
             ))
           )}
 
           <p className="section-help" style={{ marginBottom: 0 }}>
-            이 목록은 GitHub observation일 뿐이며 Capture·Decision을 자동 생성하지 않습니다.
+            Refresh 결과 자체는 저장되지 않습니다. Capture를 선택해도 공식 Decision은 생성되지 않으며 Review와 Builder 승인이 계속 필요합니다.
           </p>
         </div>
       ) : null}

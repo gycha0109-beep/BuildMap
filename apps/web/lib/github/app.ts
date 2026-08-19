@@ -47,6 +47,14 @@ export type GitHubBindingIdentity = {
   fullName: string;
 };
 
+export type GitHubCaptureSourceIdentity = {
+  roughNoteId: string;
+  projectLinkId: string;
+  sourceType: "merged_pull_request" | "release";
+  sourceId: string;
+  canonicalUrl: string;
+};
+
 function base64Url(input: string | Buffer) {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, "utf8");
   return buffer.toString("base64url");
@@ -101,7 +109,10 @@ function signValue(encodedPayload: string, secret: string) {
 function secureEqual(left: string, right: string) {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+  return (
+    leftBuffer.length === rightBuffer.length &&
+    timingSafeEqual(leftBuffer, rightBuffer)
+  );
 }
 
 function encodeSignedPayload(value: object, secret: string) {
@@ -114,7 +125,7 @@ function decodeSignedPayload<T>(value: string, secret: string): T | null {
   if (!encoded || !signature || extra) return null;
 
   const expected = signValue(encoded, secret);
-  if (!secureEqual(signature, expected)) return null;
+  if (!secureEqual(expected, signature)) return null;
 
   try {
     return JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as T;
@@ -227,6 +238,30 @@ export function createGitHubBindingProof(input: GitHubBindingIdentity) {
 
 export function verifyGitHubBindingProof(input: GitHubBindingIdentity, proof: string) {
   return secureEqual(createGitHubBindingProof(input), proof);
+}
+
+function captureSourceProofPayload(input: GitHubCaptureSourceIdentity) {
+  return [
+    "github-capture-source-v1",
+    input.roughNoteId,
+    input.projectLinkId,
+    input.sourceType,
+    input.sourceId,
+    input.canonicalUrl,
+  ].join("\n");
+}
+
+export function createGitHubCaptureSourceProof(input: GitHubCaptureSourceIdentity) {
+  return createHmac("sha256", getGitHubAppConfig().stateSecret)
+    .update(captureSourceProofPayload(input))
+    .digest("base64url");
+}
+
+export function verifyGitHubCaptureSourceProof(
+  input: GitHubCaptureSourceIdentity,
+  proof: string,
+) {
+  return secureEqual(createGitHubCaptureSourceProof(input), proof);
 }
 
 export function createGitHubAppJwt() {
