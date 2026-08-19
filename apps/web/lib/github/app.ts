@@ -40,6 +40,13 @@ export type GitHubOAuthCookie = {
   expiresAt: number;
 };
 
+export type GitHubBindingIdentity = {
+  projectLinkId: string;
+  installationId: string;
+  repositoryId: string;
+  fullName: string;
+};
+
 function base64Url(input: string | Buffer) {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, "utf8");
   return buffer.toString("base64url");
@@ -91,6 +98,12 @@ function signValue(encodedPayload: string, secret: string) {
   return createHmac("sha256", secret).update(encodedPayload).digest("base64url");
 }
 
+function secureEqual(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 function encodeSignedPayload(value: object, secret: string) {
   const encoded = base64Url(JSON.stringify(value));
   return `${encoded}.${signValue(encoded, secret)}`;
@@ -101,14 +114,7 @@ function decodeSignedPayload<T>(value: string, secret: string): T | null {
   if (!encoded || !signature || extra) return null;
 
   const expected = signValue(encoded, secret);
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (
-    actualBuffer.length !== expectedBuffer.length ||
-    !timingSafeEqual(actualBuffer, expectedBuffer)
-  ) {
-    return null;
-  }
+  if (!secureEqual(signature, expected)) return null;
 
   try {
     return JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as T;
@@ -200,6 +206,27 @@ export function verifyGitHubOAuthCookie(value: string) {
     return null;
   }
   return payload;
+}
+
+function bindingProofPayload(input: GitHubBindingIdentity) {
+  return [
+    "github",
+    input.projectLinkId,
+    input.installationId,
+    input.repositoryId,
+    input.fullName.toLowerCase(),
+  ].join("\n");
+}
+
+export function createGitHubBindingProof(input: GitHubBindingIdentity) {
+  const config = getGitHubAppConfig();
+  return createHmac("sha256", config.stateSecret)
+    .update(bindingProofPayload(input))
+    .digest("base64url");
+}
+
+export function verifyGitHubBindingProof(input: GitHubBindingIdentity, proof: string) {
+  return secureEqual(createGitHubBindingProof(input), proof);
 }
 
 export function createGitHubAppJwt() {
