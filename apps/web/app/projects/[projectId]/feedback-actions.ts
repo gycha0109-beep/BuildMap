@@ -6,6 +6,7 @@ import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { createClient } from "@/lib/supabase/server";
 
 const reviewStatuses = new Set(["new", "reviewing", "reflected", "not_reflected"]);
+const outcomeStatuses = new Set(["reviewing", "reflected", "not_reflected"]);
 const feedbackVisibilities = new Set(["internal_review", "public_selected"]);
 
 function feedbackPath(projectId: string, params?: { error?: string; updated?: string }) {
@@ -14,6 +15,14 @@ function feedbackPath(projectId: string, params?: { error?: string; updated?: st
   if (params?.updated) search.set("updated", params.updated);
   const query = search.toString();
   return `/projects/${projectId}/feedback${query ? `?${query}` : ""}`;
+}
+
+function outcomesPath(projectId: string, params?: { error?: string; updated?: string }) {
+  const search = new URLSearchParams();
+  if (params?.error) search.set("error", params.error);
+  if (params?.updated) search.set("updated", params.updated);
+  const query = search.toString();
+  return `/projects/${projectId}/feedback/outcomes${query ? `?${query}` : ""}`;
 }
 
 function boundedText(formData: FormData, name: string, maxLength: number) {
@@ -67,6 +76,8 @@ async function isPublicDecisionTarget(
 
 function revalidateFeedbackSurfaces(projectId: string, publicSlug: string | null) {
   revalidatePath(`/projects/${projectId}/feedback`);
+  revalidatePath(`/projects/${projectId}/feedback/outcomes`);
+  revalidatePath(`/projects/${projectId}/evidence`);
   revalidatePath(`/projects/${projectId}/decisions`);
   if (publicSlug) {
     revalidatePath(`/p/${publicSlug}`);
@@ -213,6 +224,35 @@ export async function setFeedbackReviewStatusAction(projectId: string, formData:
 
   revalidateFeedbackSurfaces(projectId, project.public_slug);
   redirect(feedbackPath(projectId, { updated: "feedback-reviewed" }));
+}
+
+export async function setFeedbackOutcomeStatusAction(projectId: string, formData: FormData) {
+  const feedbackId = String(formData.get("feedbackId") ?? "").trim();
+  const outcomeStatus = String(formData.get("outcomeStatus") ?? "").trim();
+
+  if (!feedbackId || !outcomeStatuses.has(outcomeStatus)) {
+    redirect(outcomesPath(projectId, { error: "feedback-outcome" }));
+  }
+
+  const { supabase, project } = await ownedProjectContext(projectId);
+  const owned = await ownedFeedback(supabase, projectId, feedbackId);
+  if (!owned) {
+    redirect(outcomesPath(projectId, { error: "feedback-outcome" }));
+  }
+
+  const updated = await supabase
+    .from("feedbacks")
+    .update({ review_status: outcomeStatus })
+    .eq("id", feedbackId)
+    .select("id")
+    .maybeSingle();
+
+  if (updated.error || !updated.data) {
+    redirect(outcomesPath(projectId, { error: "feedback-outcome" }));
+  }
+
+  revalidateFeedbackSurfaces(projectId, project.public_slug);
+  redirect(outcomesPath(projectId, { updated: "feedback-outcome" }));
 }
 
 export async function setFeedbackVisibilityAction(projectId: string, formData: FormData) {
