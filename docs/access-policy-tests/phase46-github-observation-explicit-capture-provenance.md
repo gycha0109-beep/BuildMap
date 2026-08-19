@@ -51,21 +51,27 @@ A forged/tampered binding must not be used to mint an installation token.
 
 GitHub authorization/provider failures before source verification completes must leave existing BuildMap Project, Capture, Decision, Feedback, publication, and Outcome state unchanged.
 
-## P46C-008 — Provider source provenance is private and explicit
+## P46C-008 — Provider source provenance is private, explicit, and server-sealed
 
 A successful provider-origin Capture creates an explicit private `capture_source_refs` row linked to the new Rough Note.
 
-The provenance row must preserve provider, source type, external source identity, canonical URL, source title/context, occurrence time, and BuildMap observation time.
+The provenance row must preserve provider, source type, external source identity, canonical URL, source title/context, occurrence time, BuildMap observation time, and a server-generated integrity proof.
+
+Application read/retry paths must verify the proof before treating the row as verified GitHub provenance.
 
 ## P46C-009 — Source provenance is not a raw event ledger
 
-No complete GitHub API response payload, token, secret, or synchronized observation feed may be stored in `capture_source_refs`.
+No complete GitHub API response payload, provider token, private key, OAuth secret, or synchronized observation feed may be stored in `capture_source_refs`.
+
+The source integrity proof is BuildMap server integrity metadata, not a GitHub credential.
 
 ## P46C-010 — Source record is immutable to authenticated application users
 
 Authenticated users may SELECT/INSERT owned source references through RLS but must not have UPDATE or DELETE privileges on `capture_source_refs`.
 
 Anonymous users must have no privilege on the table.
+
+A row that exists but fails source-proof verification must not be represented as verified provider provenance.
 
 ## P46C-011 — Cross-project provenance is rejected
 
@@ -85,19 +91,21 @@ The same `(project_link_id, provider, source_type, external_source_id)` must not
 
 Application pre-check handles the common path and a database unique constraint handles concurrent races.
 
+If an existing source row is found, the application must verify its source proof before treating that row as the previously captured verified observation.
+
 ## P46C-015 — Duplicate race does not leave a second active Capture
 
 If a newly-created Rough Note loses a concurrent source-reference uniqueness race, the application must archive that newly-created Rough Note instead of leaving an active orphan Capture.
 
 ## P46C-016 — AI failure preserves selected evidence
 
-After Rough Note + source provenance are successfully created, an AI generation failure must keep both records intact for later Review retry.
+After Rough Note + verified source provenance are successfully created, an AI generation failure must keep both records intact for later Review retry.
 
-## P46C-017 — Provider-origin retry stays evidence-mode
+## P46C-017 — Verified provider-origin retry stays evidence-mode
 
-When AI structuring is retried for a Rough Note that has `capture_source_refs`, the retry path must use evidence structuring rather than ordinary decision-worthiness triage.
+When AI structuring is retried for a Rough Note with a GitHub `capture_source_refs` row, the retry path must verify the stored source proof before using evidence structuring rather than ordinary decision-worthiness triage.
 
-The retry decision must be based on explicit stored provenance, not Rough Note text matching.
+A missing/invalid proof must not be promoted to verified provider evidence based on Rough Note text or row existence alone.
 
 ## P46C-018 — Decision identity remains BuildMap-owned
 
@@ -105,7 +113,7 @@ Conversion from AI Draft to Change Card continues to use the existing BuildMap c
 
 No GitHub source ID is copied into `projects.id` or `change_cards.id`, and no GitHub object becomes an official Decision automatically.
 
-## P46C-019 — Decision provenance follows rough_note_id
+## P46C-019 — Decision provenance follows rough_note_id and verified source proof
 
 For an approved Decision originating from GitHub evidence, the Builder-only Evidence surface must be able to follow:
 
@@ -113,21 +121,24 @@ For an approved Decision originating from GitHub evidence, the Builder-only Evid
 Change Card
 → rough_note_id
 → capture_source_refs
+→ source_proof verification
 → project_link
 → canonical provider source
 ```
 
 No title/body/AI inference may be used to reconstruct this link.
 
+A source row whose proof cannot be verified must be surfaced as an integrity problem rather than rendered as verified GitHub provenance.
+
 ## P46C-020 — Archived repository pointer does not erase history
 
-If the GitHub Project Link is later archived, historical provider provenance must remain stored and the Evidence surface may read the archived link record for Builder-only traceability.
+If the GitHub Project Link is later archived, historical verified provider provenance must remain stored and the Evidence surface may read the archived link record for Builder-only traceability.
 
 ## P46C-021 — No public raw provider provenance
 
 `capture_source_refs` must not receive an anonymous/public-safe view or public grant in Phase 46.
 
-Scout/Public Project Map must not expose raw GitHub PR/Release provenance.
+Scout/Public Project Map must not expose raw GitHub PR/Release provenance or source-proof state.
 
 ## P46C-022 — No background synchronization expansion
 
