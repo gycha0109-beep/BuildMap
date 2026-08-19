@@ -25,18 +25,24 @@ comment on column public.integration_bindings.external_resource_type is
   'Verified provider object type for an external resource when the provider requires type-aware reads. Credential material is never stored here.';
 
 create table if not exists private.notion_oauth_credentials (
-  id uuid primary key default gen_random_uuid(),
-  project_link_id uuid not null unique references public.project_links(id) on delete cascade,
+  bot_id text primary key check (char_length(bot_id) between 1 and 255),
   created_by_builder_profile_id uuid not null references public.builder_profiles(id) on delete restrict,
-  bot_id text not null check (char_length(bot_id) between 1 and 255),
   workspace_id text not null check (char_length(workspace_id) between 1 and 255),
   workspace_name text check (workspace_name is null or char_length(workspace_name) <= 255),
   authorizer_user_id text check (authorizer_user_id is null or char_length(authorizer_user_id) <= 255),
   access_token_ciphertext text check (
-    access_token_ciphertext is null or char_length(access_token_ciphertext) between 16 and 8192
+    access_token_ciphertext is null
+    or (
+      char_length(access_token_ciphertext) between 16 and 8192
+      and access_token_ciphertext ~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+    )
   ),
   refresh_token_ciphertext text check (
-    refresh_token_ciphertext is null or char_length(refresh_token_ciphertext) between 16 and 8192
+    refresh_token_ciphertext is null
+    or (
+      char_length(refresh_token_ciphertext) between 16 and 8192
+      and refresh_token_ciphertext ~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+    )
   ),
   encryption_key_version smallint not null default 1 check (encryption_key_version > 0),
   credential_version bigint not null default 1 check (credential_version > 0),
@@ -63,14 +69,16 @@ create table if not exists private.notion_oauth_credentials (
 );
 
 comment on table private.notion_oauth_credentials is
-  'Server-bound Notion public OAuth credential records. Token values are application-sealed AES-256-GCM ciphertext; direct browser/table access is denied. This table is not provider association metadata.';
+  'Server-bound Notion public OAuth authorization records keyed by provider bot_id. Token values are application-sealed AES-256-GCM ciphertext; direct browser/table access is denied.';
+comment on column private.notion_oauth_credentials.bot_id is
+  'Notion authorization identity returned with the OAuth token set. Provider guidance treats bot_id as the token/authorization primary key.';
 comment on column private.notion_oauth_credentials.credential_version is
   'Monotonic optimistic-concurrency version used with the refresh lock to prevent rotated refresh-token lost updates.';
 comment on column private.notion_oauth_credentials.refresh_lock_id is
-  'Short-lived single-refresh lease. A successful refresh must complete with both this lease and the credential_version it observed.';
+  'Short-lived single-refresh lease shared by every Project Link bound to this bot authorization.';
 
-create index if not exists notion_oauth_credentials_bot_idx
-  on private.notion_oauth_credentials(bot_id)
+create index if not exists notion_oauth_credentials_owner_idx
+  on private.notion_oauth_credentials(created_by_builder_profile_id)
   where status = 'active';
 
 create trigger notion_oauth_credentials_set_updated_at
@@ -102,10 +110,12 @@ set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_project_id uuid;
-  v_credential_id uuid;
+  v_existing_credential_owner uuid;
   v_credential_version bigint;
   v_binding_id uuid;
+  v_previous_bot_id text;
   v_workspace_label text;
+  v_old_credential_disconnected boolean := false;
 begin
   select pl.project_id
     into v_project_id
@@ -136,16 +146,36 @@ begin
     or pg_catalog.length(p_resource_label) > 255
     or coalesce(pg_catalog.length(p_binding_proof), 0) < 32
     or coalesce(pg_catalog.length(p_access_token_ciphertext), 0) < 16
+    or p_access_token_ciphertext !~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
     or coalesce(pg_catalog.length(p_refresh_token_ciphertext), 0) < 16
+    or p_refresh_token_ciphertext !~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
     or p_encryption_key_version is null
     or p_encryption_key_version <= 0 then
     raise exception using errcode = '22023', message = 'invalid_notion_authorization';
   end if;
 
+  select nc.created_by_builder_profile_id
+    into v_existing_credential_owner
+  from private.notion_oauth_credentials nc
+  where nc.bot_id = p_bot_id;
+
+  if v_existing_credential_owner is not null
+    and v_existing_credential_owner <> p_created_by_builder_profile_id then
+    raise exception using errcode = '42501', message = 'credential_owner_mismatch';
+  end if;
+
+  select ib.id, ib.external_connection_id
+    into v_binding_id, v_previous_bot_id
+  from public.integration_bindings ib
+  where ib.project_link_id = p_project_link_id
+    and ib.provider = 'notion'
+    and ib.archived_at is null
+  order by ib.created_at asc
+  limit 1;
+
   insert into private.notion_oauth_credentials as nc (
-    project_link_id,
-    created_by_builder_profile_id,
     bot_id,
+    created_by_builder_profile_id,
     workspace_id,
     workspace_name,
     authorizer_user_id,
@@ -158,9 +188,8 @@ begin
     refresh_lock_expires_at,
     disconnected_at
   ) values (
-    p_project_link_id,
-    p_created_by_builder_profile_id,
     p_bot_id,
+    p_created_by_builder_profile_id,
     p_workspace_id,
     nullif(pg_catalog.btrim(p_workspace_name), ''),
     nullif(pg_catalog.btrim(p_authorizer_user_id), ''),
@@ -173,10 +202,8 @@ begin
     null,
     null
   )
-  on conflict (project_link_id) do update
-  set created_by_builder_profile_id = excluded.created_by_builder_profile_id,
-      bot_id = excluded.bot_id,
-      workspace_id = excluded.workspace_id,
+  on conflict (bot_id) do update
+  set workspace_id = excluded.workspace_id,
       workspace_name = excluded.workspace_name,
       authorizer_user_id = excluded.authorizer_user_id,
       access_token_ciphertext = excluded.access_token_ciphertext,
@@ -187,19 +214,9 @@ begin
       refresh_lock_id = null,
       refresh_lock_expires_at = null,
       disconnected_at = null
-  returning id, credential_version
-    into v_credential_id, v_credential_version;
+  returning credential_version into v_credential_version;
 
   v_workspace_label := coalesce(nullif(pg_catalog.btrim(p_workspace_name), ''), 'Notion workspace');
-
-  select ib.id
-    into v_binding_id
-  from public.integration_bindings ib
-  where ib.project_link_id = p_project_link_id
-    and ib.provider = 'notion'
-    and ib.archived_at is null
-  order by ib.created_at asc
-  limit 1;
 
   if v_binding_id is null then
     insert into public.integration_bindings (
@@ -242,11 +259,41 @@ begin
     where id = v_binding_id;
   end if;
 
+  if v_previous_bot_id is not null
+    and v_previous_bot_id <> p_bot_id
+    and not exists (
+      select 1
+      from public.integration_bindings ib
+      where ib.provider = 'notion'
+        and ib.external_connection_id = v_previous_bot_id
+        and ib.status = 'active'
+        and ib.archived_at is null
+        and ib.created_by_builder_profile_id = p_created_by_builder_profile_id
+    ) then
+    update private.notion_oauth_credentials nc
+    set access_token_ciphertext = null,
+        refresh_token_ciphertext = null,
+        credential_version = nc.credential_version + 1,
+        status = 'disconnected',
+        refresh_lock_id = null,
+        refresh_lock_expires_at = null,
+        disconnected_at = pg_catalog.now()
+    where nc.bot_id = v_previous_bot_id
+      and nc.created_by_builder_profile_id = p_created_by_builder_profile_id
+      and nc.status = 'active';
+
+    if found then
+      v_old_credential_disconnected := true;
+    end if;
+  end if;
+
   return pg_catalog.jsonb_build_object(
     'ok', true,
-    'credential_id', v_credential_id,
+    'bot_id', p_bot_id,
     'credential_version', v_credential_version,
-    'binding_id', v_binding_id
+    'binding_id', v_binding_id,
+    'previous_bot_id', v_previous_bot_id,
+    'old_credential_disconnected', v_old_credential_disconnected
   );
 end;
 $$;
@@ -260,6 +307,7 @@ as $$
 declare
   v_project_id uuid;
   v_row private.notion_oauth_credentials%rowtype;
+  v_binding_count bigint;
 begin
   select pl.project_id
     into v_project_id
@@ -274,15 +322,37 @@ begin
 
   select nc.*
     into v_row
-  from private.notion_oauth_credentials nc
-  where nc.project_link_id = p_project_link_id
+  from public.integration_bindings ib
+  join private.notion_oauth_credentials nc
+    on nc.bot_id = ib.external_connection_id
+  where ib.project_link_id = p_project_link_id
+    and ib.provider = 'notion'
+    and ib.status = 'active'
+    and ib.archived_at is null
     and nc.status = 'active'
     and nc.access_token_ciphertext is not null
-    and nc.refresh_token_ciphertext is not null;
+    and nc.refresh_token_ciphertext is not null
+    and exists (
+      select 1
+      from public.builder_profiles bp
+      join public.user_profiles up on up.id = bp.user_profile_id
+      where bp.id = nc.created_by_builder_profile_id
+        and up.auth_user_id = auth.uid()
+    )
+  limit 1;
 
   if not found then
     return pg_catalog.jsonb_build_object('ok', false, 'error', 'not_connected');
   end if;
+
+  select pg_catalog.count(*)
+    into v_binding_count
+  from public.integration_bindings ib
+  where ib.provider = 'notion'
+    and ib.external_connection_id = v_row.bot_id
+    and ib.status = 'active'
+    and ib.archived_at is null
+    and ib.created_by_builder_profile_id = v_row.created_by_builder_profile_id;
 
   return pg_catalog.jsonb_build_object(
     'ok', true,
@@ -293,7 +363,8 @@ begin
     'access_token_ciphertext', v_row.access_token_ciphertext,
     'refresh_token_ciphertext', v_row.refresh_token_ciphertext,
     'encryption_key_version', v_row.encryption_key_version,
-    'credential_version', v_row.credential_version
+    'credential_version', v_row.credential_version,
+    'active_binding_count', v_binding_count
   );
 end;
 $$;
@@ -306,6 +377,7 @@ set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_project_id uuid;
+  v_bot_id text;
   v_lock_id uuid;
   v_row private.notion_oauth_credentials%rowtype;
 begin
@@ -320,14 +392,34 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  v_lock_id := extensions.gen_random_uuid();
+  select ib.external_connection_id
+    into v_bot_id
+  from public.integration_bindings ib
+  where ib.project_link_id = p_project_link_id
+    and ib.provider = 'notion'
+    and ib.status = 'active'
+    and ib.archived_at is null
+  limit 1;
+
+  if v_bot_id is null then
+    return pg_catalog.jsonb_build_object('ok', false, 'error', 'refresh_busy_or_disconnected');
+  end if;
+
+  v_lock_id := pg_catalog.gen_random_uuid();
 
   update private.notion_oauth_credentials nc
   set refresh_lock_id = v_lock_id,
       refresh_lock_expires_at = pg_catalog.now() + interval '30 seconds'
-  where nc.project_link_id = p_project_link_id
+  where nc.bot_id = v_bot_id
     and nc.status = 'active'
     and nc.refresh_token_ciphertext is not null
+    and exists (
+      select 1
+      from public.builder_profiles bp
+      join public.user_profiles up on up.id = bp.user_profile_id
+      where bp.id = nc.created_by_builder_profile_id
+        and up.auth_user_id = auth.uid()
+    )
     and (
       nc.refresh_lock_id is null
       or nc.refresh_lock_expires_at is null
@@ -366,6 +458,7 @@ set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_project_id uuid;
+  v_bot_id text;
   v_new_version bigint;
 begin
   select pl.project_id
@@ -379,8 +472,20 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  if coalesce(pg_catalog.length(p_access_token_ciphertext), 0) < 16
+  select ib.external_connection_id
+    into v_bot_id
+  from public.integration_bindings ib
+  where ib.project_link_id = p_project_link_id
+    and ib.provider = 'notion'
+    and ib.status = 'active'
+    and ib.archived_at is null
+  limit 1;
+
+  if v_bot_id is null
+    or coalesce(pg_catalog.length(p_access_token_ciphertext), 0) < 16
+    or p_access_token_ciphertext !~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
     or coalesce(pg_catalog.length(p_refresh_token_ciphertext), 0) < 16
+    or p_refresh_token_ciphertext !~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
     or p_encryption_key_version is null
     or p_encryption_key_version <= 0 then
     raise exception using errcode = '22023', message = 'invalid_notion_refresh';
@@ -393,11 +498,18 @@ begin
       credential_version = nc.credential_version + 1,
       refresh_lock_id = null,
       refresh_lock_expires_at = null
-  where nc.project_link_id = p_project_link_id
+  where nc.bot_id = v_bot_id
     and nc.status = 'active'
     and nc.refresh_lock_id = p_lock_id
     and nc.refresh_lock_expires_at > pg_catalog.now()
     and nc.credential_version = p_expected_credential_version
+    and exists (
+      select 1
+      from public.builder_profiles bp
+      join public.user_profiles up on up.id = bp.user_profile_id
+      where bp.id = nc.created_by_builder_profile_id
+        and up.auth_user_id = auth.uid()
+    )
   returning nc.credential_version into v_new_version;
 
   if not found then
@@ -422,6 +534,7 @@ set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_project_id uuid;
+  v_bot_id text;
 begin
   select pl.project_id
     into v_project_id
@@ -434,12 +547,30 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  update private.notion_oauth_credentials nc
-  set refresh_lock_id = null,
-      refresh_lock_expires_at = null
-  where nc.project_link_id = p_project_link_id
-    and nc.status = 'active'
-    and nc.refresh_lock_id = p_lock_id;
+  select ib.external_connection_id
+    into v_bot_id
+  from public.integration_bindings ib
+  where ib.project_link_id = p_project_link_id
+    and ib.provider = 'notion'
+    and ib.status = 'active'
+    and ib.archived_at is null
+  limit 1;
+
+  if v_bot_id is not null then
+    update private.notion_oauth_credentials nc
+    set refresh_lock_id = null,
+        refresh_lock_expires_at = null
+    where nc.bot_id = v_bot_id
+      and nc.status = 'active'
+      and nc.refresh_lock_id = p_lock_id
+      and exists (
+        select 1
+        from public.builder_profiles bp
+        join public.user_profiles up on up.id = bp.user_profile_id
+        where bp.id = nc.created_by_builder_profile_id
+          and up.auth_user_id = auth.uid()
+      );
+  end if;
 
   return pg_catalog.jsonb_build_object('ok', true);
 end;
@@ -453,6 +584,11 @@ set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_project_id uuid;
+  v_binding_id uuid;
+  v_bot_id text;
+  v_builder_profile_id uuid;
+  v_remaining_bindings bigint;
+  v_credential_disconnected boolean := false;
   v_now timestamptz := pg_catalog.now();
 begin
   select pl.project_id
@@ -466,24 +602,71 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  update private.notion_oauth_credentials nc
-  set access_token_ciphertext = null,
-      refresh_token_ciphertext = null,
-      credential_version = nc.credential_version + 1,
-      status = 'disconnected',
-      refresh_lock_id = null,
-      refresh_lock_expires_at = null,
-      disconnected_at = v_now
-  where nc.project_link_id = p_project_link_id;
-
-  update public.integration_bindings ib
-  set status = 'disconnected',
-      archived_at = coalesce(ib.archived_at, v_now)
+  select ib.id, ib.external_connection_id, ib.created_by_builder_profile_id
+    into v_binding_id, v_bot_id, v_builder_profile_id
+  from public.integration_bindings ib
   where ib.project_link_id = p_project_link_id
     and ib.provider = 'notion'
-    and ib.archived_at is null;
+    and ib.status = 'active'
+    and ib.archived_at is null
+  limit 1;
 
-  return pg_catalog.jsonb_build_object('ok', true);
+  if v_binding_id is null then
+    return pg_catalog.jsonb_build_object(
+      'ok', true,
+      'provider_revoke_required', false,
+      'credential_disconnected', false
+    );
+  end if;
+
+  if not exists (
+    select 1
+    from public.builder_profiles bp
+    join public.user_profiles up on up.id = bp.user_profile_id
+    where bp.id = v_builder_profile_id
+      and up.auth_user_id = auth.uid()
+  ) then
+    raise exception using errcode = '42501', message = 'not_allowed';
+  end if;
+
+  update public.integration_bindings
+  set status = 'disconnected',
+      archived_at = v_now
+  where id = v_binding_id;
+
+  select pg_catalog.count(*)
+    into v_remaining_bindings
+  from public.integration_bindings ib
+  where ib.provider = 'notion'
+    and ib.external_connection_id = v_bot_id
+    and ib.status = 'active'
+    and ib.archived_at is null
+    and ib.created_by_builder_profile_id = v_builder_profile_id;
+
+  if v_remaining_bindings = 0 then
+    update private.notion_oauth_credentials nc
+    set access_token_ciphertext = null,
+        refresh_token_ciphertext = null,
+        credential_version = nc.credential_version + 1,
+        status = 'disconnected',
+        refresh_lock_id = null,
+        refresh_lock_expires_at = null,
+        disconnected_at = v_now
+    where nc.bot_id = v_bot_id
+      and nc.created_by_builder_profile_id = v_builder_profile_id
+      and nc.status = 'active';
+
+    if found then
+      v_credential_disconnected := true;
+    end if;
+  end if;
+
+  return pg_catalog.jsonb_build_object(
+    'ok', true,
+    'provider_revoke_required', v_credential_disconnected,
+    'credential_disconnected', v_credential_disconnected,
+    'remaining_binding_count', v_remaining_bindings
+  );
 end;
 $$;
 
@@ -517,8 +700,8 @@ grant execute on function public.release_notion_oauth_refresh(uuid, uuid)
 grant execute on function public.disconnect_notion_oauth_authorization(uuid)
   to authenticated;
 
--- Authenticated clients may invoke only the owner-checked RPC boundary. They must
--- never receive direct table/schema privileges over the credential store.
+-- Authenticated clients may invoke only owner-checked RPCs. They must never receive
+-- direct table/schema privileges over the credential store.
 do $$
 begin
   if has_schema_privilege('anon', 'private', 'USAGE')
