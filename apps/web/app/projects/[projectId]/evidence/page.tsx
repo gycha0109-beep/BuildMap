@@ -22,6 +22,29 @@ type CaptureRow = {
   created_at: string;
 };
 
+type CaptureSourceRefRow = {
+  id: string;
+  rough_note_id: string;
+  project_link_id: string;
+  provider: string;
+  source_type: string;
+  external_source_id: string;
+  canonical_url: string;
+  source_title: string;
+  source_context: string | null;
+  occurred_at: string | null;
+  observed_at: string;
+  created_at: string;
+};
+
+type ProjectLinkRow = {
+  id: string;
+  label: string;
+  url: string;
+  link_type: string;
+  archived_at: string | null;
+};
+
 type FeedbackRow = {
   id: string;
   feedback_request_id: string;
@@ -43,6 +66,28 @@ type FeedbackRequestRow = {
   visibility_status: string;
   created_at: string;
 };
+
+function safeProviderSourceUrl(provider: string, value: string) {
+  if (provider !== "github") return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== "github.com") return null;
+    if (parsed.username || parsed.password || parsed.port) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function sourceTypeLabel(source: CaptureSourceRefRow) {
+  if (source.provider === "github" && source.source_type === "merged_pull_request") {
+    return "GitHub Merged PR";
+  }
+  if (source.provider === "github" && source.source_type === "release") {
+    return "GitHub Release";
+  }
+  return `${source.provider} · ${source.source_type}`;
+}
 
 export default async function EvidencePage({
   params,
@@ -83,6 +128,35 @@ export default async function EvidencePage({
 
   const captureRows = (captures.data ?? []) as CaptureRow[];
   const captureById = new Map(captureRows.map((capture) => [capture.id, capture]));
+
+  const captureSources =
+    captureIds.length > 0
+      ? await supabase
+          .from("capture_source_refs")
+          .select(
+            "id, rough_note_id, project_link_id, provider, source_type, external_source_id, canonical_url, source_title, source_context, occurred_at, observed_at, created_at",
+          )
+          .in("rough_note_id", captureIds)
+      : { data: [] as CaptureSourceRefRow[], error: null };
+
+  const captureSourceRows = (captureSources.data ?? []) as CaptureSourceRefRow[];
+  const captureSourceByRoughNoteId = new Map(
+    captureSourceRows.map((source) => [source.rough_note_id, source]),
+  );
+  const projectLinkIds = Array.from(
+    new Set(captureSourceRows.map((source) => source.project_link_id)),
+  );
+  const projectLinks =
+    projectLinkIds.length > 0
+      ? await supabase
+          .from("project_links")
+          .select("id, label, url, link_type, archived_at")
+          .eq("project_id", projectId)
+          .in("id", projectLinkIds)
+      : { data: [] as ProjectLinkRow[], error: null };
+  const projectLinkRows = (projectLinks.data ?? []) as ProjectLinkRow[];
+  const projectLinkById = new Map(projectLinkRows.map((link) => [link.id, link]));
+
   const feedbackIds = Array.from(
     new Set(
       [
@@ -131,10 +205,21 @@ export default async function EvidencePage({
     const capture = decision.rough_note_id ? captureById.get(decision.rough_note_id) : null;
     return Boolean(decision.linked_feedback_id || capture?.source_feedback_id);
   }).length;
+  const withProviderSource = decisionRows.filter(
+    (decision) =>
+      Boolean(
+        decision.rough_note_id && captureSourceByRoughNoteId.has(decision.rough_note_id),
+      ),
+  ).length;
   const withRecordedEvidence = decisionRows.filter((decision) => Boolean(decision.evidence?.trim()))
     .length;
   const sourceReadError = Boolean(
-    decisions.error || captures.error || feedbacks.error || requests.error,
+    decisions.error ||
+      captures.error ||
+      captureSources.error ||
+      projectLinks.error ||
+      feedbacks.error ||
+      requests.error,
   );
 
   return (
@@ -144,13 +229,14 @@ export default async function EvidencePage({
           <p className="section-kicker">Evidence traceability</p>
           <h2 style={{ marginBottom: 5 }}>이 Decision은 무엇을 근거로 만들어졌는가</h2>
           <p className="section-help">
-            공식 Decision에서 원본 Capture와 External Feedback까지 역추적합니다. 연결된 데이터만 보여주며 과거 기록의 출처를 추정하지 않습니다.
+            공식 Decision에서 원본 Capture, External Feedback, Builder가 명시적으로 Capture한 provider source까지 역추적합니다. 저장된 연결만 보여주며 과거 출처를 텍스트나 AI로 추정하지 않습니다.
           </p>
         </div>
         <div className="header-actions">
           <Badge tone="success">{decisionRows.length} decisions</Badge>
           <Badge tone="primary">{withCapture} captures</Badge>
           <Badge tone="review">{withExternalFeedback} external feedback</Badge>
+          {withProviderSource > 0 ? <Badge tone="primary">{withProviderSource} provider sources</Badge> : null}
         </div>
       </div>
 
@@ -160,7 +246,7 @@ export default async function EvidencePage({
             <p className="section-kicker">Authority boundary</p>
             <h2>Builder-only provenance</h2>
             <p className="section-help">
-              이 화면은 내부 근거 추적용입니다. Rough Note 원문과 Feedback 내부 상태를 Public Project Map에 추가하지 않습니다.
+              이 화면은 내부 근거 추적용입니다. Rough Note, Feedback 내부 상태, provider source metadata는 Public Project Map에 추가하지 않습니다.
             </p>
           </div>
           <Badge>Private read-side</Badge>
@@ -173,7 +259,7 @@ export default async function EvidencePage({
           <div className="detail-block">
             <span className="detail-label">Source record</span>
             <p className="detail-value">
-              DB에 실제 연결된 `rough_note_id` / `linked_feedback_id`만 provenance로 취급합니다.
+              DB에 실제 연결된 `rough_note_id` / `linked_feedback_id` / `capture_source_refs`만 provenance로 취급합니다.
             </p>
           </div>
         </div>
@@ -201,6 +287,15 @@ export default async function EvidencePage({
             const capture = decision.rough_note_id
               ? captureById.get(decision.rough_note_id) ?? null
               : null;
+            const providerSource = decision.rough_note_id
+              ? captureSourceByRoughNoteId.get(decision.rough_note_id) ?? null
+              : null;
+            const providerProjectLink = providerSource
+              ? projectLinkById.get(providerSource.project_link_id) ?? null
+              : null;
+            const providerUrl = providerSource
+              ? safeProviderSourceUrl(providerSource.provider, providerSource.canonical_url)
+              : null;
             const feedbackFromDecision = decision.linked_feedback_id;
             const feedbackFromCapture = capture?.source_feedback_id ?? null;
             const provenanceMismatch = Boolean(
@@ -213,7 +308,8 @@ export default async function EvidencePage({
             const request = feedback
               ? requestById.get(feedback.feedback_request_id) ?? null
               : null;
-            const sourceCount = Number(Boolean(capture)) + Number(Boolean(feedback));
+            const sourceCount =
+              Number(Boolean(capture)) + Number(Boolean(feedback)) + Number(Boolean(providerSource));
 
             return (
               <section className="surface-card" key={decision.id}>
@@ -278,10 +374,15 @@ export default async function EvidencePage({
                           <Badge tone="review">External Feedback source</Badge>
                           <span>Feedback provenance 보존됨</span>
                         </div>
+                      ) : providerSource ? (
+                        <div className="metadata-row">
+                          <Badge tone="primary">{providerSource.provider} source</Badge>
+                          <span>Provider provenance 보존됨</span>
+                        </div>
                       ) : (
                         <div className="metadata-row">
                           <Badge>Builder Capture</Badge>
-                          <span>External Feedback 연결 없음</span>
+                          <span>External source 연결 없음</span>
                         </div>
                       )}
                     </div>
@@ -302,6 +403,42 @@ export default async function EvidencePage({
                       </p>
                     </div>
                   )}
+
+                  {providerSource ? (
+                    <div className="timeline-item">
+                      <time>
+                        {sourceTypeLabel(providerSource)}
+                        {providerSource.occurred_at
+                          ? ` · ${formatDateTime(providerSource.occurred_at)}`
+                          : ""}
+                      </time>
+                      <strong>{providerSource.source_title}</strong>
+                      {providerUrl ? (
+                        <p style={{ marginBottom: 8 }}>
+                          <a href={providerUrl} rel="noreferrer" target="_blank">
+                            Provider source 열기 ↗
+                          </a>
+                        </p>
+                      ) : null}
+                      <div className="metadata-row">
+                        <Badge tone="primary">{providerSource.provider}</Badge>
+                        <span>source: {providerSource.external_source_id}</span>
+                        {providerProjectLink ? <span>repository: {providerProjectLink.label}</span> : null}
+                        {providerProjectLink?.archived_at ? <Badge>Repository pointer archived</Badge> : null}
+                        <span>observed: {formatDateTime(providerSource.observed_at)}</span>
+                      </div>
+                      {providerSource.source_context ? (
+                        <p className="muted" style={{ margin: "8px 0 0", whiteSpace: "pre-wrap" }}>
+                          {providerSource.source_context}
+                        </p>
+                      ) : null}
+                      {!providerProjectLink ? (
+                        <p className="muted" style={{ margin: "8px 0 0" }}>
+                          Project Link ID는 보존되어 있으나 현재 link record를 읽지 못했습니다. 다른 repository로 추정하지 않습니다.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {feedback ? (
                     <div className="timeline-item">
