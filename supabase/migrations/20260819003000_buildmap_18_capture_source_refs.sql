@@ -18,6 +18,7 @@ create table if not exists public.capture_source_refs (
   source_context text check (source_context is null or char_length(source_context) <= 1000),
   occurred_at timestamptz,
   observed_at timestamptz not null,
+  source_proof text not null check (char_length(source_proof) between 32 and 255),
   created_at timestamptz not null default now()
 );
 
@@ -27,6 +28,8 @@ comment on column public.capture_source_refs.external_source_id is
   'Stable provider-side source identity within the linked external resource. It never replaces a BuildMap ID.';
 comment on column public.capture_source_refs.canonical_url is
   'Canonical provider URL recorded at explicit Capture time. Public exposure is not authorized by this table.';
+comment on column public.capture_source_refs.source_proof is
+  'Server-generated integrity proof for provider-verified source identity. It is not a provider credential; application reads must verify it before treating the row as verified provider provenance.';
 
 create unique index if not exists capture_source_refs_rough_note_unique
   on public.capture_source_refs(rough_note_id);
