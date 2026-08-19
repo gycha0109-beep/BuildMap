@@ -41,11 +41,11 @@ Scout 제출 Server Action도 다음 순서로 현재 상태를 다시 확인한
 
 UI에서 Request가 보였다는 과거 사실만 믿고 insert하지 않는다.
 
-## DB guard candidate
+## DB guard additive migration
 
-`20260819000000_phase38_external_feedback_target_guard_draft.sql`은 다음 두 경계를 보강하는 draft다.
+`20260819000000_buildmap_16_external_feedback_target_guard.sql`은 다음 두 경계를 보강한다.
 
 - `feedback_requests_select_public_draft`: linked Decision이 public-safe가 아니면 source-table public read 차단
 - `can_insert_feedback()`: linked Decision의 현재 public-safe 상태를 insert 시점에 재검사
 
-이 SQL은 draft이므로 production DB 적용 전에 local dry-run / db lint / Data API regression / Security Advisor 확인이 필요하다.
+파일은 post-Phase31 additive migration naming contract를 따르며, 이 Phase에서는 연결된 live BuildMap DB가 없어 실제 DB에는 적용하지 않는다. Production promotion 전에는 local dry-run / db lint / Data API regression / Security Advisor 확인이 필요하다.
