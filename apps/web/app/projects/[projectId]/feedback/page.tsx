@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/buildmap/presentation";
 import { createClient } from "@/lib/supabase/server";
+import { captureFeedbackAsEvidenceAction } from "../capture-actions";
 import {
   createFeedbackRequestAction,
   setFeedbackRequestStatusAction,
@@ -28,6 +29,7 @@ const errorMessages: Record<string, string> = {
   "invalid-feedback": "대상 Feedback을 확인할 수 없습니다.",
   "feedback-review": "Feedback 검토 상태를 변경하지 못했습니다.",
   "feedback-public": "Feedback 공개 상태를 변경하지 못했습니다.",
+  "feedback-capture": "Feedback을 Capture evidence로 보존하지 못했습니다.",
 };
 
 const reviewLabels: Record<string, string> = {
@@ -59,7 +61,7 @@ export default async function FeedbackPage({
   const query = await searchParams;
   const supabase = await createClient();
 
-  const [project, decisions, requests] = await Promise.all([
+  const [project, decisions, requests, evidenceCaptures] = await Promise.all([
     supabase
       .from("projects")
       .select("id, title, visibility_status, public_slug")
@@ -81,6 +83,11 @@ export default async function FeedbackPage({
       .eq("project_id", projectId)
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("rough_notes")
+      .select("id, source_feedback_id, converted_to_change_card_at")
+      .eq("project_id", projectId)
+      .is("archived_at", null),
   ]);
 
   const requestRows = requests.data ?? [];
@@ -105,6 +112,11 @@ export default async function FeedbackPage({
   const decisionTitles = new Map(decisionRows.map((decision) => [decision.id, decision.title]));
   const feedbackRows = (feedbacks.data ?? []) as FeedbackRow[];
   const feedbackByRequest = new Map<string, FeedbackRow[]>();
+  const capturedFeedbackIds = new Set(
+    (evidenceCaptures.data ?? [])
+      .map((capture) => capture.source_feedback_id)
+      .filter((id): id is string => Boolean(id)),
+  );
 
   for (const feedback of feedbackRows) {
     const rows = feedbackByRequest.get(feedback.feedback_request_id) ?? [];
@@ -123,6 +135,7 @@ export default async function FeedbackPage({
   const setRequestStatus = setFeedbackRequestStatusAction.bind(null, projectId);
   const setReviewStatus = setFeedbackReviewStatusAction.bind(null, projectId);
   const setVisibility = setFeedbackVisibilityAction.bind(null, projectId);
+  const captureEvidence = captureFeedbackAsEvidenceAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
@@ -131,7 +144,7 @@ export default async function FeedbackPage({
           <p className="section-kicker">External feedback</p>
           <h2 style={{ marginBottom: 5 }}>Scout의 관찰을 판단 근거로 받기</h2>
           <p className="section-help">
-            일반 댓글창이 아니라 Builder가 질문을 열고, 로그인 Scout의 응답을 내부 검토한 뒤 필요한 것만 공개합니다.
+            일반 댓글창이 아니라 Builder가 질문을 열고, 로그인 Scout의 응답을 내부 검토한 뒤 필요한 것만 판단 루프로 가져옵니다.
           </p>
         </div>
         <div className="header-actions">
@@ -220,7 +233,7 @@ export default async function FeedbackPage({
         </section>
       )}
 
-      {requests.error || feedbacks.error ? (
+      {requests.error || feedbacks.error || evidenceCaptures.error ? (
         <div className="alert error">External Feedback 기록을 불러오지 못했습니다.</div>
       ) : requestRows.length === 0 ? (
         <div className="empty-state">
@@ -272,6 +285,7 @@ export default async function FeedbackPage({
                   <div className="stack">
                     {responses.map((feedback) => {
                       const publicSelected = feedback.visibility_status === "public_selected";
+                      const capturedAsEvidence = capturedFeedbackIds.has(feedback.id);
                       return (
                         <article className="subpanel" key={feedback.id}>
                           <div className="row" style={{ alignItems: "flex-start" }}>
@@ -281,6 +295,7 @@ export default async function FeedbackPage({
                                   {reviewLabels[feedback.review_status] ?? feedback.review_status}
                                 </Badge>
                                 {publicSelected ? <Badge tone="success">Public selected</Badge> : <Badge>Internal review</Badge>}
+                                {capturedAsEvidence ? <Badge tone="ai">Captured as evidence</Badge> : null}
                                 {feedback.tester_interest ? <Badge tone="primary">Tester interest</Badge> : null}
                                 <span>{formatDateTime(feedback.created_at)}</span>
                               </div>
@@ -297,6 +312,18 @@ export default async function FeedbackPage({
                                 </select>
                                 <button className="button secondary" type="submit">저장</button>
                               </form>
+                              {capturedAsEvidence ? (
+                                <Link className="button secondary" href={`/projects/${projectId}/workspace/review`}>
+                                  Review에서 보기
+                                </Link>
+                              ) : (
+                                <form action={captureEvidence}>
+                                  <input name="feedbackId" type="hidden" value={feedback.id} />
+                                  <button className="button" type="submit">
+                                    Capture as evidence
+                                  </button>
+                                </form>
+                              )}
                               <form action={setVisibility} className="row" style={{ justifyContent: "flex-end" }}>
                                 <input name="feedbackId" type="hidden" value={feedback.id} />
                                 <input
