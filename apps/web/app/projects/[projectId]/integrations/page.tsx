@@ -1,11 +1,17 @@
-import { Badge } from "@/components/ui/badge";
 import { GitHubActivityPreview } from "@/components/buildmap/github-activity-preview";
+import { NotionResourcePreview } from "@/components/buildmap/notion-resource-preview";
+import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/buildmap/presentation";
 import {
   isGitHubAppConfigured,
   verifyGitHubBindingProof,
 } from "@/lib/github/app";
 import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
+import {
+  isNotionOAuthConfigured,
+  verifyNotionBindingProof,
+} from "@/lib/notion/oauth";
+import { parseCanonicalNotionResourceUrl } from "@/lib/notion/resource";
 import { createClient } from "@/lib/supabase/server";
 import { captureGitHubObservationAction } from "../github-capture-actions";
 import {
@@ -20,6 +26,10 @@ import {
   setGitHubRepositoryVisibilityAction,
   setNotionResourceVisibilityAction,
 } from "../integration-actions";
+import {
+  beginNotionReadConnectionAction,
+  disconnectNotionReadConnectionAction,
+} from "../notion-integration-actions";
 
 type ProviderLink = {
   id: string;
@@ -39,6 +49,24 @@ type GitHubBinding = {
   status: string;
   created_at: string;
 };
+
+type NotionBinding = {
+  id: string;
+  project_link_id: string;
+  external_connection_id: string;
+  external_account_id: string | null;
+  external_account_label: string | null;
+  external_resource_id: string;
+  external_resource_type: string | null;
+  external_resource_label: string;
+  binding_proof: string;
+  status: string;
+  created_at: string;
+};
+
+function compactUuid(value: string) {
+  return value.replaceAll("-", "").toLowerCase();
+}
 
 const errorMessages: Record<string, string> = {
   "invalid-github-repository": "GitHub repository URL과 공개 설정을 확인해 주세요.",
@@ -68,6 +96,20 @@ const errorMessages: Record<string, string> = {
   "notion-link-save": "Notion resource pointer를 저장하지 못했습니다.",
   "notion-link-update": "Notion resource 공개 설정을 변경하지 못했습니다.",
   "notion-link-remove": "Notion resource pointer를 제거하지 못했습니다.",
+  "notion-link-read-connected": "Notion read access를 먼저 해제한 뒤 pointer를 제거해 주세요.",
+  "notion-oauth-not-configured": "서버의 Notion OAuth/read 설정이 아직 완료되지 않았습니다.",
+  "notion-oauth-config-invalid": "Notion OAuth 보안 설정을 사용할 수 없습니다. 서버 설정을 확인해 주세요.",
+  "notion-read-link-invalid": "Notion read access를 연결할 resource pointer를 확인해 주세요.",
+  "notion-oauth-state": "Notion authorization state를 검증하지 못했습니다. 다시 연결해 주세요.",
+  "notion-oauth-denied": "Notion authorization이 취소되었습니다.",
+  "notion-oauth-user": "Notion authorization을 시작한 BuildMap 사용자와 현재 사용자가 다릅니다.",
+  "notion-resource-not-authorized": "선택한 Notion authorization으로 이 exact Project resource를 읽을 수 없습니다.",
+  "notion-resource-type-unsupported": "이 pointer는 data source를 가리킵니다. Phase 48에서는 Project root page 또는 database를 연결해 주세요.",
+  "notion-binding-save": "검증된 Notion read authorization을 안전하게 저장하지 못했습니다.",
+  "notion-authorization-invalid": "Notion authorization을 검증하지 못했습니다. 다시 연결해 주세요.",
+  "notion-rate-limited": "Notion이 이 connection을 일시적으로 rate limit하고 있습니다. 잠시 후 다시 시도해 주세요.",
+  "notion-provider-unavailable": "Notion 응답을 확인하지 못했습니다. BuildMap core 데이터는 변경되지 않았습니다.",
+  "notion-read-disconnect": "Notion read access의 로컬 credential을 비활성화하지 못했습니다.",
 };
 
 const successMessages: Record<string, string> = {
@@ -79,6 +121,9 @@ const successMessages: Record<string, string> = {
   "notion-linked": "Notion resource pointer를 저장했습니다.",
   "notion-visibility": "Notion resource 공개 설정을 변경했습니다.",
   "notion-removed": "Notion resource pointer를 제거했습니다.",
+  "notion-read-connected": "Notion read authorization과 exact resource access를 검증하고 연결했습니다.",
+  "notion-read-disconnected": "이 pointer의 Notion read access를 해제했습니다.",
+  "notion-read-disconnected-local": "로컬 Notion read authorization은 즉시 비활성화했습니다. 마지막 authorization의 provider revoke 확인은 완료하지 못했습니다.",
 };
 
 export default async function ProjectIntegrationsPage({
@@ -92,8 +137,9 @@ export default async function ProjectIntegrationsPage({
   const query = await searchParams;
   const supabase = await createClient();
   const githubAppConfigured = isGitHubAppConfigured();
+  const notionOAuthConfigured = isNotionOAuthConfigured();
 
-  const [githubLinks, notionLinks, bindings] = await Promise.all([
+  const [githubLinks, notionLinks, githubBindings, notionBindings] = await Promise.all([
     supabase
       .from("project_links")
       .select("id, label, url, visibility_status, created_at")
@@ -116,18 +162,30 @@ export default async function ProjectIntegrationsPage({
       .eq("provider", "github")
       .eq("status", "active")
       .is("archived_at", null),
+    supabase
+      .from("integration_bindings")
+      .select(
+        "id, project_link_id, external_connection_id, external_account_id, external_account_label, external_resource_id, external_resource_type, external_resource_label, binding_proof, status, created_at",
+      )
+      .eq("provider", "notion")
+      .eq("status", "active")
+      .is("archived_at", null),
   ]);
 
   const githubRows = (githubLinks.data ?? []) as ProviderLink[];
   const notionRows = (notionLinks.data ?? []) as ProviderLink[];
-  const bindingRows = (bindings.data ?? []) as GitHubBinding[];
-  const linkById = new Map(githubRows.map((link) => [link.id, link]));
-  const validBindings = new Map<string, GitHubBinding>();
-  const invalidBindingIds = new Set<string>();
+  const githubBindingRows = (githubBindings.data ?? []) as GitHubBinding[];
+  const notionBindingRows = (notionBindings.data ?? []) as NotionBinding[];
+  const githubLinkById = new Map(githubRows.map((link) => [link.id, link]));
+  const notionLinkById = new Map(notionRows.map((link) => [link.id, link]));
+  const validGitHubBindings = new Map<string, GitHubBinding>();
+  const invalidGitHubBindingIds = new Set<string>();
+  const validNotionBindings = new Map<string, NotionBinding>();
+  const invalidNotionBindingIds = new Set<string>();
 
   if (githubAppConfigured) {
-    for (const binding of bindingRows) {
-      const link = linkById.get(binding.project_link_id);
+    for (const binding of githubBindingRows) {
+      const link = githubLinkById.get(binding.project_link_id);
       const repository = link ? parseCanonicalGitHubRepositoryUrl(link.url) : null;
       const valid =
         Boolean(repository) &&
@@ -142,10 +200,45 @@ export default async function ProjectIntegrationsPage({
           binding.binding_proof,
         );
       if (valid) {
-        validBindings.set(binding.project_link_id, binding);
+        validGitHubBindings.set(binding.project_link_id, binding);
       } else {
-        invalidBindingIds.add(binding.project_link_id);
+        invalidGitHubBindingIds.add(binding.project_link_id);
       }
+    }
+  }
+
+  for (const binding of notionBindingRows) {
+    const link = notionLinkById.get(binding.project_link_id);
+    const resource = link ? parseCanonicalNotionResourceUrl(link.url) : null;
+    const resourceType = binding.external_resource_type;
+    let proofValid = false;
+    if (
+      notionOAuthConfigured &&
+      resource &&
+      binding.external_account_id &&
+      (resourceType === "page" || resourceType === "database") &&
+      compactUuid(binding.external_resource_id) === compactUuid(resource.resourceId)
+    ) {
+      try {
+        proofValid = verifyNotionBindingProof(
+          {
+            projectLinkId: binding.project_link_id,
+            botId: binding.external_connection_id,
+            workspaceId: binding.external_account_id,
+            resourceId: binding.external_resource_id,
+            resourceType,
+          },
+          binding.binding_proof,
+        );
+      } catch {
+        proofValid = false;
+      }
+    }
+
+    if (proofValid) {
+      validNotionBindings.set(binding.project_link_id, binding);
+    } else if (notionOAuthConfigured) {
+      invalidNotionBindingIds.add(binding.project_link_id);
     }
   }
 
@@ -158,6 +251,8 @@ export default async function ProjectIntegrationsPage({
   const addNotionResource = addNotionResourceAction.bind(null, projectId);
   const setNotionVisibility = setNotionResourceVisibilityAction.bind(null, projectId);
   const removeNotionResource = removeNotionResourceAction.bind(null, projectId);
+  const beginNotionReadConnection = beginNotionReadConnectionAction.bind(null, projectId);
+  const disconnectNotionReadConnection = disconnectNotionReadConnectionAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
@@ -187,8 +282,11 @@ export default async function ProjectIntegrationsPage({
       {notionLinks.error ? (
         <div className="alert error">Notion resource 연결 상태를 불러오지 못했습니다.</div>
       ) : null}
-      {bindings.error ? (
+      {githubBindings.error ? (
         <div className="alert error">GitHub read binding 상태를 불러오지 못했습니다.</div>
+      ) : null}
+      {notionBindings.error ? (
+        <div className="alert error">Notion read binding 상태를 불러오지 못했습니다.</div>
       ) : null}
 
       <section className="surface-card">
@@ -253,8 +351,8 @@ export default async function ProjectIntegrationsPage({
           <div className="stack">
             {githubRows.map((link) => {
               const isPublic = link.visibility_status === "public";
-              const binding = validBindings.get(link.id);
-              const bindingInvalid = invalidBindingIds.has(link.id);
+              const binding = validGitHubBindings.get(link.id);
+              const bindingInvalid = invalidGitHubBindingIds.has(link.id);
 
               return (
                 <article className="subpanel" key={link.id}>
@@ -333,10 +431,10 @@ export default async function ProjectIntegrationsPage({
             <p className="section-kicker">Notion · Knowledge Context</p>
             <h2>Project knowledge root 추가</h2>
             <p className="section-help">
-              Notion에서 Copy link한 page 또는 database URL을 저장합니다. Phase 47에서는 workspace 전체를 연결하거나 URL만으로 page/database type을 추정하지 않습니다.
+              Notion에서 Copy link한 page 또는 database URL을 저장합니다. Pointer는 위치만 나타내며 authenticated read authorization과 별도입니다.
             </p>
           </div>
-          <Badge tone="review">Pointer foundation</Badge>
+          {notionOAuthConfigured ? <Badge tone="success">OAuth read ready</Badge> : <Badge>Read config missing</Badge>}
         </div>
 
         <form action={addNotionResource} className="stack">
@@ -366,7 +464,7 @@ export default async function ProjectIntegrationsPage({
 
           <div className="save-row row">
             <button className="button" type="submit">Notion resource 연결</button>
-            <span className="muted">이 단계는 pointer만 저장하며 Notion OAuth/read access를 생성하지 않습니다.</span>
+            <span className="muted">Pointer 공개 여부는 authenticated Notion content 공개 여부와 무관합니다.</span>
           </div>
         </form>
       </section>
@@ -389,6 +487,12 @@ export default async function ProjectIntegrationsPage({
           <div className="stack">
             {notionRows.map((link) => {
               const isPublic = link.visibility_status === "public";
+              const binding = validNotionBindings.get(link.id);
+              const bindingInvalid = invalidNotionBindingIds.has(link.id);
+              const storedBindingExists = notionBindingRows.some(
+                (row) => row.project_link_id === link.id,
+              );
+
               return (
                 <article className="subpanel" key={link.id}>
                   <div className="section-head">
@@ -396,7 +500,10 @@ export default async function ProjectIntegrationsPage({
                       <div className="metadata-row" style={{ marginBottom: 8 }}>
                         <Badge tone="review">Notion</Badge>
                         {isPublic ? <Badge tone="success">Public pointer</Badge> : <Badge>Internal pointer</Badge>}
-                        <Badge>Pointer only</Badge>
+                        <Badge>Pointer linked</Badge>
+                        {binding ? <Badge tone="success">Read connected</Badge> : null}
+                        {bindingInvalid ? <Badge tone="review">Reconnect required</Badge> : null}
+                        {!notionOAuthConfigured && storedBindingExists ? <Badge>Read config missing</Badge> : null}
                         <span>Linked {formatDateTime(link.created_at)}</span>
                       </div>
                       <h3 style={{ marginBottom: 6 }}>{link.label}</h3>
@@ -412,12 +519,59 @@ export default async function ProjectIntegrationsPage({
                       </form>
                       <form action={removeNotionResource}>
                         <input name="linkId" type="hidden" value={link.id} />
-                        <button className="button secondary" type="submit">Pointer 제거</button>
+                        <button className="button secondary" disabled={storedBindingExists} type="submit">
+                          {storedBindingExists ? "Read access 먼저 해제" : "Pointer 제거"}
+                        </button>
                       </form>
                     </div>
                   </div>
-                  <div className="alert" style={{ marginTop: 14 }}>
-                    Notion OAuth/read runtime은 아직 연결되지 않았습니다. 이 pointer는 Knowledge Context 위치만 나타내며 BuildMap이 해당 내용을 읽었다는 뜻이 아닙니다.
+
+                  <div className="subpanel" style={{ marginTop: 14 }}>
+                    <div className="row">
+                      <div>
+                        <strong>Notion read authorization</strong>
+                        <p className="section-help" style={{ margin: "4px 0 0" }}>
+                          Public OAuth의 read content 권한으로 이 pointer가 가리키는 exact page/database만 BuildMap에서 검증하고 읽습니다.
+                        </p>
+                        {binding?.external_account_label ? (
+                          <p className="muted" style={{ margin: "4px 0 0" }}>
+                            Authorized workspace · {binding.external_account_label}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="header-actions">
+                        {storedBindingExists ? (
+                          <form action={disconnectNotionReadConnection}>
+                            <input name="linkId" type="hidden" value={link.id} />
+                            <button className="button secondary" type="submit">Read access 해제</button>
+                          </form>
+                        ) : null}
+                        {!binding ? (
+                          <form action={beginNotionReadConnection}>
+                            <input name="linkId" type="hidden" value={link.id} />
+                            <button className="button" disabled={!notionOAuthConfigured} type="submit">
+                              {bindingInvalid ? "Notion 다시 연결" : "Connect Notion read access"}
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {binding ? (
+                      <NotionResourcePreview projectId={projectId} linkId={link.id} />
+                    ) : bindingInvalid ? (
+                      <div className="alert" style={{ marginTop: 14 }}>
+                        저장된 read binding이 현재 Project pointer와 보안 검증을 통과하지 못했습니다. 해제하거나 Notion authorization을 다시 완료해 주세요.
+                      </div>
+                    ) : !notionOAuthConfigured ? (
+                      <div className="alert" style={{ marginTop: 14 }}>
+                        서버에 Notion public OAuth credentials, state secret, AES-256-GCM encryption key를 구성하면 read access 연결을 활성화할 수 있습니다. 기존 binding은 별도로 해제할 수 있습니다.
+                      </div>
+                    ) : (
+                      <div className="alert" style={{ marginTop: 14 }}>
+                        Pointer만 저장된 상태입니다. Notion authorization을 별도로 완료해야 BuildMap이 이 resource를 읽을 수 있습니다.
+                      </div>
+                    )}
                   </div>
                 </article>
               );
@@ -430,7 +584,7 @@ export default async function ProjectIntegrationsPage({
         <p className="section-kicker">Authority boundary</p>
         <h2>External provider context는 Decision authority가 아닙니다.</h2>
         <p className="section-help" style={{ marginBottom: 0 }}>
-          GitHub observation과 향후 Notion knowledge object는 모두 외부 source context입니다. Provider pointer/read 결과는 Project·Decision identity를 대체하지 않으며 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
+          GitHub observation과 Notion current knowledge preview는 모두 외부 source context입니다. Pointer, credential, observation, Capture, Decision은 서로 다른 authority boundary이며 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
         </p>
       </section>
     </div>

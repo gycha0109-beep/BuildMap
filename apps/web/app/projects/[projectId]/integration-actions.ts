@@ -284,22 +284,26 @@ export async function removeNotionResourceAction(projectId: string, formData: Fo
   }
 
   const { supabase, project } = await ownedProjectContext(projectId);
-  const now = new Date().toISOString();
-  const disconnected = await supabase
+  const activeReadBinding = await supabase
     .from("integration_bindings")
-    .update({ status: "disconnected", archived_at: now })
+    .select("id")
     .eq("project_link_id", linkId)
     .eq("provider", "notion")
+    .eq("status", "active")
     .is("archived_at", null)
-    .select("id");
+    .limit(1)
+    .maybeSingle();
 
-  if (disconnected.error) {
+  if (activeReadBinding.error) {
     redirect(integrationsPath(projectId, { error: "notion-link-remove" }));
+  }
+  if (activeReadBinding.data) {
+    redirect(integrationsPath(projectId, { error: "notion-link-read-connected" }));
   }
 
   const archived = await supabase
     .from("project_links")
-    .update({ visibility_status: "internal", archived_at: now })
+    .update({ visibility_status: "internal", archived_at: new Date().toISOString() })
     .eq("id", linkId)
     .eq("project_id", projectId)
     .eq("link_type", "notion")
