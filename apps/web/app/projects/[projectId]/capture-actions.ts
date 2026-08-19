@@ -431,6 +431,15 @@ export async function assessExistingCaptureAction(
     redirect(reviewPath(projectId, "invalid-ai-source"));
   }
 
+  const providerSource = await supabase
+    .from("capture_source_refs")
+    .select("id")
+    .eq("rough_note_id", roughNoteId)
+    .maybeSingle();
+  if (providerSource.error) {
+    redirect(reviewPath(projectId, "invalid-ai-source"));
+  }
+
   const existingDraft = await supabase
     .from("ai_structured_drafts")
     .select("id, status")
@@ -512,7 +521,8 @@ export async function assessExistingCaptureAction(
     draftId = inserted.data.id;
   }
 
-  const result = capture.data.source_feedback_id
+  const isSelectedEvidence = Boolean(capture.data.source_feedback_id || providerSource.data);
+  const result = isSelectedEvidence
     ? await structureEvidenceAndPersist(supabase, projectId, draftId, capture.data.body)
     : await assessAndPersist(supabase, projectId, draftId, capture.data.body);
   revalidateProjectSurfaces(projectId);
