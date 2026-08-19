@@ -178,7 +178,7 @@ async function ownedFeedback(
 
   const request = await supabase
     .from("feedback_requests")
-    .select("id, project_id, visibility_status, status")
+    .select("id, project_id, change_card_id, visibility_status, status")
     .eq("id", feedback.data.feedback_request_id)
     .eq("project_id", projectId)
     .is("archived_at", null)
@@ -229,11 +229,19 @@ export async function setFeedbackVisibilityAction(projectId: string, formData: F
     redirect(feedbackPath(projectId, { error: "invalid-feedback" }));
   }
 
-  if (
-    visibility === "public_selected" &&
-    (project.visibility_status !== "public" || owned.request.visibility_status !== "public")
-  ) {
-    redirect(feedbackPath(projectId, { error: "feedback-public" }));
+  if (visibility === "public_selected") {
+    const targetPublic =
+      !owned.request.change_card_id ||
+      (await isPublicDecisionTarget(supabase, projectId, owned.request.change_card_id));
+
+    if (
+      project.visibility_status !== "public" ||
+      owned.request.visibility_status !== "public" ||
+      owned.request.status !== "open" ||
+      !targetPublic
+    ) {
+      redirect(feedbackPath(projectId, { error: "feedback-public" }));
+    }
   }
 
   const updated = await supabase
