@@ -25,6 +25,7 @@ type NotionReadResponse = {
   lastEditedTime: string | null;
   observedAt: string;
   preview: PagePreview | DatabasePreview;
+  captureToken: string;
 };
 
 type ErrorResponse = {
@@ -45,9 +46,11 @@ function formatDateTime(value: string) {
 export function NotionResourcePreview({
   projectId,
   linkId,
+  captureAction,
 }: {
   projectId: string;
   linkId: string;
+  captureAction: (formData: FormData) => void | Promise<void>;
 }) {
   const [resource, setResource] = useState<NotionReadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export function NotionResourcePreview({
         <div>
           <strong>Read-only Knowledge Context</strong>
           <p className="section-help" style={{ margin: "4px 0 0" }}>
-            Refresh는 이 Project Link가 가리키는 exact Notion resource의 현재 상태만 제한적으로 읽습니다. 결과는 저장되지 않습니다.
+            Refresh는 exact Notion resource의 현재 상태를 제한적으로 읽기만 합니다. Builder가 직접 `Capture as evidence`를 선택한 bounded observation만 private Capture로 보존됩니다.
           </p>
         </div>
         <button className="button secondary" disabled={loading} onClick={refresh} type="button">
@@ -134,13 +137,24 @@ export function NotionResourcePreview({
 
             {resource.preview.truncated ? (
               <p className="section-help" style={{ marginTop: 12, marginBottom: 0 }}>
-                Phase 48 bounded read 한도까지만 표시했습니다. 재귀 page tree나 전체 database row는 읽지 않습니다.
+                Bounded read 한도까지만 표시했습니다. 재귀 page tree나 전체 database row는 읽지 않습니다.
               </p>
             ) : null}
+
+            <div className="row" style={{ marginTop: 14 }}>
+              <span className="muted">
+                Capture 시 서버가 이 resource를 다시 읽고, 방금 본 bounded observation과 동일한 상태인지 확인한 뒤 provenance를 보존합니다.
+              </span>
+              <form action={captureAction}>
+                <input name="linkId" type="hidden" value={linkId} />
+                <input name="captureToken" type="hidden" value={resource.captureToken} />
+                <button className="button" type="submit">Capture as evidence</button>
+              </form>
+            </div>
           </article>
 
           <p className="section-help" style={{ marginBottom: 0 }}>
-            Refresh는 Rough Note, AI Draft, Capture provenance, Change Card, Decision 또는 Current Direction을 만들거나 변경하지 않습니다.
+            Refresh 자체는 아무것도 저장하지 않습니다. Capture를 선택해도 공식 Decision은 생성되지 않으며 AI Draft 이후 Review와 Builder 승인이 계속 필요합니다.
           </p>
         </div>
       ) : null}
