@@ -9,13 +9,14 @@
 ## Current main baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- current baseline before this closeout documentation PR: `11c06e027403f1095be5e8f1b1618a52e024cbbb`
-- implementation state: **Phase 42 — P2 Integration & End-to-End Closure Audit merged**
+- current baseline before this closeout documentation PR: `b0b6cbb8097f54a71d5ddec5e2544afb9524bd06`
+- implementation state: **Phase 43 — GitHub Integration Foundation merged**
 - P2 closure verdict: `PASS WITH CONSISTENCY HARDENING`
+- P3 state: GitHub repository pointer foundation started
 - production deployment: `OUT_OF_SCOPE`
 - Vercel Git deployment: disabled in `apps/web/vercel.json`
 
-The earlier PIE compatibility audit referenced `14bb059302d57190f45deb56b21a6c422d790801` / Phase 40. That baseline is historically valid but has been superseded by Phases 41–42. Its architecture verdict remains authoritative because neither phase introduced PIE coupling, external identity, schema integration, or runtime integration.
+The earlier PIE compatibility audit referenced `14bb059302d57190f45deb56b21a6c422d790801` / Phase 40. That baseline is historically valid but has been superseded by Phases 41–43. Its architecture verdict remains authoritative because the later phases did not transfer BuildMap Project/Decision authority to PIE or another provider.
 
 ## Product definition
 
@@ -193,6 +194,64 @@ Decision
 → Feedback Request
 ```
 
+### GitHub Integration Foundation
+
+Implemented in Phase 43.
+
+Phase 43 audited the existing external-link model and reused the existing provider-neutral boundary instead of creating a GitHub-specific credential/schema model.
+
+Implemented:
+
+- Builder-only Project `Integrations` surface
+- explicit GitHub repository root association through existing `project_links`
+- `link_type = github`
+- canonical repository URL normalization to `https://github.com/{owner}/{repository}`
+- rejection of nested commit/branch/PR/issue URLs as repository identity
+- optional internal/public repository visibility
+- removal by archiving the Project Link
+- Scout Public Project Map repository display through existing `public_project_links`
+- canonical GitHub URL filtering before Scout anchor rendering
+
+Phase 43 authority rule:
+
+```text
+GitHub repository pointer
+≠ BuildMap Project identity
+≠ BuildMap Decision
+≠ BuildMap Evidence authority
+```
+
+No GitHub account authorization or synchronized data read is implemented yet.
+
+Phase 43 explicitly did not add:
+
+- GitHub OAuth
+- GitHub App installation
+- PAT/token storage
+- GitHub SDK/runtime client
+- webhook/polling
+- commit/PR/issue ingestion
+- GitHub repository numeric IDs
+- source revision fields
+- automatic Decision candidate detection
+
+Phase 43 impact:
+
+```text
+DB migration: 0
+Schema change: 0
+RLS change: 0
+Grant change: 0
+Public-safe view change: 0
+Runtime dependency change: 0
+```
+
+BuildMap therefore remains fully usable when GitHub is absent or unavailable.
+
+Authoritative Phase 43 decision:
+
+`docs/decisions/phase43-github-integration-foundation.md`
+
 ## Database / migration contract
 
 Historical migrations `00–10` remain immutable.
@@ -231,15 +290,19 @@ Never expose through Scout/Public surfaces:
 - internal Feedback review/outcome state
 - Feedback author auth IDs, user profile IDs, email, or equivalent private identity
 - Builder-only provenance state
+- future GitHub credentials or synchronization state
 
 Builder-side application checks may duplicate DB boundaries as defense in depth, but must not replace RLS/public-safe contracts.
 
-Current Scout Public Feedback reads remain limited to public-safe views:
+Current Scout public reads use public-safe views including:
 
 - `public_project_pages`
+- `public_decision_timeline`
 - `public_feedback_requests`
 - `public_feedbacks`
-- `public_decision_timeline`
+- `public_project_links`
+
+Phase 43 Public Map reads GitHub repository pointers only through `public_project_links`; it does not read `project_links` directly.
 
 ## PIE architecture compatibility boundary
 
@@ -288,7 +351,7 @@ Do not add during the current roadmap unless a later explicit architecture decis
 - PIE client/API/SDK/auth
 - PIE webhook/polling
 - PIE IDs on BuildMap core entities
-- source revision fields
+- source revision fields solely for PIE
 - external-reference schema solely for PIE
 - PIE evidence ingestion
 - Factory Intelligence
@@ -304,11 +367,11 @@ Production deployment remains out of scope for the current implementation sequen
 
 ## Current roadmap position
 
-Completed through **Phase 42 — P2 Integration & End-to-End Closure Audit**.
+Completed through **Phase 43 — GitHub Integration Foundation**.
 
-P2 is now structurally closed. The next V2 roadmap layer is **P3 integrations / intake automation**.
+P2 is structurally closed. P3 has begun with an explicit GitHub repository association layer, but no authenticated GitHub data access exists yet.
 
-V2 P3 order:
+V2 P3 order remains:
 
 1. GitHub integration
 2. Notion integration
@@ -317,20 +380,30 @@ V2 P3 order:
 
 ### Recommended next phase
 
-**Phase 43 — GitHub Integration Foundation**
+**Phase 44 — GitHub Read Integration Architecture & Sync Boundary**
 
-Scope must begin with an integration-boundary audit before adding runtime coupling. The purpose is to connect Build History signals to BuildMap while preserving BuildMap as Decision History.
+Phase 44 must begin as an audit/design phase before adding credentials or synchronization.
 
-Initial invariants:
+Required questions:
 
-- GitHub must not become BuildMap Project/Decision identity authority.
-- GitHub activity must not automatically become an official Decision.
-- Imported activity should enter Capture/Review or another explicitly bounded candidate path before Builder approval.
-- BuildMap must remain usable when GitHub is absent/unavailable.
-- The integration must not be generalized into PIE or Factory Intelligence work.
-- Do not implement Notion/Figma/Slack in the GitHub foundation phase unless explicitly scoped later.
+1. Which authorization model is appropriate for BuildMap's read-only GitHub use case: GitHub App, OAuth App, or another bounded mechanism?
+2. Which repository signals are actually needed for Decision-context assistance: repository metadata, commits, pull requests, issues, releases, or a smaller subset?
+3. Should external activity be fetched on demand, periodically synchronized, or event-driven later?
+4. What provider-neutral provenance/reference model, if any, is required before importing GitHub observations?
+5. How are imported GitHub observations kept distinct from BuildMap `change_cards.evidence` and official Decision authority?
+6. How does the integration degrade safely when GitHub authorization expires or GitHub is unavailable?
 
-Before implementation, inspect the current repo for any existing GitHub integration primitives, data-model assumptions, authentication implications, and whether a schema change is actually necessary.
+Phase 44 must not treat implementation as predetermined. Prefer the smallest read-only architecture that enables later Capture/Review assistance.
+
+Hard invariants:
+
+- GitHub activity never becomes an official Decision automatically.
+- BuildMap Project/Decision IDs remain authoritative.
+- imported GitHub observations require explicit provenance.
+- Builder approval remains mandatory for official Decisions.
+- BuildMap core remains usable without GitHub.
+- PIE and Factory Intelligence remain outside the phase.
+- Notion/Figma/Slack remain separate later scopes.
 
 ## Safety boundary
 
@@ -343,4 +416,5 @@ Before implementation, inspect the current repo for any existing GitHub integrat
 - preserve Scout/public safe-read boundaries
 - preserve BuildMap core independence from PIE
 - preserve provider identity as external/additive rather than replacing BuildMap identity
+- do not add GitHub credentials or synchronization before Phase 44 architecture is explicitly resolved
 - Factory Intelligence remains out of scope
