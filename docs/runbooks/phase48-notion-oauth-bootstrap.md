@@ -84,9 +84,11 @@ Phase 48 repository CI only validates migration history/contract. It does not ap
 Expected migration effects:
 
 - add `integration_bindings.external_resource_type`;
-- create `private.notion_oauth_credentials`;
+- create `private.notion_oauth_credentials` keyed by Notion `bot_id`;
 - deny direct `anon`/`authenticated` credential-table access;
-- add owner-checked SECURITY DEFINER RPCs for authorization save/load, refresh lease/rotation, and disconnect.
+- add owner- and credential-owner-checked SECURITY DEFINER RPCs for authorization save/load, refresh lease/rotation, and disconnect.
+
+`workspace_id` must not be treated as credential uniqueness. The provider can issue multiple user-level tokens in one workspace.
 
 ## 5. OAuth connection smoke-check sequence
 
@@ -95,7 +97,7 @@ Only after the environment has the migration, Notion public connection, and secr
 1. Sign in as a BuildMap Builder.
 2. Open a Project → Integrations.
 3. Add an explicit Notion page/database pointer.
-4. Confirm UI shows the pointer separately from read authorization.
+4. Confirm UI shows `Pointer linked` separately from read authorization.
 5. Select **Connect Notion read access**.
 6. In Notion, choose a workspace and share content that includes the exact linked Project resource.
 7. Complete authorization.
@@ -119,6 +121,8 @@ Expected outcomes:
 - inaccessible/unknown ID → do not persist an active binding.
 
 The authorization page picker can grant access to more content than one BuildMap pointer. BuildMap still associates only the exact Project Link resource with that Project.
+
+The provider authorization identity is `bot_id`; the Project resource association is the Notion `integration_bindings` row. Do not collapse these identities.
 
 ## 7. Runtime read bounds
 
@@ -147,35 +151,59 @@ BuildMap does not schedule refreshes based on an invented lifetime.
 
 When an exact read returns `401`:
 
-1. claim the DB refresh lease;
-2. decrypt the currently sealed refresh token server-side;
-3. request a new access token and new refresh token;
-4. verify returned bot/workspace identity remains unchanged;
-5. seal both new tokens;
-6. atomically replace both only if the lease and `credential_version` still match;
-7. retry the bounded read once.
+1. resolve the Project Link's active `integration_bindings.external_connection_id` (`bot_id`);
+2. claim the shared bot credential refresh lease;
+3. decrypt the currently sealed refresh token server-side using `bot_id`-bound AEAD context;
+4. request a new access token and new refresh token;
+5. verify returned `bot_id` and `workspace_id` remain unchanged;
+6. seal both new tokens;
+7. atomically replace both only if the Project Link is still bound to the same bot, the lease matches, and `credential_version` still matches;
+8. retry the bounded read once.
 
-A concurrent request that cannot claim the lease receives `refresh_in_progress` and should be retried by the Builder rather than starting a second refresh race.
+A concurrent request through any Project Link sharing the same bot authorization that cannot claim the lease receives `refresh_in_progress` and should be retried by the Builder rather than starting a second refresh race.
 
-## 9. Disconnect / revoke check
+Refresh `400`, `401`, or `403` ends the lease and requires reconnect.
+
+## 9. Reconnect behavior
+
+If the Builder reauthorizes a Project Link and Notion returns a different `bot_id`:
+
+1. the new token set and exact resource binding are saved transactionally;
+2. the old binding is replaced;
+3. the old bot credential is locally disconnected only if no other active binding owned by that Builder still references it;
+4. if the old credential was disconnected, the callback best-effort revokes its old access token after the new transaction succeeds.
+
+If the old `bot_id` is still referenced elsewhere, it remains active and must not be revoked.
+
+## 10. Disconnect / revoke check
 
 Select **Read access 해제**.
 
 Expected behavior:
 
-1. BuildMap attempts Notion's official token revoke endpoint when a usable active token/config exists.
-2. Local disconnect runs regardless of provider availability.
-3. Stored access-token ciphertext becomes `NULL`.
-4. Stored refresh-token ciphertext becomes `NULL`.
-5. refresh lease is cleared.
-6. credential version increments.
-7. credential status becomes `disconnected`.
-8. active Notion binding is archived/disconnected.
-9. the Notion pointer itself remains unless separately removed.
+1. BuildMap reads/decrypts the current access token into server memory when configuration is available.
+2. Local disconnect archives only this Project Link's Notion binding first.
+3. The database counts remaining active same-Builder bindings for that `bot_id`.
+4. If references remain, the bot credential remains active and no provider revoke occurs.
+5. If this was the final binding, stored access-token ciphertext becomes `NULL`.
+6. Stored refresh-token ciphertext becomes `NULL`.
+7. Refresh lease is cleared.
+8. Credential version increments.
+9. Credential status becomes `disconnected`.
+10. The server then best-effort calls Notion's official revoke endpoint using the access token held only in memory.
+11. The Notion pointer itself remains unless separately removed.
 
-If provider revoke cannot be confirmed, the UI reports that local authorization was disabled. BuildMap no longer retains usable local token material.
+If final provider revoke cannot be confirmed, the UI reports that local authorization was disabled. BuildMap no longer retains usable local token material.
 
-## 10. Key rotation warning
+## 11. Pointer removal check
+
+Pointer removal is not OAuth disconnect.
+
+When an active Notion binding exists, **Pointer 제거** must be blocked and the Builder must use **Read access 해제** first. This prevents pointer archival from bypassing credential-reference cleanup.
+
+Once the binding is detached, the pointer can be removed independently.
+
+## 12. Key rotation warning
 
 Phase 48 persists `encryption_key_version = 1` and fails closed on unknown versions, but the runtime currently accepts a single configured encryption key.
 
@@ -188,19 +216,20 @@ Blind replacement of the sole key makes existing ciphertext intentionally undecr
 
 Likewise, rotating `NOTION_OAUTH_STATE_SECRET` invalidates outstanding OAuth state and existing Notion binding proofs. Plan reconnect/re-proof behavior before changing it in an active environment.
 
-## 11. Failure checks
+## 13. Failure checks
 
 Verify these provider failures are isolated from BuildMap core:
 
-- 401 → at most one controlled refresh attempt, then reconnect;
-- 403/404 → resource unavailable/inaccessible;
-- 429 → bounded error honoring the normalized Retry-After signal;
+- initial read 401 → at most one controlled refresh attempt, then reconnect;
+- refresh 400/401/403 → reconnect;
+- resource 403/404 → resource unavailable/inaccessible;
+- 429 → bounded error honoring normalized Retry-After;
 - timeout/5xx → provider unavailable;
 - revoked token → reconnect/disconnect flow.
 
 None may mutate Project, Decision, Current Direction, publication, Feedback, Outcome, GitHub integration, or ordinary Capture.
 
-## 12. Public boundary check
+## 14. Public boundary check
 
 Inspect the public Project Map after Notion authorization.
 
@@ -216,7 +245,7 @@ It must not show:
 - authenticated Notion preview/content;
 - provider error details.
 
-## 13. Production boundary
+## 15. Production boundary
 
 The following remain separate operational work and must not be inferred from a successful Phase 48 repository merge:
 
