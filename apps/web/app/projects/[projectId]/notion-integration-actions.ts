@@ -93,31 +93,37 @@ export async function disconnectNotionReadConnectionAction(
   }
 
   const { supabase } = await ownedNotionLink(projectId, linkId);
-  let providerRevocationConfirmed = false;
+  let accessTokenForRevocation: string | null = null;
 
   if (isNotionOAuthConfigured()) {
     const loaded = await loadNotionCredential(supabase, linkId);
     if (loaded.credential) {
       try {
-        const accessToken = openNotionCredential(
-          linkId,
+        accessTokenForRevocation = openNotionCredential(
+          loaded.credential.botId,
           "access",
           loaded.credential.accessTokenCiphertext,
           loaded.credential.encryptionKeyVersion,
         );
-        await revokeNotionAccessToken(accessToken);
-        providerRevocationConfirmed = true;
       } catch {
-        providerRevocationConfirmed = false;
+        accessTokenForRevocation = null;
       }
-    } else if (!loaded.error) {
-      providerRevocationConfirmed = true;
     }
   }
 
   const localDisconnect = await disconnectStoredNotionAuthorization(supabase, linkId);
   if (!localDisconnect.disconnected) {
     redirect(integrationsPath(projectId, { error: "notion-read-disconnect" }));
+  }
+
+  let providerRevocationConfirmed = !localDisconnect.providerRevokeRequired;
+  if (localDisconnect.providerRevokeRequired && accessTokenForRevocation) {
+    try {
+      await revokeNotionAccessToken(accessTokenForRevocation);
+      providerRevocationConfirmed = true;
+    } catch {
+      providerRevocationConfirmed = false;
+    }
   }
 
   revalidatePath(`/projects/${projectId}/integrations`);
