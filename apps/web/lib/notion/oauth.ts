@@ -158,11 +158,11 @@ export function verifyNotionOAuthState(value: string) {
   return state;
 }
 
-function credentialAad(projectLinkId: string, kind: "access" | "refresh") {
+function credentialAad(botId: string, kind: "access" | "refresh") {
   return Buffer.from(
     [
       NOTION_CREDENTIAL_AAD_VERSION,
-      projectLinkId,
+      botId.toLowerCase(),
       kind,
       String(NOTION_CREDENTIAL_KEY_VERSION),
     ].join("\n"),
@@ -171,14 +171,14 @@ function credentialAad(projectLinkId: string, kind: "access" | "refresh") {
 }
 
 export function sealNotionCredential(
-  projectLinkId: string,
+  botId: string,
   kind: "access" | "refresh",
   token: string,
 ) {
-  if (!token) throw new Error("Cannot seal an empty Notion credential.");
+  if (!botId || !token) throw new Error("Cannot seal an incomplete Notion credential.");
   const nonce = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", getNotionOAuthConfig().encryptionKey, nonce);
-  cipher.setAAD(credentialAad(projectLinkId, kind));
+  cipher.setAAD(credentialAad(botId, kind));
   const ciphertext = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return [
@@ -190,7 +190,7 @@ export function sealNotionCredential(
 }
 
 export function openNotionCredential(
-  projectLinkId: string,
+  botId: string,
   kind: "access" | "refresh",
   sealed: string,
   keyVersion: number,
@@ -222,7 +222,7 @@ export function openNotionCredential(
       getNotionOAuthConfig().encryptionKey,
       nonce,
     );
-    decipher.setAAD(credentialAad(projectLinkId, kind));
+    decipher.setAAD(credentialAad(botId, kind));
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
   } catch {
