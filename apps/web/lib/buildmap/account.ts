@@ -3,8 +3,11 @@ import type { createClient } from "@/lib/supabase/server";
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-export type BuilderContext = {
+export type UserProfileContext = {
   userProfileId: string;
+};
+
+export type BuilderContext = UserProfileContext & {
   builderProfileId: string;
 };
 
@@ -13,10 +16,10 @@ function defaultDisplayName(user: User) {
   return emailName || "Builder";
 }
 
-export async function ensureBuilderContext(
+export async function ensureUserProfile(
   supabase: ServerSupabaseClient,
   user: User,
-): Promise<BuilderContext> {
+): Promise<UserProfileContext> {
   const existingUserProfile = await supabase
     .from("user_profiles")
     .select("id")
@@ -44,6 +47,15 @@ export async function ensureBuilderContext(
     }
     userProfileId = inserted.data.id;
   }
+
+  return { userProfileId };
+}
+
+export async function ensureBuilderContext(
+  supabase: ServerSupabaseClient,
+  user: User,
+): Promise<BuilderContext> {
+  const { userProfileId } = await ensureUserProfile(supabase, user);
 
   const existingBuilderProfile = await supabase
     .from("builder_profiles")
