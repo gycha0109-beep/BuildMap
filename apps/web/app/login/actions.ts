@@ -1,5 +1,6 @@
 "use server";
 
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext, ensureUserProfile } from "@/lib/buildmap/account";
 import { createClient } from "@/lib/supabase/server";
@@ -34,7 +35,7 @@ function credentials(formData: FormData) {
 
 async function ensureAccountForDestination(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  user: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>,
+  user: User,
   next: string | null,
 ) {
   if (next?.startsWith("/p/")) {
