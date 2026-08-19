@@ -27,32 +27,37 @@ Audit date: 2026-08-19.
 Primary authority was restricted to official Notion developer documentation.
 
 - Authorization guide: https://developers.notion.com/guides/get-started/authorization
+- Public connections: https://developers.notion.com/guides/get-started/public-connections
 - Authentication: https://developers.notion.com/reference/authentication
+- Create token: https://developers.notion.com/reference/create-a-token
 - Refresh token: https://developers.notion.com/reference/refresh-a-token
 - Revoke token: https://developers.notion.com/reference/revoke-token
 - Retrieve page: https://developers.notion.com/reference/retrieve-a-page
 - Retrieve block children: https://developers.notion.com/reference/get-block-children
 - Retrieve database: https://developers.notion.com/reference/retrieve-a-database
 - Retrieve data source: https://developers.notion.com/reference/retrieve-a-data-source
-- Query data source: https://developers.notion.com/reference/query-a-data-source
 - Request limits: https://developers.notion.com/reference/request-limits
 - Versioning / changes: https://developers.notion.com/reference/versioning and https://developers.notion.com/reference/changes-by-version
+- Historical OAuth token identity contract: https://developers.notion.com/guides/resources/historical-changelog
 
 Audited API version: `2026-03-11`.
 
-The official authorization guide establishes these Phase 48 facts:
+The audited public OAuth contract establishes these Phase 48 facts:
 
-- public connections use OAuth 2.0;
-- authorization uses `owner=user`, `client_id`, `redirect_uri`, `response_type=code`;
-- `state` is supported and is explicitly documented as usable for CSRF protection;
-- the user selects the pages/databases shared with the connection;
-- the authorization code is exchanged server-side at `/v1/oauth/token` with HTTP Basic client authentication;
-- the token response includes `access_token`, `refresh_token`, `bot_id`, `workspace_id`, workspace display metadata, and owner information;
-- the connection must persist both access and refresh tokens;
+- public connections use OAuth 2.0 and act on behalf of the individual authorizing user;
+- authorization uses `owner=user`, `client_id`, `redirect_uri`, and `response_type=code`;
+- `state` is supported and explicitly documented as usable for CSRF protection;
+- users choose content through the authorization page picker;
+- authorization code exchange occurs at `/v1/oauth/token` with HTTP Basic client authentication;
+- the response includes `access_token`, `refresh_token`, `bot_id`, `workspace_id`, workspace display metadata, and owner information;
+- both access and refresh tokens must be persisted for ongoing authorization lifecycle support;
 - refresh returns a new access token and a new refresh token;
-- `/v1/oauth/revoke` is the official access-token revocation endpoint.
+- `/v1/oauth/revoke` is the official access-token revocation endpoint;
+- `bot_id` identifies the authorization and Notion explicitly recommends using it as the primary key for stored token information;
+- `workspace_id` is not token-unique: a workspace can have multiple public OAuth tokens;
+- historical Notion guidance states that `bot_id` is unique per API token and warns against mapping stored tokens only by workspace or authorizing user.
 
-The audited public OAuth documentation does **not** publish an `expires_in` contract or a deterministic access-token lifetime for this flow. Phase 48 therefore does not invent a token TTL. Runtime refresh is attempted only after a provider `401` indicates that the current access token cannot authenticate the read.
+The audited public OAuth documentation does **not** publish a deterministic access-token lifetime or an application-usable `expires_in` contract for this flow. Phase 48 therefore does not invent a token TTL. Runtime refresh is attempted only after a provider `401` indicates that the current access token cannot authenticate the read.
 
 The page API requires read-content capability and returns page properties, not page body content. Page body content is read through Retrieve block children. The current database model treats a database as a container whose `data_sources` array identifies child data sources. Phase 48 preserves that distinction.
 
@@ -62,7 +67,7 @@ No official revision-history API was assumed or fabricated.
 
 ## Credential persistence verdict
 
-A schema expansion is required.
+Schema expansion is required.
 
 `project_links`, `integration_bindings`, and `capture_source_refs` remain credential-free. Migration 19 creates a Notion-specific credential model in a non-public `private` schema:
 
@@ -70,11 +75,23 @@ A schema expansion is required.
 private.notion_oauth_credentials
 ```
 
-The credential row is keyed by the exact BuildMap `project_link_id` and stores authorization identity plus application-sealed access and refresh token ciphertext.
+The private credential row is keyed by Notion `bot_id`, matching the provider authorization/token identity contract.
+
+This is deliberately **not** keyed by `project_link_id` and deliberately **not** keyed by `workspace_id`.
+
+```text
+Notion bot authorization credential
+        ↓ external_connection_id = bot_id
+integration_bindings
+        ↓
+BuildMap Project Link ↔ exact verified Notion resource
+```
+
+One Notion authorization can therefore remain a single credential lifecycle boundary even if multiple BuildMap Project Links of the same Builder legitimately reference resources accessible through that authorization. Project association identity stays in `integration_bindings`, not in the credential vault.
 
 This is intentionally not a generalized future-provider vault. It exists because the current Notion public OAuth lifecycle requires persistent rotating credentials.
 
-### Why no service-role runtime was added
+## Why no service-role runtime was added
 
 The existing web runtime uses the authenticated Supabase session with the publishable key. Phase 48 does not introduce `SUPABASE_SERVICE_ROLE_KEY`.
 
@@ -83,13 +100,14 @@ Instead:
 1. the credential table lives in `private`;
 2. `anon` and `authenticated` receive no schema/table privileges;
 3. RLS is enabled with no browser policies;
-4. the application reaches credential material only through narrowly scoped `public` SECURITY DEFINER RPCs;
-5. every RPC re-validates the active Notion Project Link and `public.is_project_owner(...)` before touching the private row;
-6. direct authenticated table SELECT/INSERT/UPDATE/DELETE is explicitly denied and asserted by the migration.
+4. the application reaches sealed credential material only through narrowly scoped `public` SECURITY DEFINER RPCs;
+5. every RPC re-validates an active Notion Project Link and `public.is_project_owner(...)`;
+6. credential lookup additionally requires the stored credential's `created_by_builder_profile_id` to resolve to the current `auth.uid()`;
+7. direct authenticated table SELECT/INSERT/UPDATE/DELETE is denied and asserted by migration 19.
 
-The owner-callable sealed-credential RPC can return ciphertext to the authenticated owner because the current server runtime also uses that authenticated session. Ciphertext is not a usable provider credential without the server-only AEAD key. This avoids introducing a service role solely to move ciphertext between the application server and Postgres.
+The owner-callable RPC can return sealed ciphertext to the authenticated owner because the current server runtime also uses that authenticated session. Ciphertext is not a usable provider credential without the server-only AEAD key. This avoids introducing a globally privileged service role solely to transport ciphertext between the application server and Postgres.
 
-A malicious authenticated Project owner could still invoke owner-scoped RPCs directly and corrupt their own integration state with invalid ciphertext or an invalid binding proof. They cannot generate a valid provider binding proof or decrypt a valid credential without server secrets, and cross-Project access remains denied. This residual self-denial-of-service risk is accepted for Phase 48 in preference to a new globally privileged service-role runtime.
+A malicious authenticated owner could invoke their own owner-scoped RPCs and cause self-denial-of-service with invalid sealed-format values or invalid association metadata. They cannot decrypt a valid credential, forge the server binding proof, or cross the credential-owner boundary without server secrets. This residual self-DoS risk is accepted for Phase 48 in preference to service-role expansion.
 
 ## Encryption / sealing model
 
@@ -103,7 +121,7 @@ The web server seals each token independently with Node `crypto` using:
 - an authenticated tag for ciphertext tamper detection;
 - authenticated additional data binding the ciphertext to:
   - sealing format `notion-credential-v1`,
-  - exact `project_link_id`,
+  - provider authorization `bot_id`,
   - token kind (`access` or `refresh`),
   - encryption key version.
 
@@ -113,9 +131,11 @@ Stored format:
 v1.<base64url nonce>.<base64url auth tag>.<base64url ciphertext>
 ```
 
+Migration 19 also constrains persisted token material to the sealed envelope shape, reducing the chance that an application bug accidentally writes a raw bearer token through the RPC boundary. Cryptographic authenticity remains enforced only by AES-GCM open on the server.
+
 The OAuth/state secret and credential encryption key are independent environment values. HMAC signing is not used as encryption.
 
-`encryption_key_version` is persisted and unknown versions fail closed. Phase 48 supports key-version metadata but only active key version `1`. A transparent future key rotation requires a dual-key/key-ring deployment or explicit reconnect/reseal plan before changing the active key. Replacing the only configured key without such a plan would intentionally make old ciphertext undecryptable.
+`encryption_key_version` is persisted and unknown versions fail closed. Phase 48 supports key-version metadata but only active key version `1`. A transparent future key rotation requires a dual-key/key-ring deployment or explicit reconnect/reseal plan before changing the active key.
 
 ### Threat model
 
@@ -124,13 +144,14 @@ Protected against within the Phase 48 repository architecture:
 - plaintext token persistence;
 - token exposure through browser storage;
 - direct authenticated table reads of credential material;
-- cross-Project RPC access;
+- cross-Project access to Project-bound RPCs;
+- cross-Builder credential access even if a foreign `bot_id` were guessed or placed into a forged binding;
 - ciphertext modification going undetected by the application;
-- ciphertext replay onto another Project Link or token kind because AEAD additional data changes;
-- refresh-token lost update from two concurrent refreshes;
+- ciphertext replay onto a different authorization identity or token kind because AEAD additional data changes;
+- refresh-token lost update from concurrent reads sharing one `bot_id` authorization;
 - provider credential inclusion in public views or provider-neutral association tables.
 
-Not protected if both the database ciphertext and the server encryption key are compromised. Phase 48 also does not provide a managed KMS/HSM or online key-rewrapping service. Those are deployment/key-management concerns, not claims made by this repository implementation.
+Not protected if both database ciphertext and the server encryption key are compromised. Phase 48 does not claim a managed KMS/HSM or online key-rewrapping service.
 
 ## OAuth state / callback security
 
@@ -142,7 +163,7 @@ The authorization request uses a signed, time-bounded state payload containing:
 - initiating authenticated BuildMap `userId`;
 - fixed Project integrations return path;
 - random nonce;
-- expiry (10 minutes).
+- expiry of 10 minutes.
 
 The payload is HMAC-SHA256 signed by `NOTION_OAUTH_STATE_SECRET`.
 
@@ -159,7 +180,7 @@ On callback the server verifies, before persistence:
 9. the authorization code exists;
 10. the exact linked Notion resource is actually readable with the exchanged authorization.
 
-A browser-supplied Project ID, Link ID, or Notion resource ID never becomes provider authority merely because it appears in a request.
+A browser-supplied Project ID, Link ID, or resource ID never becomes provider authority merely because it appears in a request.
 
 ## Token exchange
 
@@ -184,7 +205,7 @@ OAuth success is not a Project binding.
 The callback starts from the existing canonical Phase 47 pointer and obtains its exact UUID. With the newly issued token it performs bounded exact-ID reads:
 
 1. Retrieve Page for that UUID.
-2. If Notion returns 404, Retrieve Database for that same UUID.
+2. If Notion returns 404, Retrieve Database for the same UUID.
 3. If both are 404, Retrieve Data Source for the same UUID only to distinguish an unsupported data-source pointer from an inaccessible page/database.
 
 A verified `page` or `database` can become the Project provider association. A raw `data_source` pointer is rejected as a Phase 48 Project root. The database root is never silently replaced by a child data-source identity.
@@ -199,12 +220,12 @@ Migration 19 adds one provider-neutral metadata column:
 integration_bindings.external_resource_type
 ```
 
-This is required now because Notion page and database IDs use different read endpoints and type is not safely inferable from the URL.
+This is required because Notion page and database IDs use different current read endpoints and type is not safely inferable from the URL.
 
 For `provider = notion`:
 
 - `project_link_id` = BuildMap Project Link that owns the canonical Notion pointer;
-- `external_connection_id` = Notion `bot_id`, the authorization identity returned with the tokens;
+- `external_connection_id` = Notion `bot_id`, the authorization/token identity;
 - `external_account_id` = Notion `workspace_id`;
 - `external_account_label` = Notion workspace display name, with a bounded fallback label;
 - `external_resource_id` = exact provider-verified linked page/database UUID;
@@ -214,25 +235,30 @@ For `provider = notion`:
 
 No token or ciphertext is stored in `integration_bindings`.
 
-The callback saves the private credential and provider-neutral binding through one database RPC transaction so a persisted credential cannot be committed without the corresponding verified association metadata in the same call.
+The callback saves the sealed bot authorization and provider-neutral resource binding through one database RPC transaction.
+
+If reconnect replaces a Project Link's old `bot_id` binding with a different authorization, migration 19 locally disconnects the old credential only when no other active binding owned by that Builder still references it. The callback keeps the previous access token only in server memory long enough to best-effort revoke that now-unreferenced old authorization after the new transaction succeeds.
 
 ## Refresh / rotation concurrency
 
-The official Notion refresh contract rotates both the access and refresh token.
+The official Notion refresh contract rotates both access and refresh tokens.
 
-Phase 48 handles this with a database lease plus optimistic concurrency:
+The refresh lock and credential version live on the `bot_id` credential, not on a Project Link. This matters when more than one Project Link uses the same authorization.
 
 ```text
-old access + old refresh
+old access + old refresh for bot_id B
       ↓ provider 401
-claim refresh_lock_id (30-second lease)
-+ read credential_version N
+claim B.refresh_lock_id (30-second lease)
++ read B.credential_version N
       ↓
 POST /v1/oauth/token grant_type=refresh_token
       ↓
 new access + new refresh
       ↓
+verify bot_id/workspace_id remain B/current workspace
+      ↓
 complete only if
+  the requesting Project Link is still actively bound to B
   refresh_lock_id still matches
   lease is still live
   credential_version still equals N
@@ -241,11 +267,11 @@ atomic replacement of both ciphertexts
 credential_version = N + 1
 ```
 
-A second request cannot acquire an unexpired refresh lease. It receives a bounded `refresh_in_progress` response instead of racing the provider.
+A second request through any Project Link sharing B cannot acquire the unexpired refresh lease. It receives a bounded `refresh_in_progress` response rather than racing the rotating refresh token.
 
-Reconnect or disconnect clears the lease and changes the credential version/state. A late refresh completion therefore fails its compare-and-swap and cannot overwrite the newer authorization. The runtime then reloads the latest credential once rather than persisting stale rotated tokens.
+Reconnect or disconnect clears/invalidate the relevant lifecycle state. A late refresh completion cannot overwrite a changed authorization because the active binding, lease, and version all must still match.
 
-The refresh response must retain the same `bot_id` and `workspace_id`; otherwise the runtime fails closed and requires reconnect.
+A refresh response whose `bot_id` or `workspace_id` changes fails closed and requires reconnect.
 
 ## Disconnect / revocation
 
@@ -253,14 +279,16 @@ Read authorization and pointer association remain separate concepts.
 
 The explicit **Read access 해제** action:
 
-1. loads and decrypts the active access token server-side when server configuration is available;
-2. attempts the official Notion `/v1/oauth/revoke` endpoint;
-3. regardless of provider availability, calls the local disconnect RPC;
-4. the local disconnect transaction nulls both stored ciphertext fields, increments the credential version, clears any refresh lease, marks the private credential disconnected, and archives/disconnects the Notion `integration_bindings` row.
+1. loads/decrypts the active credential server-side when configuration is available;
+2. atomically archives/disconnects this Project Link's Notion binding;
+3. counts remaining active bindings owned by the same Builder that reference the same `bot_id`;
+4. if another binding still uses the bot authorization, the shared credential remains active and is not revoked;
+5. if this was the last binding, both stored ciphertext fields are nulled immediately, credential version increments, refresh lease is cleared, and the credential is marked disconnected;
+6. only when the local transaction identifies this as the last binding does the server best-effort call Notion `/v1/oauth/revoke` using the access token held in memory.
 
-Therefore BuildMap stops possessing a usable stored provider credential immediately even if the provider revoke call cannot be confirmed. The UI distinguishes confirmed revoke from local-only disablement.
+Therefore BuildMap stops possessing a locally usable credential as soon as the last binding is disconnected even if provider revoke cannot be confirmed.
 
-Pointer visibility/removal remains separate from OAuth authorization. The existing pointer removal path archives the pointer and active binding; once the pointer is archived, credential RPCs refuse access because they require an active owned Notion Project Link. Builders should use the explicit read-access disconnect action when they want provider revocation and ciphertext purge independent of pointer lifecycle.
+Pointer removal does not silently perform OAuth disconnect. While an active Notion read binding exists, the pointer removal server action rejects the removal and the UI directs the Builder to disconnect read access first. Once authorization/binding is detached, pointer removal remains an independent Knowledge Context operation.
 
 ## Bounded read runtime
 
@@ -291,12 +319,13 @@ All preview responses use `Cache-Control: no-store` and are kept only in client 
 
 Notion failures are provider-local.
 
-- `401`: one refresh attempt through the rotation gate; if still unusable, reconnect required.
-- `403` / `404`: exact resource unavailable/inaccessible; no BuildMap core mutation.
-- `429`: bounded rate-limit response including normalized retry delay when supplied.
+- initial read `401`: one refresh attempt through the bot-level rotation gate;
+- refresh `400/401/403` or changed authorization identity: reconnect required;
+- resource `403/404`: exact resource unavailable/inaccessible;
+- `429`: bounded rate-limit response including normalized retry delay when supplied;
 - other provider/network/timeout/5xx failures: bounded provider-unavailable response.
 
-No provider failure mutates Project, Decision, Current Direction, publication, Feedback, Outcome, ordinary Capture, or GitHub state.
+No provider failure mutates Project, Decision, Current Direction, publication, Feedback, Outcome, ordinary Capture, or GitHub state. Credential lifecycle RPCs mutate only Notion authorization/binding state.
 
 ## Public/private boundary
 
