@@ -158,7 +158,13 @@ export async function createInstallationAccessToken(input: {
         Authorization: `Bearer ${jwt}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ repository_ids: [repositoryId] }),
+      body: JSON.stringify({
+        repository_ids: [repositoryId],
+        permissions: {
+          contents: "read",
+          pull_requests: "read",
+        },
+      }),
     },
   );
 
