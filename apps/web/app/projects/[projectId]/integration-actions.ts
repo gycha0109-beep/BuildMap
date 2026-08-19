@@ -104,6 +104,8 @@ export async function addGitHubRepositoryAction(projectId: string, formData: For
     .eq("link_type", "github")
     .eq("url", normalized.url)
     .is("archived_at", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle();
 
   if (existing.error) {
