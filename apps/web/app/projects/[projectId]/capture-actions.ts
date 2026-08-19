@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
-import { assessCapture } from "@/lib/buildmap/ai-draft";
+import { assessCapture, generateStructuredDraft } from "@/lib/buildmap/ai-draft";
 import { createClient } from "@/lib/supabase/server";
 
 function workspacePath(projectId: string, error?: string, notice?: string) {
@@ -19,11 +19,17 @@ function reviewPath(projectId: string, error?: string) {
   return error ? `${path}?error=${encodeURIComponent(error)}` : path;
 }
 
+function feedbackPath(projectId: string, error?: string) {
+  const path = `/projects/${projectId}/feedback`;
+  return error ? `${path}?error=${encodeURIComponent(error)}` : path;
+}
+
 function revalidateProjectSurfaces(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/workspace`);
   revalidatePath(`/projects/${projectId}/workspace/review`);
   revalidatePath(`/projects/${projectId}/decisions`);
+  revalidatePath(`/projects/${projectId}/feedback`);
 }
 
 function aiFailureCategory(error: unknown) {
@@ -48,7 +54,7 @@ function aiFailureCategory(error: unknown) {
   const name = error instanceof Error ? error.name : "UnknownError";
   const message = error instanceof Error ? error.message : String(error);
 
-  console.error("BuildMap capture assessment failed", {
+  console.error("BuildMap capture AI processing failed", {
     name,
     statusCode,
     code,
@@ -61,8 +67,8 @@ function aiFailureCategory(error: unknown) {
   if (statusCode === 404) return "AI Gateway model or endpoint was not found (404).";
   if (statusCode === 429) return "AI Gateway rate limit was exceeded (429).";
   if (statusCode) return `AI Gateway request failed (${statusCode}).`;
-  if (code) return `AI assessment failed (${code}).`;
-  return `AI assessment failed (${name}).`;
+  if (code) return `AI processing failed (${code}).`;
+  return `AI processing failed (${name}).`;
 }
 
 async function ownedProjectContext(projectId: string) {
@@ -89,6 +95,21 @@ async function ownedProjectContext(projectId: string) {
   return { supabase, context };
 }
 
+async function markDraftFailed(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string,
+  draftId: string,
+  error: unknown,
+) {
+  const category = aiFailureCategory(error);
+  await supabase
+    .from("ai_structured_drafts")
+    .update({ status: "failed", error_message: category })
+    .eq("id", draftId)
+    .eq("project_id", projectId)
+    .eq("status", "generating");
+}
+
 async function assessAndPersist(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
@@ -105,14 +126,7 @@ async function assessAndPersist(
   }
 
   if (!assessment) {
-    const category = aiFailureCategory(generationError);
-    await supabase
-      .from("ai_structured_drafts")
-      .update({ status: "failed", error_message: category })
-      .eq("id", draftId)
-      .eq("project_id", projectId)
-      .eq("status", "generating");
-
+    await markDraftFailed(supabase, projectId, draftId, generationError);
     return { outcome: "failed" as const };
   }
 
@@ -153,6 +167,80 @@ async function assessAndPersist(
   return { outcome: candidate ? ("promoted" as const) : ("held" as const) };
 }
 
+async function structureEvidenceAndPersist(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string,
+  draftId: string,
+  body: string,
+) {
+  let candidate: Awaited<ReturnType<typeof generateStructuredDraft>> | null = null;
+  let generationError: unknown = null;
+
+  try {
+    candidate = await generateStructuredDraft(body);
+  } catch (error) {
+    generationError = error;
+  }
+
+  if (!candidate) {
+    await markDraftFailed(supabase, projectId, draftId, generationError);
+    return { outcome: "failed" as const };
+  }
+
+  const saved = await supabase
+    .from("ai_structured_drafts")
+    .update({
+      suggested_type: candidate.suggestedType,
+      suggested_title: candidate.suggestedTitle,
+      structured_summary: candidate.structuredSummary,
+      evidence: candidate.evidence || null,
+      decision: candidate.decision || null,
+      change_content: candidate.changeContent || null,
+      next_check: candidate.nextCheck || null,
+      status: "generated",
+      error_message: null,
+    })
+    .eq("id", draftId)
+    .eq("project_id", projectId)
+    .eq("status", "generating")
+    .select("id")
+    .maybeSingle();
+
+  if (saved.error || !saved.data) {
+    await supabase
+      .from("ai_structured_drafts")
+      .update({
+        status: "failed",
+        error_message: "AI evidence structuring completed but could not be persisted.",
+      })
+      .eq("id", draftId)
+      .eq("project_id", projectId)
+      .eq("status", "generating");
+
+    return { outcome: "save-failed" as const };
+  }
+
+  return { outcome: "promoted" as const };
+}
+
+function feedbackEvidenceBody(
+  request: { title: string; question: string; context: string | null },
+  feedback: { body: string; feedback_type: string | null },
+) {
+  return [
+    "External Feedback Evidence",
+    `Feedback Request: ${request.title}`,
+    `Question: ${request.question}`,
+    request.context ? `Context: ${request.context}` : null,
+    feedback.feedback_type ? `Feedback type: ${feedback.feedback_type}` : null,
+    "",
+    "Scout response:",
+    feedback.body,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
 export async function captureAndAssessAction(
   projectId: string,
   formData: FormData,
@@ -164,7 +252,6 @@ export async function captureAndAssessAction(
 
   const { supabase, context } = await ownedProjectContext(projectId);
 
-  // Persist the raw Capture first. AI failure must never lose Builder-authored context.
   const capture = await supabase
     .from("rough_notes")
     .insert({
@@ -211,6 +298,117 @@ export async function captureAndAssessAction(
   redirect(workspacePath(projectId, "capture-ai-generation"));
 }
 
+export async function captureFeedbackAsEvidenceAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const feedbackId = String(formData.get("feedbackId") ?? "").trim();
+  if (!feedbackId) {
+    redirect(feedbackPath(projectId, "invalid-feedback"));
+  }
+
+  const { supabase, context } = await ownedProjectContext(projectId);
+  const feedback = await supabase
+    .from("feedbacks")
+    .select("id, feedback_request_id, body, feedback_type, review_status")
+    .eq("id", feedbackId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (feedback.error || !feedback.data) {
+    redirect(feedbackPath(projectId, "invalid-feedback"));
+  }
+
+  const request = await supabase
+    .from("feedback_requests")
+    .select("id, project_id, title, question, context")
+    .eq("id", feedback.data.feedback_request_id)
+    .eq("project_id", projectId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (request.error || !request.data) {
+    redirect(feedbackPath(projectId, "invalid-feedback"));
+  }
+
+  const existingCapture = await supabase
+    .from("rough_notes")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("source_feedback_id", feedbackId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (existingCapture.error) {
+    redirect(feedbackPath(projectId, "feedback-capture"));
+  }
+  if (existingCapture.data) {
+    revalidateProjectSurfaces(projectId);
+    redirect(reviewPath(projectId));
+  }
+
+  const body = feedbackEvidenceBody(request.data, feedback.data);
+  const capture = await supabase
+    .from("rough_notes")
+    .insert({
+      project_id: projectId,
+      author_builder_profile_id: context.builderProfileId,
+      source_feedback_id: feedbackId,
+      body,
+    })
+    .select("id")
+    .single();
+
+  if (capture.error) {
+    if (capture.error.code === "23505") {
+      revalidateProjectSurfaces(projectId);
+      redirect(reviewPath(projectId));
+    }
+    redirect(feedbackPath(projectId, "feedback-capture"));
+  }
+
+  if (feedback.data.review_status === "new") {
+    await supabase
+      .from("feedbacks")
+      .update({ review_status: "reviewing" })
+      .eq("id", feedbackId)
+      .eq("review_status", "new");
+  }
+
+  const draft = await supabase
+    .from("ai_structured_drafts")
+    .insert({
+      project_id: projectId,
+      rough_note_id: capture.data.id,
+      requested_by_builder_profile_id: context.builderProfileId,
+      status: "generating",
+    })
+    .select("id")
+    .single();
+
+  if (draft.error) {
+    revalidateProjectSurfaces(projectId);
+    redirect(reviewPath(projectId, "ai-draft-create"));
+  }
+
+  const result = await structureEvidenceAndPersist(
+    supabase,
+    projectId,
+    draft.data.id,
+    body,
+  );
+  revalidateProjectSurfaces(projectId);
+
+  if (result.outcome === "promoted") {
+    redirect(reviewPath(projectId));
+  }
+  if (result.outcome === "save-failed") {
+    redirect(reviewPath(projectId, "ai-draft-save"));
+  }
+
+  redirect(reviewPath(projectId, "ai-generation"));
+}
+
 export async function assessExistingCaptureAction(
   projectId: string,
   formData: FormData,
@@ -223,7 +421,7 @@ export async function assessExistingCaptureAction(
   const { supabase, context } = await ownedProjectContext(projectId);
   const capture = await supabase
     .from("rough_notes")
-    .select("id, body, converted_to_change_card_at")
+    .select("id, body, source_feedback_id, converted_to_change_card_at")
     .eq("id", roughNoteId)
     .eq("project_id", projectId)
     .is("archived_at", null)
@@ -314,7 +512,9 @@ export async function assessExistingCaptureAction(
     draftId = inserted.data.id;
   }
 
-  const result = await assessAndPersist(supabase, projectId, draftId, capture.data.body);
+  const result = capture.data.source_feedback_id
+    ? await structureEvidenceAndPersist(supabase, projectId, draftId, capture.data.body)
+    : await assessAndPersist(supabase, projectId, draftId, capture.data.body);
   revalidateProjectSurfaces(projectId);
 
   if (result.outcome === "promoted") {
