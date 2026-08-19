@@ -9,12 +9,13 @@
 ## Current main baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- current baseline before this documentation hardening PR: `4645d815dad11556253e9956407f9cac82cea3bb`
-- implementation state: **Phase 41 — Feedback Outcome Closure merged**
+- current baseline before this closeout documentation PR: `11c06e027403f1095be5e8f1b1618a52e024cbbb`
+- implementation state: **Phase 42 — P2 Integration & End-to-End Closure Audit merged**
+- P2 closure verdict: `PASS WITH CONSISTENCY HARDENING`
 - production deployment: `OUT_OF_SCOPE`
 - Vercel Git deployment: disabled in `apps/web/vercel.json`
 
-A PIE compatibility audit handoff referenced `14bb059302d57190f45deb56b21a6c422d790801` / Phase 40. That baseline is historically valid but has been superseded by Phase 41 on current `main`. The architecture verdict remains applicable because Phase 41 did not introduce PIE coupling, external identity, or schema/runtime integration.
+The earlier PIE compatibility audit referenced `14bb059302d57190f45deb56b21a6c422d790801` / Phase 40. That baseline is historically valid but has been superseded by Phases 41–42. Its architecture verdict remains authoritative because neither phase introduced PIE coupling, external identity, schema integration, or runtime integration.
 
 ## Product definition
 
@@ -136,7 +137,44 @@ Implemented in Phase 41:
 - Approved Decision does not automatically imply `reflected`
 - `feedbacks.review_status` remains the Builder outcome authority
 
-Current loop:
+### P2 integration / end-to-end closure
+
+Completed in Phase 42.
+
+Audited loop:
+
+```text
+Capture
+→ Review
+→ Decision
+→ Project Map / Publication
+→ External Feedback
+→ Capture as evidence
+→ Evidence traceability
+→ Feedback Outcome closure
+```
+
+Phase 42 found and closed three application-level consistency gaps without widening authority or schema:
+
+1. Decision approval now revalidates the later `Evidence` and `Outcomes` surfaces.
+2. Project/Decision publication mutations now revalidate Builder Feedback and Scout Public Feedback surfaces affected by the effective-public boundary.
+3. A closed Feedback Request cannot be reopened while its Project is private; Decision-targeted Request reopening still requires an approved + published + normal + non-archived target.
+
+Phase 42 impact:
+
+```text
+DB migration: 0
+Schema change: 0
+RLS change: 0
+Grant change: 0
+Public-safe view change: 0
+API surface change: 0
+Runtime dependency change: 0
+```
+
+P2 is structurally closed at repository/application-contract level. This does not claim live production runtime verification.
+
+Current closed loop:
 
 ```text
 Scout Feedback
@@ -146,7 +184,7 @@ Scout Feedback
 → Outcome closure
 ```
 
-and reverse traceability:
+Reverse traceability:
 
 ```text
 Decision
@@ -196,6 +234,13 @@ Never expose through Scout/Public surfaces:
 
 Builder-side application checks may duplicate DB boundaries as defense in depth, but must not replace RLS/public-safe contracts.
 
+Current Scout Public Feedback reads remain limited to public-safe views:
+
+- `public_project_pages`
+- `public_feedback_requests`
+- `public_feedbacks`
+- `public_decision_timeline`
+
 ## PIE architecture compatibility boundary
 
 Architecture audit verdict:
@@ -205,7 +250,7 @@ PIE integration readiness: STRUCTURALLY COMPATIBLE
 Core redesign required now: NO
 Schema hardening required now: NO
 Runtime integration required now: NO
-Authority-boundary documentation required now: YES
+Authority-boundary documentation required now: COMPLETE
 Current roadmap conflict: NO
 BLOCKER: NONE
 ```
@@ -259,22 +304,33 @@ Production deployment remains out of scope for the current implementation sequen
 
 ## Current roadmap position
 
-Completed through **Phase 41 — Feedback Outcome Closure**.
+Completed through **Phase 42 — P2 Integration & End-to-End Closure Audit**.
 
-The next roadmap step is:
+P2 is now structurally closed. The next V2 roadmap layer is **P3 integrations / intake automation**.
 
-### Phase 42 — P2 Integration & End-to-End Closure Audit
+V2 P3 order:
 
-Purpose:
+1. GitHub integration
+2. Notion integration
+3. Figma / Slack intake
+4. automatic Decision candidate detection
 
-- audit the complete Capture → Review → Decision → Public Map → External Feedback → Evidence → Outcome loop as one system,
-- find cross-surface inconsistencies, stale assumptions, broken revalidation paths, and authority leaks,
-- validate zero/empty/error states across the completed P2 surfaces,
-- verify public/private boundaries remain consistent after Phases 36–41,
-- prefer documentation/tests/read-side fixes over new product scope,
-- do not introduce PIE integration as part of the audit.
+### Recommended next phase
 
-Phase 42 is a BuildMap closure/integration audit, not a new external-integration phase.
+**Phase 43 — GitHub Integration Foundation**
+
+Scope must begin with an integration-boundary audit before adding runtime coupling. The purpose is to connect Build History signals to BuildMap while preserving BuildMap as Decision History.
+
+Initial invariants:
+
+- GitHub must not become BuildMap Project/Decision identity authority.
+- GitHub activity must not automatically become an official Decision.
+- Imported activity should enter Capture/Review or another explicitly bounded candidate path before Builder approval.
+- BuildMap must remain usable when GitHub is absent/unavailable.
+- The integration must not be generalized into PIE or Factory Intelligence work.
+- Do not implement Notion/Figma/Slack in the GitHub foundation phase unless explicitly scoped later.
+
+Before implementation, inspect the current repo for any existing GitHub integration primitives, data-model assumptions, authentication implications, and whether a schema change is actually necessary.
 
 ## Safety boundary
 
@@ -286,4 +342,5 @@ Phase 42 is a BuildMap closure/integration audit, not a new external-integration
 - preserve Builder approval authority over Decisions
 - preserve Scout/public safe-read boundaries
 - preserve BuildMap core independence from PIE
+- preserve provider identity as external/additive rather than replacing BuildMap identity
 - Factory Intelligence remains out of scope
