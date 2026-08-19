@@ -98,7 +98,12 @@ function canonicalObservationLines(observation: NotionObservedResource) {
       observation.preview.truncated ? "1" : "0",
     );
   } else {
-    for (const dataSource of observation.preview.dataSources) {
+    const stableDataSources = [...observation.preview.dataSources].sort((left, right) => {
+      const leftId = left.id.replaceAll("-", "").toLowerCase();
+      const rightId = right.id.replaceAll("-", "").toLowerCase();
+      return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+    });
+    for (const dataSource of stableDataSources) {
       lines.push(
         dataSource.id.replaceAll("-", "").toLowerCase(),
         dataSource.name,
