@@ -5,6 +5,11 @@ import {
   isGitHubAppConfigured,
   verifyGitHubCaptureSourceProof,
 } from "@/lib/github/app";
+import { isNotionOAuthConfigured } from "@/lib/notion/oauth";
+import {
+  type NotionCaptureSourceType,
+  verifyNotionCaptureSourceProof,
+} from "@/lib/notion/provenance";
 import { createClient } from "@/lib/supabase/server";
 
 type DecisionRow = {
@@ -39,6 +44,7 @@ type CaptureSourceRefRow = {
   occurred_at: string | null;
   observed_at: string;
   source_proof: string;
+  observation_key: string | null;
   created_at: string;
 };
 
@@ -73,12 +79,15 @@ type FeedbackRequestRow = {
 };
 
 function safeProviderSourceUrl(provider: string, value: string) {
-  if (provider !== "github") return null;
   try {
     const parsed = new URL(value);
-    if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== "github.com") return null;
-    if (parsed.username || parsed.password || parsed.port) return null;
-    return parsed.toString();
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return null;
+    const hostname = parsed.hostname.toLowerCase();
+    if (provider === "github" && hostname === "github.com") return parsed.toString();
+    if (provider === "notion" && (hostname === "notion.so" || hostname === "www.notion.so")) {
+      return parsed.toString();
+    }
+    return null;
   } catch {
     return null;
   }
@@ -91,6 +100,12 @@ function sourceTypeLabel(source: CaptureSourceRefRow) {
   if (source.provider === "github" && source.source_type === "release") {
     return "GitHub Release";
   }
+  if (source.provider === "notion" && source.source_type === "page_current_state") {
+    return "Notion Page · captured current state";
+  }
+  if (source.provider === "notion" && source.source_type === "database_current_state") {
+    return "Notion Database · captured current state";
+  }
   return `${source.provider} · ${source.source_type}`;
 }
 
@@ -102,6 +117,7 @@ export default async function EvidencePage({
   const { projectId } = await params;
   const supabase = await createClient();
   const githubProofConfigured = isGitHubAppConfigured();
+  const notionProofConfigured = isNotionOAuthConfigured();
 
   const decisions = await supabase
     .from("change_cards")
@@ -140,7 +156,7 @@ export default async function EvidencePage({
       ? await supabase
           .from("capture_source_refs")
           .select(
-            "id, rough_note_id, project_link_id, provider, source_type, external_source_id, canonical_url, source_title, source_context, occurred_at, observed_at, source_proof, created_at",
+            "id, rough_note_id, project_link_id, provider, source_type, external_source_id, canonical_url, source_title, source_context, occurred_at, observed_at, source_proof, observation_key, created_at",
           )
           .in("rough_note_id", captureIds)
       : { data: [] as CaptureSourceRefRow[], error: null };
@@ -150,13 +166,12 @@ export default async function EvidencePage({
   const invalidCaptureSourceRoughNoteIds = new Set<string>();
 
   for (const source of captureSourceRows) {
+    let verified = false;
     const githubType =
       source.source_type === "merged_pull_request" || source.source_type === "release";
-    const verified =
-      source.provider === "github" &&
-      githubType &&
-      githubProofConfigured &&
-      verifyGitHubCaptureSourceProof(
+
+    if (source.provider === "github" && githubType && githubProofConfigured) {
+      verified = verifyGitHubCaptureSourceProof(
         {
           roughNoteId: source.rough_note_id,
           projectLinkId: source.project_link_id,
@@ -166,6 +181,36 @@ export default async function EvidencePage({
         },
         source.source_proof,
       );
+    } else if (
+      source.provider === "notion" &&
+      notionProofConfigured &&
+      source.observation_key &&
+      (source.source_type === "page_current_state" ||
+        source.source_type === "database_current_state")
+    ) {
+      const capture = captureById.get(source.rough_note_id);
+      if (capture) {
+        try {
+          verified = verifyNotionCaptureSourceProof(
+            {
+              roughNoteId: source.rough_note_id,
+              projectLinkId: source.project_link_id,
+              sourceType: source.source_type as NotionCaptureSourceType,
+              sourceId: source.external_source_id,
+              observationKey: source.observation_key,
+              canonicalUrl: source.canonical_url,
+              sourceTitle: source.source_title,
+              occurredAt: source.occurred_at,
+              observedAt: source.observed_at,
+              captureBody: capture.body,
+            },
+            source.source_proof,
+          );
+        } catch {
+          verified = false;
+        }
+      }
+    }
 
     if (verified) {
       verifiedCaptureSourceByRoughNoteId.set(source.rough_note_id, source);
@@ -475,8 +520,9 @@ export default async function EvidencePage({
                         <Badge tone="primary">{providerSource.provider}</Badge>
                         <Badge tone="success">Source proof verified</Badge>
                         <span>source: {providerSource.external_source_id}</span>
-                        {providerProjectLink ? <span>repository: {providerProjectLink.label}</span> : null}
-                        {providerProjectLink?.archived_at ? <Badge>Repository pointer archived</Badge> : null}
+                        {providerSource.observation_key ? <span>bounded observation preserved</span> : null}
+                        {providerProjectLink ? <span>source link: {providerProjectLink.label}</span> : null}
+                        {providerProjectLink?.archived_at ? <Badge>Provider pointer archived</Badge> : null}
                         <span>observed: {formatDateTime(providerSource.observed_at)}</span>
                       </div>
                       {providerSource.source_context ? (
@@ -486,7 +532,7 @@ export default async function EvidencePage({
                       ) : null}
                       {!providerProjectLink ? (
                         <p className="muted" style={{ margin: "8px 0 0" }}>
-                          Project Link ID는 보존되어 있으나 현재 link record를 읽지 못했습니다. 다른 repository로 추정하지 않습니다.
+                          Project Link ID는 보존되어 있으나 현재 link record를 읽지 못했습니다. 다른 provider source로 추정하지 않습니다.
                         </p>
                       ) : null}
                     </div>
