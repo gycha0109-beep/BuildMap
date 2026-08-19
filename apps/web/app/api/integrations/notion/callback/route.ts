@@ -7,10 +7,12 @@ import {
   UnsupportedNotionResourceError,
   verifyNotionProjectResource,
 } from "@/lib/notion/api";
+import { loadNotionCredential } from "@/lib/notion/credential";
 import {
   createNotionBindingProof,
   isNotionOAuthConfigured,
   notionCredentialKeyVersion,
+  openNotionCredential,
   sealNotionCredential,
   verifyNotionOAuthState,
 } from "@/lib/notion/oauth";
@@ -26,7 +28,7 @@ async function bestEffortRevoke(accessToken: string | null) {
   try {
     await revokeNotionAccessToken(accessToken);
   } catch {
-    // Local persistence has not occurred yet, so the callback still fails closed.
+    // Local state still fails closed; provider revocation is best-effort here.
   }
 }
 
@@ -91,6 +93,23 @@ export async function GET(request: NextRequest) {
     return appRedirect(request, `${integrationPath}?error=notion-read-link-invalid`);
   }
 
+  let previousAccessToken: string | null = null;
+  let previousBotId: string | null = null;
+  const previous = await loadNotionCredential(supabase, state.linkId);
+  if (previous.credential) {
+    previousBotId = previous.credential.botId;
+    try {
+      previousAccessToken = openNotionCredential(
+        previous.credential.botId,
+        "access",
+        previous.credential.accessTokenCiphertext,
+        previous.credential.encryptionKeyVersion,
+      );
+    } catch {
+      previousAccessToken = null;
+    }
+  }
+
   let issuedAccessToken: string | null = null;
   try {
     const tokenSet = await exchangeNotionAuthorizationCode(code);
@@ -110,12 +129,12 @@ export async function GET(request: NextRequest) {
       resourceType: verified.type,
     });
     const accessTokenCiphertext = sealNotionCredential(
-      state.linkId,
+      tokenSet.botId,
       "access",
       tokenSet.accessToken,
     );
     const refreshTokenCiphertext = sealNotionCredential(
-      state.linkId,
+      tokenSet.botId,
       "refresh",
       tokenSet.refreshToken,
     );
@@ -142,6 +161,15 @@ export async function GET(request: NextRequest) {
     if (saved.error || savedRow?.ok !== true) {
       await bestEffortRevoke(tokenSet.accessToken);
       return appRedirect(request, `${integrationPath}?error=notion-binding-save`);
+    }
+
+    if (
+      savedRow.old_credential_disconnected === true &&
+      previousAccessToken &&
+      previousBotId &&
+      previousBotId !== tokenSet.botId
+    ) {
+      await bestEffortRevoke(previousAccessToken);
     }
 
     issuedAccessToken = null;
