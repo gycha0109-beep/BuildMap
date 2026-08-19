@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { cardTypeLabels, formatDateTime } from "@/lib/buildmap/presentation";
+import { isCanonicalNotionResourceUrl } from "@/lib/notion/resource";
 import { createPublicClient } from "@/lib/supabase/public";
 import styles from "./page.module.css";
 
@@ -122,7 +123,6 @@ export default async function PublicProjectMapPage({
       .from("public_project_links")
       .select("project_link_id, project_id, label, url, link_type, sort_order")
       .eq("project_id", project.data.project_id)
-      .eq("link_type", "github")
       .order("sort_order", { ascending: true }),
   ]);
 
@@ -131,8 +131,12 @@ export default async function PublicProjectMapPage({
   }
 
   const rows = (timeline.data ?? []) as PublicDecision[];
-  const githubLinks = ((projectLinks.data ?? []) as PublicProjectLink[]).filter((link) =>
-    isCanonicalGitHubRepositoryUrl(link.url),
+  const publicLinks = (projectLinks.data ?? []) as PublicProjectLink[];
+  const githubLinks = publicLinks.filter(
+    (link) => link.link_type === "github" && isCanonicalGitHubRepositoryUrl(link.url),
+  );
+  const notionLinks = publicLinks.filter(
+    (link) => link.link_type === "notion" && isCanonicalNotionResourceUrl(link.url),
   );
   const latestDecision = rows.length > 0 ? rows[rows.length - 1] : null;
   const currentDirection = latestDecision
@@ -314,6 +318,28 @@ export default async function PublicProjectMapPage({
                       <a href={link.url} rel="noreferrer" target="_blank">
                         <strong>{link.label}</strong>
                         <small>GitHub ↗</small>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {notionLinks.length > 0 ? (
+              <section className={styles.sideCard}>
+                <div className={styles.sectionHead}>
+                  <div>
+                    <p className="section-kicker">Knowledge context</p>
+                    <h2>Notion resources</h2>
+                  </div>
+                  <Badge tone="review">{notionLinks.length}</Badge>
+                </div>
+                <ul className={styles.compactList}>
+                  {notionLinks.map((link) => (
+                    <li className={styles.compactItem} key={link.project_link_id}>
+                      <a href={link.url} rel="noreferrer" target="_blank">
+                        <strong>{link.label}</strong>
+                        <small>Notion pointer ↗</small>
                       </a>
                     </li>
                   ))}
