@@ -9,25 +9,41 @@
 ## Current main baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- implementation baseline: `8b66e24c4b20509aa7d8cf38873f126810733ad5`
-- implementation tree: `15ff9c8a37eff3622511a3133766242b886dbc75`
-- implementation state: **Phase 46 — GitHub Observation → Explicit Capture Provenance merged**
+- implementation baseline: `c6ff1dfcb3eabc2a6ae5b064c9ebcbecfcf630f6`
+- implementation tree: `2522581b22e4758f0f772c46d99a3d420def2af1`
+- implementation state: **Phase 47 — Notion Integration Foundation merged**
 - P2 closure verdict: `PASS WITH CONSISTENCY HARDENING`
 - P3 GitHub slice: **STRUCTURALLY CLOSED AT REPOSITORY/APPLICATION-CONTRACT LEVEL**
+- P3 Notion state: **POINTER + ARCHITECTURE FOUNDATION COMPLETE; OAUTH/READ NOT IMPLEMENTED**
 - production deployment: `OUT_OF_SCOPE`
 - Vercel Git deployment: disabled in `apps/web/vercel.json`
 
 Important activation boundary:
 
 ```text
-Repository implementation through Phase 46: COMPLETE
+Repository implementation through Phase 47: COMPLETE
 Migration 17 live BuildMap DB application: NOT VERIFIED
 Migration 18 live BuildMap DB application: NOT VERIFIED
 Live GitHub App environment configuration: NOT VERIFIED
+Notion OAuth/read runtime: NOT IMPLEMENTED
 Production deployment: NOT PERFORMED
 ```
 
-Do not infer live GitHub read/Capture behavior from repository merge alone.
+Do not infer live GitHub or Notion provider execution from repository merge alone.
+
+### Phase 47 starting-main history note
+
+Immediately before the Phase 47 branch was created, an accidental empty `__noop__` file was created on `main` and immediately removed.
+
+The restored `main` was:
+
+`7f6f255a23ca056b95e4fab335b9aec814511062`
+
+with tree:
+
+`5c062f3d1305941c6bede1935a40cd14f90814fc`
+
+That tree exactly matched the prior Phase 46 closeout tree. Therefore the two no-op history commits introduced **zero repository-content drift**, and Phase 47 branched from the restored tree.
 
 ---
 
@@ -42,7 +58,7 @@ Core question:
 Positioning:
 
 - GitHub = Build History
-- Notion = Knowledge History
+- Notion = Knowledge History / Knowledge Context
 - BuildMap = Decision History
 
 Primary mental model:
@@ -92,20 +108,7 @@ Implemented and structurally closed:
 - Feedback Outcome closure
 - Phase 42 cross-surface consistency hardening
 
-Closed Feedback evidence path:
-
-```text
-Scout Feedback
-→ Builder Capture as evidence
-→ private Rough Note
-→ AI structuring
-→ Review
-→ Builder-approved Decision
-→ Evidence trace
-→ explicit Feedback Outcome
-```
-
-Feedback never automatically becomes a Decision or `reflected` outcome.
+Feedback never automatically becomes a Decision or a `reflected` outcome.
 
 ---
 
@@ -122,39 +125,22 @@ Implemented:
 - Scout public pointer through `public_project_links` only
 - archive-on-remove
 
-Authority:
-
-```text
-GitHub repository pointer
-≠ BuildMap Project identity
-≠ BuildMap Decision
-≠ BuildMap Evidence authority
-```
-
-Decision:
-
-`docs/decisions/phase43-github-integration-foundation.md`
-
----
-
 ## Phase 44 — Read Integration Architecture & Sync Boundary
 
-Approved architecture:
+Approved:
 
 - GitHub App installation model
-- initial read envelope: Metadata read + Contents read + Pull Requests read
+- Metadata read + Contents read + Pull Requests read
 - primary signals: merged Pull Requests + Releases
 - commits only as supporting drill-down
 - Issues deferred
 - Builder-triggered on-demand read
 - no webhook / polling / cron / continuous background sync
-- GitHub observation must cross an explicit Builder Capture boundary before entering BuildMap workflow
+- observation must cross explicit Builder Capture before Decision workflow
 
 Decision:
 
 `docs/decisions/phase44-github-read-integration-architecture.md`
-
----
 
 ## Phase 45 — GitHub App Read Access Bootstrap
 
@@ -164,8 +150,8 @@ Implemented:
 Project Link
 → signed installation state
 → GitHub App installation
-→ explicit GitHub App user authorization + PKCE
-→ exact installation + exact repository verification
+→ GitHub App user authorization + PKCE
+→ exact installation/repository verification
 → private integration binding
 → Builder Refresh
 → binding proof verification
@@ -174,149 +160,52 @@ Project Link
 → ephemeral normalized preview
 ```
 
-Security:
-
-- `installation_id` redirect value is never trusted alone.
-- GitHub user token is callback-local and never persisted.
-- installation token is request-local and never persisted/sent to browser.
-- installation token is restricted to one repository plus `contents: read` and `pull_requests: read`.
-- no service-role web runtime was introduced.
-- `integration_bindings` is private and has no public-safe view.
-- provider failure does not mutate Project/Decision/Feedback/publication state.
-
 Migration 17:
 
 `supabase/migrations/20260819002000_buildmap_17_integration_bindings.sql`
 
-Decision:
+Security invariants:
 
-`docs/decisions/phase45-github-app-read-bootstrap.md`
-
-Runbook:
-
-`docs/runbooks/phase45-github-app-bootstrap.md`
-
----
+- no persisted GitHub user access token
+- no persisted installation token
+- no provider secret in browser
+- repository-scoped read permissions only
+- `integration_bindings` is private association metadata
+- provider failure does not mutate BuildMap core state
 
 ## Phase 46 — GitHub Observation → Explicit Capture Provenance
 
-Implemented end-to-end repository flow:
+Implemented:
 
 ```text
 Builder Refresh
-→ ephemeral merged PR / Release observations
+→ ephemeral merged PR / Release observation
 → Builder explicitly selects Capture as evidence
-→ server re-validates BuildMap Project + GitHub binding
-→ server exact-re-reads the selected provider object
+→ server exact-re-reads provider object
 → private Rough Note
-→ immutable private provider source reference
+→ private provider source reference
 → evidence-mode AI structuring
 → Builder Review
 → Builder-approved Decision
-→ Builder-only Evidence trace back to provider source
+→ Builder-only Evidence trace
 ```
 
-### Explicit Capture boundary
+Migration 18:
 
-The browser supplies only source identity/context needed to request Capture:
+`supabase/migrations/20260819003000_buildmap_18_capture_source_refs.sql`
 
-- Project Link ID
-- source type
-- stable source ID
-
-The browser does not become authority for provider title, URL, summary, occurrence timestamp, or repository metadata.
-
-Before mutation, server code re-reads:
-
-- exact Pull Request by PR number and requires `merged_at`, or
-- exact Release by Release ID and rejects draft releases.
-
-Refresh by itself remains non-mutating and ephemeral.
-
-### Provider-neutral Capture provenance
-
-Migration 18 adds private:
-
-`capture_source_refs`
-
-It stores normalized external source provenance linked to a Rough Note:
-
-- `rough_note_id`
-- `project_link_id`
-- creator Builder profile
-- provider
-- source type
-- external source ID
-- canonical URL
-- source title/context
-- provider occurrence time
-- BuildMap observation time
-- server integrity proof
-
-It does not store:
-
-- provider access tokens
-- GitHub App private keys/client secrets
-- raw GitHub API payloads
-- synchronized event feeds
-- provider Decision authority
-
-`capture_source_refs` is insert-only from the authenticated application privilege surface; authenticated UPDATE/DELETE and all anonymous privileges are denied.
-
-No public-safe source-reference view was added.
-
-### Source integrity hardening
-
-Important distinction:
+Important provenance invariant:
 
 ```text
 owner-readable capture_source_refs row
 ≠ provider-verified GitHub provenance
 ```
 
-After exact GitHub re-read, BuildMap server creates an HMAC `source_proof` sealing:
+GitHub source rows use server HMAC `source_proof`, and current application paths verify it before treating a row as provider-verified provenance.
 
-```text
-rough_note_id
-project_link_id
-source_type
-external_source_id
-canonical_url
-```
+No GitHub source ID is copied into BuildMap Project or Decision identity.
 
-Current application paths verify this proof before treating a source row as verified GitHub provenance:
-
-- duplicate explicit-Capture handling
-- failed AI Draft retry mode selection
-- Builder Evidence trace
-
-If proof is unavailable/invalid, the application fails closed for GitHub-specific provenance rather than inferring or repairing source identity by title, URL, Rough Note text, or AI similarity.
-
-Decision addendum:
-
-`docs/decisions/phase46-github-source-integrity-hardening.md`
-
-### AI boundary
-
-Ordinary Builder Capture continues through conservative decision-worthiness triage.
-
-A Builder-selected External Feedback or verified GitHub observation has already crossed an explicit evidence-selection boundary, so its AI path performs evidence structuring rather than repeating ordinary worthiness triage.
-
-Failed provider-origin AI Draft retry stays evidence-mode only when stored provider provenance is verifiable.
-
-### Idempotency / failure behavior
-
-- same `(project_link_id, provider, source_type, external_source_id)` cannot create multiple provider source records.
-- application pre-check handles normal duplicates; DB uniqueness handles races.
-- a race-losing newly-created Rough Note is archived if source provenance insertion fails.
-- provider/binding/source verification failure before Capture creation is non-mutating.
-- AI failure after successful Capture/provenance preserves the Builder-selected evidence for retry.
-
-### Decision trace
-
-No GitHub source ID is added to `change_cards`.
-
-Trace remains:
+Decision trace:
 
 ```text
 Change Card
@@ -327,44 +216,29 @@ Change Card
 → canonical GitHub source
 ```
 
-The Builder-only Evidence surface displays this explicit stored trace.
+Decisions:
 
-Archived repository pointers do not erase historical Capture provenance.
+- `docs/decisions/phase46-github-observation-explicit-capture-provenance.md`
+- `docs/decisions/phase46-github-source-integrity-hardening.md`
 
-### Public boundary
+## GitHub P3 closure verdict
 
-Scout/Public Map continues to expose only Builder-selected repository pointers/approved BuildMap Decisions through existing public-safe boundaries.
-
-Raw PR/Release observations, `capture_source_refs`, `source_proof`, integration bindings, and GitHub authorization state remain Builder-private.
-
-Decision:
-
-`docs/decisions/phase46-github-observation-explicit-capture-provenance.md`
-
-Regression contract:
-
-`docs/access-policy-tests/phase46-github-observation-explicit-capture-provenance.md`
-
----
-
-## GitHub P3 slice closure verdict
-
-At repository/application-contract level, the bounded GitHub integration now covers:
+At repository/application-contract level the bounded GitHub slice covers:
 
 ```text
 Repository association
 → read authorization
-→ explicit on-demand observation read
-→ Builder-selected Capture
-→ durable source provenance
+→ Builder-triggered observation read
+→ explicit Capture
+→ durable provenance
 → AI Review path
 → Decision
 → reverse Evidence trace
 ```
 
-Therefore the current **GitHub integration slice is structurally closed** for the V2 roadmap scope.
+The current GitHub P3 slice is structurally closed.
 
-This does not authorize or require:
+Still excluded:
 
 - webhook ingestion
 - polling/cron/background sync
@@ -374,7 +248,198 @@ This does not authorize or require:
 - automatic Decision candidate detection
 - GitHub write permissions
 
-Automatic Decision candidate detection remains a later distinct P3 capability and must preserve Builder approval.
+---
+
+# Notion integration state
+
+## Phase 47 — Notion Integration Foundation
+
+Phase 47 began with an audit of both the current BuildMap provider-neutral boundaries and the current official Notion API model.
+
+### External API architecture findings
+
+Audit date: `2026-08-19`
+
+Notion API version observed during the audit:
+
+`2026-03-11`
+
+Current architecture facts used for the phase decision:
+
+- public Notion connections use OAuth 2.0,
+- the standard authorization flow includes user page/database selection,
+- token exchange provides access + refresh tokens,
+- public connections must persist those credentials for later calls,
+- token refresh rotates both access and refresh tokens,
+- read access is capability- and content-access-scoped,
+- current Notion databases are containers that may contain data sources,
+- current page APIs expose current metadata/content such as `last_edited_time`,
+- the audited public API must not be described as an authoritative revision-history feed.
+
+### Resource association decision
+
+A BuildMap Project associates initially with an explicit Notion **page/database root pointer**.
+
+Not authorized as the default Project association:
+
+- entire workspace
+- inferred child data source
+- workspace-wide index
+
+The user-facing pointer deliberately does not infer page versus database solely from a pasted URL. Exact provider object type belongs to a later authenticated read.
+
+### Pointer implementation
+
+Existing schema already supports:
+
+```text
+project_links.link_type = notion
+```
+
+Therefore Phase 47 adds **no migration**.
+
+Implemented:
+
+- Notion resource URL normalization
+- official HTTPS `notion.so` / `www.notion.so` only
+- stable 32-hex resource UUID extraction
+- canonical storage:
+  `https://www.notion.so/{32-character-resource-id}`
+- Builder add/list/update-visibility/remove actions
+- default internal visibility
+- canonical duplicate update behavior in application path
+- archive-on-remove
+- `Integrations` UI separation:
+  - GitHub · Build History
+  - Notion · Knowledge Context
+
+Phase 47 accepts explicit resource URLs whose path exposes the stable UUID. Human-readable unique-ID shortcuts without that UUID are intentionally excluded until authenticated resolution exists.
+
+### Public pointer boundary
+
+No new public view is introduced.
+
+Scout/Public rendering continues through:
+
+`public_project_links`
+
+A Notion pointer is shown publicly only when:
+
+- the existing public-safe view returns it,
+- `link_type = notion`,
+- the application read-side confirms the stored URL is canonical.
+
+Scout label:
+
+`Knowledge context → Notion resources`
+
+A public pointer means only that the Builder selected the external link for display.
+
+It does **not** mean:
+
+- the Notion page/database is public,
+- BuildMap has Notion OAuth/read authorization,
+- BuildMap mirrored the content,
+- the Notion object is Decision authority.
+
+### OAuth / credential boundary
+
+Phase 47 does **not** implement Notion OAuth or reads.
+
+No new Notion environment variables are added.
+
+No Notion access or refresh token is stored.
+
+Migration 17 remains authoritative:
+
+`integration_bindings` is credential-free provider association metadata.
+
+Do not add OAuth credentials to:
+
+- `project_links`
+- `integration_bindings`
+- `capture_source_refs`
+
+The reason for separating Phase 48 is structural: unlike the GitHub request-local installation-token model, a Notion public connection requires persistent OAuth credential lifecycle and refresh-token rotation.
+
+A later phase must first define a dedicated server-only credential persistence boundary before authenticated Notion reads are authorized.
+
+### Knowledge signal boundary
+
+Phase 47 does not create Notion observations.
+
+Future bounded read primitives may include:
+
+- exact linked page/database metadata
+- page `last_edited_time`
+- current title/properties
+- current page Markdown/content
+- database data-source discovery where required
+
+But the integration must not become a Notion workspace mirror.
+
+Not authorized:
+
+- workspace-wide indexing
+- persistent page/block mirror
+- background crawling
+- webhook ingestion
+- periodic polling/cron
+- raw provider payload persistence
+- automatic AI scan of an entire workspace
+
+### Future Capture path
+
+Phase 47 fixes the intended authority flow but does not implement it yet:
+
+```text
+Authorized Notion resource read
+→ bounded normalized observation
+→ Builder explicitly selects Capture as evidence
+→ server exact source verification
+→ private Rough Note
+→ provider provenance
+→ evidence-mode AI structuring
+→ Builder Review
+→ Builder-approved Decision
+```
+
+Never:
+
+```text
+Notion object
+→ automatic approved Decision
+```
+
+### Provider-neutral reuse verdict
+
+`project_links`:
+- reused now for pointer identity ✅
+
+`integration_bindings`:
+- reusable later for association metadata ✅
+- credential vault ❌
+
+`capture_source_refs`:
+- data shape suitable for later Notion provenance ✅
+- current GitHub-specific proof path cannot be assumed for Notion ❌
+
+The same provenance invariant will apply:
+
+```text
+owner-readable source row
+≠ provider-verified provider provenance
+```
+
+### Phase 47 authoritative docs
+
+Decision:
+
+`docs/decisions/phase47-notion-integration-foundation.md`
+
+Regression contract:
+
+`docs/access-policy-tests/phase47-notion-integration-foundation.md`
 
 ---
 
@@ -393,13 +458,7 @@ Repository additive migrations currently extend through sequence 18:
 - 17: private provider-neutral integration bindings
 - 18: private provider-neutral Capture source references
 
-Phase 46 migration:
-
-`supabase/migrations/20260819003000_buildmap_18_capture_source_refs.sql`
-
-Database Contract Gate validates repository migration integrity only. It does not apply migrations to a BuildMap database.
-
-### Live DB boundary
+Phase 47 adds no migration 19.
 
 Current claims:
 
@@ -410,23 +469,25 @@ Migration 17 live target DB state: NOT VERIFIED
 Migration 18 live target DB state: NOT VERIFIED
 ```
 
-Do not claim either migration is live without target-environment evidence.
+No live database state is inferred from Phase 47.
 
 ---
 
-## Phase 46 CI / merge evidence
+## Phase 47 CI / merge evidence
 
-Implementation PR: `#55`
+Implementation PR:
+
+`#57`
 
 Exact final tested head:
 
-`85c94ab64798f27e4d8e9dda4b35152b1366e027`
+`d6f981c4a8398e32a7c06fe5c9a53828ff2a54be`
 
 Exact tested tree:
 
-`15ff9c8a37eff3622511a3133766242b886dbc75`
+`2522581b22e4758f0f772c46d99a3d420def2af1`
 
-Web App CI #84 passed:
+Web App CI #86 passed:
 
 - exact event SHA checkout
 - Node 22
@@ -435,26 +496,47 @@ Web App CI #84 passed:
 - typecheck
 - production build
 
-Database Contract Gate #23 passed:
-
-- exact event SHA checkout
-- exact SHA verification
-- historical integrity + additive migration contract
-- safety boundary / no remote DB mutation
+No Database Contract Gate run was expected because Phase 47 introduced no migration.
 
 Squash merge commit:
 
-`8b66e24c4b20509aa7d8cf38873f126810733ad5`
+`c6ff1dfcb3eabc2a6ae5b064c9ebcbecfcf630f6`
 
 Merged implementation tree:
 
-`15ff9c8a37eff3622511a3133766242b886dbc75`
+`2522581b22e4758f0f772c46d99a3d420def2af1`
 
 Therefore:
 
 ```text
 CI-TESTED TREE == MERGED IMPLEMENTATION TREE
 ```
+
+---
+
+## Public / private authority boundary
+
+Public-safe views/RLS/grants remain authority for Scout/public reads.
+
+Never expose through Scout/Public surfaces unless a specific public-safe contract authorizes it:
+
+- Rough Notes
+- AI Structured Drafts
+- internal/unpublished/sensitive Change Cards
+- private Feedback review/outcome state
+- Builder-only provenance
+- integration bindings
+- provider credentials/tokens
+- source proofs
+- raw GitHub observations
+- future raw Notion content or OAuth state
+
+Current public provider pointer behavior:
+
+- GitHub repository pointer: Builder-selected public `project_links` through `public_project_links`
+- Notion resource pointer: Builder-selected public `project_links` through `public_project_links`
+
+Neither provider pointer grants provider Decision authority.
 
 ---
 
@@ -475,7 +557,6 @@ Still required:
 - BuildMap Project/Decision IDs remain authoritative.
 - provider identities/references remain external/additive.
 - `project_links`, `integration_bindings`, and `capture_source_refs` must not become PIE Evidence authority.
-- `change_cards.evidence` remains BuildMap decision-context evidence text.
 - BuildMap must work when PIE is absent/unavailable.
 - PIE core remains BuildMap-independent.
 - Factory Intelligence remains out of scope.
@@ -490,14 +571,11 @@ Production deployment remains out of scope.
 
 `apps/web/vercel.json` keeps Git deployment disabled.
 
-Real GitHub execution additionally requires explicit target-environment activation:
+Merging Phase 47 to `main` is not production deployment.
 
-1. migration 17 applied to the actual BuildMap database,
-2. migration 18 applied to the actual BuildMap database,
-3. GitHub App registered/configured according to the Phase45 runbook,
-4. server-only GitHub App environment values configured in that runtime.
+Real GitHub execution still requires explicit target-environment activation of migrations 17/18 and GitHub App configuration.
 
-These live facts were not inferred from CI or merge.
+Notion authenticated execution does not exist yet because Phase 47 intentionally stops before OAuth/token/read implementation.
 
 ---
 
@@ -510,41 +588,36 @@ P0 ✅ Capture / AI triage / Review / Current Direction
 P1 ✅ Decision Timeline / Project Map / first Decision activation
 P2 ✅ Public Project Map / Scout read / External Feedback / evidence + outcome closure
 P3 GitHub integration ✅ structurally closed at repository/application-contract level
+P3 Notion Phase 47 ✅ pointer + architecture foundation
 ```
 
-V2 P3 source roadmap order remains:
+V2 P3 source order:
 
 1. GitHub integration ✅
-2. Notion integration ← NEXT
+2. Notion integration — active
 3. Figma / Slack intake
 4. automatic Decision candidate detection
 
 ### Recommended next phase
 
-**Phase 47 — Notion Integration Foundation**
+**Phase 48 — Notion OAuth Credential & Read Bootstrap**
 
-Phase 47 must begin audit-first before auth/API/schema implementation.
+Phase 48 must remain audit-first around credential security before provider API implementation.
 
-Required audit questions:
+Required design/implementation questions:
 
-1. What Notion resource is a BuildMap Project associated with: page, database/data source, workspace selection, or a smaller explicit pointer?
-2. Which knowledge-history signals are useful to BuildMap without turning BuildMap into a Notion mirror?
-3. What authorization model and least-privilege scopes are currently appropriate for Notion?
-4. Should initial read be Builder-triggered/on-demand, preserving the GitHub integration's optional-provider failure isolation without mechanically copying GitHub-specific auth semantics?
-5. Can `project_links`, `integration_bindings`, and `capture_source_refs` be reused as genuinely provider-neutral boundaries, and where would Notion-specific fields actually be required?
-6. What Notion observation must be explicitly selected by Builder before entering Capture?
-7. How will source provenance remain explicit without raw page/workspace mirroring or provider authority transfer?
+1. dedicated encrypted/sealed server-only credential persistence model,
+2. token read/write authority from Next.js server runtime,
+3. access/refresh token atomic rotation and concurrent refresh behavior,
+4. OAuth state / CSRF protection,
+5. exact linked resource verification after page-picker authorization,
+6. workspace/bot/resource association in `integration_bindings`,
+7. least-privilege `read content` capability,
+8. first bounded Builder-triggered Notion read shape,
+9. explicit disconnect/revocation behavior,
+10. failure isolation from ordinary BuildMap workflows.
 
-Hard invariants for Phase 47:
-
-- audit before implementation,
-- do not assume GitHub App concepts map directly to Notion,
-- Notion knowledge objects never become official Decisions automatically,
-- Builder approval remains mandatory,
-- BuildMap core remains usable when Notion is absent/unavailable,
-- no speculative generalized integration platform,
-- no PIE / Factory Intelligence expansion,
-- schema only if the audit proves it necessary.
+Phase 48 must not automatically add Notion Capture or Decision creation merely because authenticated reads become possible. Observation → explicit Capture should remain a later bounded step if not safely included after the read bootstrap.
 
 ---
 
@@ -554,6 +627,7 @@ Hard invariants for Phase 47:
 - additive migrations only when actually required
 - do not claim live DB deployment without explicit environment evidence
 - do not commit provider secrets/tokens/service-role credentials
+- do not turn `integration_bindings` into a plaintext token store
 - do not enable production deployment implicitly
 - preserve Builder approval authority over Decisions
 - preserve Scout/public safe-read boundaries
