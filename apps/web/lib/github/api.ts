@@ -22,6 +22,27 @@ export type GitHubActivityObservation = {
   context: string | null;
 };
 
+type PullRequestPayload = {
+  number: number;
+  title: string;
+  body?: string | null;
+  html_url: string;
+  merged_at?: string | null;
+  base?: { ref?: string };
+  head?: { ref?: string };
+};
+
+type ReleasePayload = {
+  id: number;
+  name?: string | null;
+  tag_name: string;
+  body?: string | null;
+  html_url: string;
+  published_at?: string | null;
+  created_at: string;
+  draft?: boolean;
+};
+
 export class GitHubProviderError extends Error {
   status: number;
 
@@ -180,6 +201,41 @@ function compactSummary(value: string | null | undefined) {
   return normalized.length > 360 ? `${normalized.slice(0, 357)}...` : normalized;
 }
 
+function normalizeMergedPullRequest(
+  pullRequest: PullRequestPayload,
+): GitHubActivityObservation | null {
+  if (!pullRequest.merged_at) return null;
+  return {
+    sourceType: "merged_pull_request",
+    sourceId: `pr:${pullRequest.number}`,
+    title: pullRequest.title,
+    summary: compactSummary(pullRequest.body),
+    url: pullRequest.html_url,
+    occurredAt: pullRequest.merged_at,
+    context:
+      pullRequest.base?.ref && pullRequest.head?.ref
+        ? `${pullRequest.head.ref} → ${pullRequest.base.ref}`
+        : `PR #${pullRequest.number}`,
+  };
+}
+
+function normalizeRelease(release: ReleasePayload): GitHubActivityObservation | null {
+  if (release.draft) return null;
+  return {
+    sourceType: "release",
+    sourceId: `release:${release.id}`,
+    title: release.name?.trim() || release.tag_name,
+    summary: compactSummary(release.body),
+    url: release.html_url,
+    occurredAt: release.published_at || release.created_at,
+    context: release.tag_name,
+  };
+}
+
+function repositoryPath(owner: string, repository: string) {
+  return `${encodeURIComponent(owner)}/${encodeURIComponent(repository)}`;
+}
+
 export async function readGitHubActivity(input: {
   installationId: string;
   repositoryId: string;
@@ -187,72 +243,71 @@ export async function readGitHubActivity(input: {
   repository: string;
 }) {
   const token = await createInstallationAccessToken(input);
-  const repositoryPath = `${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}`;
+  const path = repositoryPath(input.owner, input.repository);
 
   const [pullRequests, releases] = await Promise.all([
-    githubFetchJson<
-      Array<{
-        number: number;
-        title: string;
-        body?: string | null;
-        html_url: string;
-        merged_at?: string | null;
-        base?: { ref?: string };
-        head?: { ref?: string };
-      }>
-    >(
-      `https://api.github.com/repos/${repositoryPath}/pulls?state=closed&sort=updated&direction=desc&per_page=30`,
+    githubFetchJson<PullRequestPayload[]>(
+      `https://api.github.com/repos/${path}/pulls?state=closed&sort=updated&direction=desc&per_page=30`,
       { headers: { Authorization: `Bearer ${token}` } },
     ),
-    githubFetchJson<
-      Array<{
-        id: number;
-        name?: string | null;
-        tag_name: string;
-        body?: string | null;
-        html_url: string;
-        published_at?: string | null;
-        created_at: string;
-        draft?: boolean;
-      }>
-    >(`https://api.github.com/repos/${repositoryPath}/releases?per_page=20`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }),
+    githubFetchJson<ReleasePayload[]>(
+      `https://api.github.com/repos/${path}/releases?per_page=20`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    ),
   ]);
 
   const observations: GitHubActivityObservation[] = [];
 
   for (const pullRequest of pullRequests) {
-    if (!pullRequest.merged_at) continue;
-    observations.push({
-      sourceType: "merged_pull_request",
-      sourceId: `pr:${pullRequest.number}`,
-      title: pullRequest.title,
-      summary: compactSummary(pullRequest.body),
-      url: pullRequest.html_url,
-      occurredAt: pullRequest.merged_at,
-      context:
-        pullRequest.base?.ref && pullRequest.head?.ref
-          ? `${pullRequest.head.ref} → ${pullRequest.base.ref}`
-          : `PR #${pullRequest.number}`,
-    });
+    const observation = normalizeMergedPullRequest(pullRequest);
+    if (observation) observations.push(observation);
   }
 
   for (const release of releases) {
-    if (release.draft) continue;
-    observations.push({
-      sourceType: "release",
-      sourceId: `release:${release.id}`,
-      title: release.name?.trim() || release.tag_name,
-      summary: compactSummary(release.body),
-      url: release.html_url,
-      occurredAt: release.published_at || release.created_at,
-      context: release.tag_name,
-    });
+    const observation = normalizeRelease(release);
+    if (observation) observations.push(observation);
   }
 
   observations.sort(
     (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
   );
   return observations.slice(0, 30);
+}
+
+export async function readGitHubObservation(input: {
+  installationId: string;
+  repositoryId: string;
+  owner: string;
+  repository: string;
+  sourceType: GitHubActivityObservation["sourceType"];
+  sourceId: string;
+}): Promise<GitHubActivityObservation | null> {
+  const token = await createInstallationAccessToken(input);
+  const path = repositoryPath(input.owner, input.repository);
+
+  if (input.sourceType === "merged_pull_request") {
+    const match = /^pr:(\d+)$/.exec(input.sourceId);
+    const number = match ? Number(match[1]) : NaN;
+    if (!Number.isSafeInteger(number) || number <= 0) {
+      throw new GitHubProviderError("Invalid GitHub Pull Request source identity.", 400);
+    }
+    const pullRequest = await githubFetchJson<PullRequestPayload>(
+      `https://api.github.com/repos/${path}/pulls/${number}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const observation = normalizeMergedPullRequest(pullRequest);
+    return observation?.sourceId === input.sourceId ? observation : null;
+  }
+
+  const match = /^release:(\d+)$/.exec(input.sourceId);
+  const releaseId = match ? Number(match[1]) : NaN;
+  if (!Number.isSafeInteger(releaseId) || releaseId <= 0) {
+    throw new GitHubProviderError("Invalid GitHub Release source identity.", 400);
+  }
+  const release = await githubFetchJson<ReleasePayload>(
+    `https://api.github.com/repos/${path}/releases/${releaseId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const observation = normalizeRelease(release);
+  return observation?.sourceId === input.sourceId ? observation : null;
 }
