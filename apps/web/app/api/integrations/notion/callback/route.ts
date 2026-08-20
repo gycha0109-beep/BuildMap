@@ -111,10 +111,12 @@ export async function GET(request: NextRequest) {
   }
 
   let issuedAccessToken: string | null = null;
+  let providerStage: "token_exchange" | "resource_verify" | "binding_save" = "token_exchange";
   try {
     const tokenSet = await exchangeNotionAuthorizationCode(code);
     issuedAccessToken = tokenSet.accessToken;
 
+    providerStage = "resource_verify";
     const verified = await verifyNotionProjectResource(tokenSet.accessToken, resource.resourceId);
     if (!verified) {
       await bestEffortRevoke(tokenSet.accessToken);
@@ -139,6 +141,7 @@ export async function GET(request: NextRequest) {
       tokenSet.refreshToken,
     );
 
+    providerStage = "binding_save";
     const saved = await supabase.rpc("save_notion_oauth_authorization", {
       p_project_link_id: state.linkId,
       p_created_by_builder_profile_id: context.builderProfileId,
@@ -159,6 +162,10 @@ export async function GET(request: NextRequest) {
         ? (saved.data as Record<string, unknown>)
         : null;
     if (saved.error || savedRow?.ok !== true) {
+      console.warn("BuildMap Phase51 Notion OAuth binding save rejected", {
+        stage: providerStage,
+        rpcCode: saved.error?.code ?? null,
+      });
       await bestEffortRevoke(tokenSet.accessToken);
       return appRedirect(request, `${integrationPath}?error=notion-binding-save`);
     }
@@ -180,6 +187,11 @@ export async function GET(request: NextRequest) {
       return appRedirect(request, `${integrationPath}?error=notion-resource-type-unsupported`);
     }
     if (error instanceof NotionProviderError) {
+      console.warn("BuildMap Phase51 Notion provider rejection", {
+        stage: providerStage,
+        status: error.status,
+        providerCode: error.providerCode,
+      });
       const codeName = [400, 401, 403].includes(error.status)
         ? "notion-authorization-invalid"
         : error.status === 429
@@ -187,6 +199,10 @@ export async function GET(request: NextRequest) {
           : "notion-provider-unavailable";
       return appRedirect(request, `${integrationPath}?error=${codeName}`);
     }
+    console.warn("BuildMap Phase51 Notion OAuth unexpected failure", {
+      stage: providerStage,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
     return appRedirect(request, `${integrationPath}?error=notion-oauth-config-invalid`);
   }
 }
