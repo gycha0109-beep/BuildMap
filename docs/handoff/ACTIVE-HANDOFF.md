@@ -4,50 +4,40 @@
 
 이 문서는 현재 BuildMap 구현 단계의 authoritative handoff다.
 
-`docs/handoff/CURRENT-HANDOFF.md`는 Phase 31 closure 당시의 historical snapshot으로 유지한다. Phase 47의 상세 판단은 해당 decision/access-policy 문서와 git history에 보존되어 있으며, 이 Active Handoff는 Phase 48 이후 현재 authority와 다음 bounded work를 중심으로 정리한다.
+`docs/handoff/CURRENT-HANDOFF.md`는 Phase 31 closure 당시 historical snapshot으로 유지한다. 세부 설계와 보안 계약은 각 Phase decision/access-policy 문서와 git history가 authority다.
 
 ## Current implementation baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- Phase 48 starting main: `f1ed6db6e54a346f2c1e663fa073e75c44c8f5c7`
-- Phase 48 implementation PR: `#59`
-- exact final tested implementation head: `a9c3c7dd5cbc8143aae9a0fd09a81415451fae12`
-- exact final tested implementation tree: `0660b356f0687e8cd445207aed7c90e28f9585dd`
-- Phase 48 squash merge commit: `befa6bcc9a304fcbeb5deab476142af266dd39dc`
-- merged implementation tree: `0660b356f0687e8cd445207aed7c90e28f9585dd`
-- implementation state: **Phase 48 — Notion OAuth Credential & Read Bootstrap merged**
-- P3 GitHub slice: **STRUCTURALLY CLOSED AT REPOSITORY/APPLICATION-CONTRACT LEVEL**
-- P3 Notion state: **POINTER + PUBLIC OAUTH CREDENTIAL LIFECYCLE + EXACT RESOURCE VERIFICATION + BOUNDED EPHEMERAL READ COMPLETE AT REPOSITORY/APPLICATION-CONTRACT LEVEL**
-- production deployment: `OUT_OF_SCOPE`
+- Phase 49 starting main: `a95005f32681ada3e0882baee0d8ceda5d03ab7e`
+- Phase 49 implementation PR: `#61`
+- exact final tested implementation head: `4fda9b28dda17b3815ba536b99b2ea522d80dbb3`
+- exact final tested implementation tree: `a143d43ebce3e55088958c262382fd65cc1327e0`
+- Phase 49 squash merge commit: `483f5a14995c80e90809cc1ea3a370d3ad44830f`
+- merged implementation tree: `a143d43ebce3e55088958c262382fd65cc1327e0`
+- implementation state: **Phase 49 — Notion Observation → Explicit Capture Provenance merged**
+- production deployment: `NOT PERFORMED`
 - Vercel Git deployment: disabled in `apps/web/vercel.json`
 
 Implementation tree equality:
 
 ```text
 CI-TESTED TREE
-0660b356f0687e8cd445207aed7c90e28f9585dd
+ a143d43ebce3e55088958c262382fd65cc1327e0
 
 ==
 
 MERGED IMPLEMENTATION TREE
-0660b356f0687e8cd445207aed7c90e28f9585dd
+ a143d43ebce3e55088958c262382fd65cc1327e0
 ```
 
-Important activation boundary:
+Therefore:
 
 ```text
-Repository implementation through Phase 48: COMPLETE
-Migration 17 live BuildMap DB application: NOT VERIFIED
-Migration 18 live BuildMap DB application: NOT VERIFIED
-Migration 19 live BuildMap DB application: NOT VERIFIED
-Live GitHub App environment configuration: NOT VERIFIED
-Live Notion public OAuth integration registration: NOT VERIFIED
-Live Notion runtime secret configuration: NOT VERIFIED
-Real Notion OAuth round trip / refresh / revoke execution: NOT VERIFIED
-Production deployment: NOT PERFORMED
+PHASE_49_REPOSITORY_APPLICATION_CONTRACT = CLOSED
 ```
 
-Do not infer live provider execution or production activation from repository merge alone.
+Do not infer live provider execution, live database migration, secret configuration, or production activation from repository closure.
 
 ---
 
@@ -77,10 +67,10 @@ Authority invariants:
 - BuildMap owns Decision identity.
 - Builder owns official Decision approval.
 - AI is conservative and non-authoritative.
-- external provider IDs remain additive identities only.
-- public-safe views/RLS/grants remain Scout/public read authority.
+- external provider identities remain additive only.
+- provider content never becomes a Decision merely because BuildMap can read it.
 
-Phase 48 sharpens the provider boundary to:
+Provider boundary remains:
 
 ```text
 Pointer
@@ -89,8 +79,6 @@ Pointer
 != Capture
 != Decision
 ```
-
-Notion authorization grants BuildMap permission to read selected knowledge context. It does not grant Notion authority over BuildMap Decisions.
 
 ---
 
@@ -102,440 +90,253 @@ Current flow:
 
 ```text
 Repository pointer
-→ GitHub App installation/read authorization
+→ GitHub App read authorization
 → exact repository verification
-→ private provider-neutral integration binding
+→ provider-neutral integration binding
 → Builder-triggered merged PR / Release observation
-→ Builder explicitly selects Capture as evidence
+→ Builder explicitly selects Capture
 → server exact source re-read
 → private Rough Note
 → capture_source_refs provenance
-→ evidence-mode AI structuring
+→ AI structuring
 → Builder Review
 → Builder-approved Decision
-→ reverse Evidence trace
+→ private Evidence reverse trace
 ```
 
-Authoritative migrations:
-
-- 17: `supabase/migrations/20260819002000_buildmap_17_integration_bindings.sql`
-- 18: `supabase/migrations/20260819003000_buildmap_18_capture_source_refs.sql`
-
-Still excluded from the current GitHub slice:
+Still excluded:
 
 - webhook ingestion
 - polling/cron/background sync
-- Issues intake
 - raw commit-stream ingestion
 - automatic Capture
-- automatic Decision candidate detection
+- automatic Decision approval
 - GitHub write permissions
-
-Phase 48 does not modify or weaken the GitHub security model.
 
 ---
 
 # Notion integration state
 
-## Phase 47 — Pointer foundation
+## Phase 47 — pointer foundation
 
-Phase 47 established the Notion Knowledge Context pointer through existing `project_links` without schema expansion.
+Notion page/database URLs remain Project-owned pointers through `project_links(link_type = notion)`.
 
-Canonical pointer behavior remains:
+Public behavior is pointer-only through existing public-safe authority. A public pointer does not expose authenticated Notion content.
 
-```text
-Notion page/database URL
-→ stable 32-hex resource UUID extraction
-→ https://www.notion.so/{32-character-resource-id}
-→ project_links(link_type = notion)
-```
+## Phase 48 — OAuth credential and bounded read
 
-The pointer remains independent from provider authorization.
-
-Public behavior remains pointer-only through `public_project_links`. A Builder-selected public Notion pointer does not assert that the Notion content itself is public or that BuildMap can read it.
-
-## Phase 48 — OAuth credential & read bootstrap
-
-Audit date: `2026-08-19`
-
-Audited current Notion API version:
-
-`2026-03-11`
-
-Phase 48 implements the following bounded flow:
+Phase 48 established:
 
 ```text
-existing canonical Notion Project Link
-→ Builder starts public OAuth
-→ signed + time-bounded BuildMap state
-→ server-side authorization-code exchange
-→ exact current user / Project / Project Link revalidation
-→ exact linked Notion resource authenticated verification
-→ Notion bot authorization credential persistence
-→ provider-neutral Notion resource binding
+Notion pointer
+→ Public OAuth authorization
+→ exact resource verification
+→ private bot-level credential lifecycle
+→ provider-neutral binding
 → Builder-triggered bounded authenticated read
-→ ephemeral current knowledge preview
+→ ephemeral preview
 ```
 
-It stops there.
+Credentials remain private, encrypted, and separate from Project Link/provider source records.
 
-Never in Phase 48:
+## Phase 49 — explicit Capture provenance
+
+Phase 49 extends the bounded read into Builder-controlled evidence intake.
+
+Current flow:
 
 ```text
-Notion observation
-→ automatic Capture
-→ automatic AI Draft
-→ automatic Decision Candidate
-→ automatic Decision
+verified bounded Notion observation
+→ short-lived signed observation token
+→ Builder explicitly selects Capture as evidence
+→ server re-reads exact Project-linked Notion resource
+→ resource/type/fingerprint equality required
+→ private Rough Note
+→ Notion capture_source_refs provenance
+→ AI Structured Draft
+→ Builder Review
+→ Builder-approved Decision only if Builder explicitly approves
 ```
 
-### Credential identity and storage
+There is no automatic Capture or automatic Decision authority.
 
-Notion OAuth credential lifecycle is represented by a dedicated private model:
+### Resource identity vs observation identity
 
-`private.notion_oauth_credentials`
-
-Migration 19:
-
-`supabase/migrations/20260819043000_buildmap_19_notion_oauth_credentials.sql`
-
-Credential rows are keyed by Notion `bot_id`, the provider authorization identity returned by OAuth.
-
-Project association remains separate:
+Notion resources are mutable. Phase 49 therefore does not misuse the page/database UUID as a revision identity.
 
 ```text
-private.notion_oauth_credentials.bot_id
-        ↓
-integration_bindings.external_connection_id
-        ↓
-BuildMap Project Link ↔ exact verified Notion resource
+external_source_id
+= exact Notion page/database provider resource UUID
+
+observation_key
+= BuildMap SHA-256 identity of the exact bounded normalized current-state observation
 ```
 
-`workspace_id` is metadata and must not be used as credential uniqueness.
+`last_edited_time` is provider current-state metadata only. It is not represented as a Notion revision/history ID.
 
-Provider tokens remain forbidden from:
+For database observations, child data-source metadata is canonicalized by normalized ID order before fingerprinting so provider response ordering alone does not create a false changed-state identity.
 
-- `project_links`
-- `integration_bindings`
-- `capture_source_refs`
+Canonical observation and source-proof payloads use deterministic JSON serialization rather than delimiter-dependent text concatenation.
 
-### Credential confidentiality boundary
+### Capture token and stale-observation protection
 
-Phase 48 does not introduce a Supabase service-role runtime.
+The preview endpoint returns a server-signed, short-lived Capture token bound to:
 
-Instead:
+- Project ID
+- Project Link ID
+- exact Notion resource ID
+- resource type
+- bounded observation key
+- nonce
+- expiry
 
-- credential table is in `private` schema;
-- direct `anon` / `authenticated` table privileges are denied;
-- RLS is enabled with no browser table policy path;
-- owner-checked SECURITY DEFINER RPCs provide the minimal server-session access boundary;
-- credential ownership is additionally tied to the current BuildMap auth user through Builder profile identity.
+At Capture time the browser token is not trusted as provider evidence. The server performs an exact Notion re-read and requires the newly calculated resource/type/observation identity to equal the signed preview identity.
 
-Raw access/refresh tokens are sealed in the application server before persistence with:
+If the resource changed between preview and Capture, the Capture fails closed and the Builder must refresh the observation.
 
-- AES-256-GCM;
-- fresh random nonce per token;
-- authenticated tag;
-- server-only `NOTION_CREDENTIAL_ENCRYPTION_KEY`;
-- AEAD context bound to Notion `bot_id`, token kind, and encryption key version.
+### Provenance integrity
 
-Stored token material is ciphertext only.
+Notion provenance uses a server HMAC proof bound to:
 
-Current key version:
+- Rough Note ID
+- Project Link ID
+- source type
+- provider resource ID
+- observation key
+- canonical URL
+- source title
+- provider current-state timestamp when present
+- BuildMap observed timestamp
+- SHA-256 of the exact persisted Rough Note body
 
-`1`
+Evidence reverse trace independently verifies this proof. A changed Rough Note body or forged source row cannot silently become verified Notion provenance.
 
-The current runtime supports one active encryption key. Future key replacement requires an explicit dual-key/reseal or disconnect/reconnect procedure; blind key replacement would make existing ciphertext intentionally unreadable.
+### Migration 20
 
-### OAuth state / callback security
+Authoritative migration:
 
-Server state binds:
+`supabase/migrations/20260819060000_buildmap_20_capture_observation_keys.sql`
 
-- provider = notion
-- BuildMap Project ID
-- exact Project Link ID
-- initiating BuildMap auth user ID
-- fixed continuation path
-- random nonce
-- ten-minute expiry
+It adds nullable:
 
-State is HMAC-SHA256 signed with independent server-only `NOTION_OAUTH_STATE_SECRET`.
+`capture_source_refs.observation_key`
 
-Callback revalidates:
+Uniqueness semantics:
 
-- state signature and expiry
-- provider literal
-- current authenticated user == initiating user
-- current Project ownership
-- exact active Project Link identity
-- `link_type = notion`
-- canonical stored pointer
-- exact provider resource access with the exchanged credential
+- existing GitHub rows keep `observation_key IS NULL` and remain unique by provider source identity;
+- mutable provider observations with an observation key are unique by provider resource identity + exact bounded observation identity;
+- the same Notion resource may be captured again only after its bounded observed state actually changes.
 
-OAuth success alone is not a Project binding.
-
-### Resource verification
-
-The exact UUID already owned by the BuildMap Project Link is provider-verified.
-
-Current accepted Project roots:
-
-- `page`
-- `database`
-
-A raw `data_source` pointer is rejected as a Phase 48 Project root. For a database pointer, the database remains the Project association; a child data-source ID is not silently substituted.
-
-`integration_bindings.external_resource_type` was added by migration 19 so authenticated provider type can be persisted without inferring type from URL.
-
-For `provider = notion`:
-
-- `external_connection_id` = Notion `bot_id`
-- `external_account_id` = Notion `workspace_id`
-- `external_account_label` = bounded workspace label
-- `external_resource_id` = exact verified page/database ID
-- `external_resource_type` = `page` or `database`
-- `external_resource_label` = bounded verified title
-- `binding_proof` = Notion-specific HMAC integrity proof over Project Link + bot + workspace + resource + resource type
-
-Token material is never stored in the binding.
-
-### Token refresh / rotation
-
-Notion refresh rotates both access and refresh tokens.
-
-Phase 48 uses a bot-authorization-level single-writer boundary:
-
-```text
-provider read returns 401
-→ claim 30-second refresh lease on bot credential
-→ read credential_version N
-→ decrypt current refresh token server-side
-→ provider refresh
-→ require returned bot_id/workspace_id to remain stable
-→ seal new access + new refresh token
-→ atomic complete only when:
-     active Project Link still binds same bot
-     refresh lease matches and is live
-     credential_version == N
-→ replace both ciphertexts together
-→ credential_version = N + 1
-→ retry bounded read once
-```
-
-Concurrent requests sharing the same bot authorization cannot both persist independently rotated refresh tokens.
-
-A refresh `400/401/403`, changed provider identity, disconnected binding, expired lease, or version conflict fails closed/requires reconnect rather than overwriting newer credential state.
-
-### Disconnect / reconnect
-
-Pointer and OAuth disconnect remain separate.
-
-Explicit **Read access 해제**:
-
-1. detaches the selected Notion binding locally;
-2. counts remaining same-Builder active bindings to the same `bot_id`;
-3. preserves the shared credential if another binding still uses it;
-4. when the last binding is removed, immediately nulls both ciphertext fields, increments version, clears refresh lease, and marks the credential disconnected;
-5. only for that final reference does the server best-effort call Notion's revoke endpoint using the plaintext access token held only in server memory.
-
-A provider revoke failure does not restore local credential usability.
-
-Pointer removal is blocked while an active Notion read binding exists. The Builder must disconnect read access first, then may independently remove the Knowledge Context pointer.
-
-Reconnect to a different Notion bot authorization replaces the Project binding transactionally and only disconnects/revokes the old bot credential if no other same-Builder active binding still references it.
-
-### Bounded read shape
-
-Builder-triggered only.
-
-Page:
-
-- exact page metadata;
-- one top-level block-children request;
-- `page_size = 20`;
-- at most 4,000 normalized text characters;
-- no nested recursive traversal.
-
-Database:
-
-- exact database container metadata;
-- at most five child data-source labels/IDs from the container response;
-- no row query;
-- no database mirror.
-
-All normalized previews are `Cache-Control: no-store` and client-state-only.
-
-Phase 48 does not persist raw Notion payloads or normalized read previews.
-
-### Failure isolation
-
-Notion provider failure remains optional-provider-local.
-
-It must not mutate:
-
-- Project
-- Decision
-- Current Direction
-- publication
-- Feedback
-- Outcome
-- GitHub integration
-- ordinary Capture
-
-Controlled credential/binding lifecycle state may change only during Notion connect/refresh/disconnect operations.
-
-### Public/private boundary
-
-Scout/public continues to receive only Builder-selected Notion pointers through `public_project_links`.
-
-Never expose publicly through Phase 48:
-
-- access token
-- refresh token
-- ciphertext
-- OAuth state
-- workspace ID
-- bot ID
-- authorizer user ID
-- `integration_bindings`
-- authenticated Notion content
-- bounded preview
-- provider error/source proof internals
+Historical migrations remain immutable.
 
 ---
 
-## Phase 48 authoritative docs
+## Phase 49 authoritative docs
 
 Decision / architecture:
 
-`docs/decisions/phase48-notion-oauth-credential-read-bootstrap.md`
+`docs/decisions/phase49-notion-observation-explicit-capture-provenance.md`
 
 Regression/security contracts:
 
-`docs/access-policy-tests/phase48-notion-oauth-credential-read-bootstrap.md`
-
-Environment/activation runbook:
-
-`docs/runbooks/phase48-notion-oauth-bootstrap.md`
+`docs/access-policy-tests/phase49-notion-observation-explicit-capture-provenance.md`
 
 ---
 
-## Database / migration contract
-
-Historical migrations `00–10` remain immutable.
-
-Repository additive migrations now extend through sequence 19:
-
-- 11: app runtime privilege alignment
-- 12: least-privilege ACL hardening
-- 13: AI draft conversion RPC
-- 14: project insert owner-policy alignment
-- 15: Rough Note conversion RLS alignment
-- 16: External Feedback evidence provenance bridge
-- 17: private provider-neutral integration bindings
-- 18: private provider-neutral Capture source references
-- 19: private Notion OAuth credential lifecycle + verified resource type metadata
-
-Current repository claims:
-
-```text
-Migration 17 repository state: PRESENT + CONTRACT-VALID
-Migration 18 repository state: PRESENT + CONTRACT-VALID
-Migration 19 repository state: PRESENT + CONTRACT-VALID
-
-Migration 17 live target DB state: NOT VERIFIED
-Migration 18 live target DB state: NOT VERIFIED
-Migration 19 live target DB state: NOT VERIFIED
-```
-
-Database Contract Gate validates repository migration contracts only. It does not mutate or inspect a live BuildMap target database.
-
----
-
-## Phase 48 CI / merge evidence
+## Phase 49 CI / merge evidence
 
 Implementation PR:
 
-`#59`
+`#61`
 
 Exact final tested head:
 
-`a9c3c7dd5cbc8143aae9a0fd09a81415451fae12`
+`4fda9b28dda17b3815ba536b99b2ea522d80dbb3`
 
 Exact final tested tree:
 
-`0660b356f0687e8cd445207aed7c90e28f9585dd`
+`a143d43ebce3e55088958c262382fd65cc1327e0`
 
-Web App CI #99:
+The final head is a no-tree-change CI retrigger commit after GitHub Actions runner queue delay. Its tree is identical to the hardened implementation candidate.
 
-`PASS`
-
-Validated on the exact final implementation head:
-
-- exact event SHA checkout
-- Node 22
-- dependency install
-- lint
-- typecheck
-- production build
-
-Database Contract Gate #36:
+Web App CI #104:
 
 `PASS`
 
-Validated on the same exact final implementation head:
+Database Contract Gate #41:
 
-- exact SHA checkout / verification
-- historical migration integrity
-- additive migration sequence/filename contract
-- migration safety boundary
-- no remote DB mutation
+`PASS`
+
+Both required workflows completed successfully on the same exact final head.
 
 Squash merge commit:
 
-`befa6bcc9a304fcbeb5deab476142af266dd39dc`
+`483f5a14995c80e90809cc1ea3a370d3ad44830f`
 
 Merged implementation tree:
 
-`0660b356f0687e8cd445207aed7c90e28f9585dd`
+`a143d43ebce3e55088958c262382fd65cc1327e0`
 
-Therefore:
+Closure invariant:
 
 ```text
 CI-TESTED TREE == MERGED IMPLEMENTATION TREE
 ```
 
-Earlier candidate CI runs generated before the final bot-authorization credential redesign are not closure evidence. Phase 48 closure authority is Web App CI #99 + Database Contract Gate #36 on `a9c3c7dd5cbc8143aae9a0fd09a81415451fae12` only.
+Earlier queued/retrigger candidate runs are not Phase 49 closure authority. Closure authority is Web App CI #104 + Database Contract Gate #41 on `4fda9b28dda17b3815ba536b99b2ea522d80dbb3`.
 
 ---
 
 ## Runtime / deployment boundary
 
-Repository merge does not prove operational activation.
+Repository closure does not prove operational activation.
 
-Still required before real Notion use in an environment:
+Current unverified/not-performed boundaries include:
 
-1. apply migration 19 through the controlled DB process;
-2. register/configure a Notion Public connection;
-3. register the exact callback URI;
-4. configure server-only:
-   - `NOTION_CLIENT_ID`
-   - `NOTION_CLIENT_SECRET`
-   - `NOTION_OAUTH_STATE_SECRET`
-   - `NOTION_CREDENTIAL_ENCRYPTION_KEY`
-   - optional `NOTION_REDIRECT_URI`;
-5. execute a real OAuth page-picker/code-exchange test;
-6. verify exact page/database read against live provider data;
-7. verify real refresh-token rotation and revoke behavior;
-8. separately authorize any production deployment.
+```text
+Migration 17 live target DB state: NOT VERIFIED
+Migration 18 live target DB state: NOT VERIFIED
+Migration 19 live target DB state: NOT VERIFIED
+Migration 20 live target DB state: NOT VERIFIED
 
-No step above was performed or claimed by Phase 48 repository closure.
+Live GitHub App environment configuration: NOT VERIFIED
+Live Notion Public connection registration: NOT VERIFIED
+Live Notion callback registration: NOT VERIFIED
+Live Notion runtime secret configuration: NOT VERIFIED
+Real Notion OAuth round trip: NOT VERIFIED
+Real provider page/database read: NOT VERIFIED
+Real token refresh/revoke concurrency: NOT VERIFIED
+Real Notion explicit Capture against live provider data: NOT VERIFIED
+Production deployment: NOT PERFORMED
+```
 
-`apps/web/vercel.json` still keeps Git deployment disabled.
+No production deployment is authorized or implied by this handoff.
 
 ---
 
-## PIE architecture compatibility boundary
+## Public / private boundary
+
+Public/Scout authority remains unchanged.
+
+Public surfaces may expose only explicitly Builder-published/public-safe records and Builder-selected provider pointers through existing public-safe views/RLS/grants.
+
+Never expose through the public Project Map merely because provider integration exists:
+
+- provider credentials or ciphertext
+- OAuth state
+- workspace/bot/authorizer identity internals
+- integration bindings
+- authenticated Notion content
+- bounded Notion preview
+- Capture token
+- observation key/source proof internals
+- private Rough Notes
+- AI Structured Drafts
+- private Evidence trace metadata
+
+---
+
+## PIE compatibility boundary
 
 Authoritative decision remains:
 
@@ -547,67 +348,78 @@ Operating stance:
 
 > Align now, integrate later.
 
-Still required:
+Phase 49 does not add PIE runtime, Factory Intelligence runtime, schema ownership transfer, provider-to-PIE authority, or automatic Decision generation.
 
-- BuildMap Project/Decision IDs remain authoritative.
-- provider identities/references remain external/additive.
-- `project_links`, `integration_bindings`, and `capture_source_refs` must not become PIE Evidence authority.
-- BuildMap must work when PIE is absent/unavailable.
-- PIE core remains BuildMap-independent.
-- Factory Intelligence remains out of scope.
-
-Phase 48 adds no PIE runtime/schema/API/auth/webhook/polling implementation.
+BuildMap Project and Decision IDs remain authoritative. Provider resource/observation identities remain external/additive evidence identities.
 
 ---
 
-## Current roadmap position
+# Next bounded work
 
-Completed at repository/application-contract level:
+## Phase 50 — P3 Provider Integration End-to-End Closure Audit
+
+Recommended next phase is an audit-first closure of the GitHub + Notion provider foundation before adding another provider.
+
+Primary objective:
+
+> Verify that the complete GitHub and Notion integration paths preserve one coherent provider-neutral security, provenance, public/private, failure-isolation, and Decision-authority model end to end.
+
+Required audit areas:
+
+1. GitHub / Notion contract parity
+   - pointer
+   - authorization/credential
+   - exact provider association
+   - bounded observation
+   - Builder-explicit Capture
+   - provenance
+   - Evidence reverse trace
+   - disconnect/archive behavior
+
+2. Cross-provider provenance consistency
+   - `integration_bindings`
+   - `capture_source_refs`
+   - source proof semantics
+   - resource identity vs observation identity
+   - archived pointer behavior
+
+3. Failure isolation
+   - provider unavailable
+   - revoked/invalid authorization
+   - invalid binding/proof
+   - stale observation
+   - Capture persistence failure
+   - AI structuring failure
+
+4. Public/private regression
+   - no authenticated provider content or credential/provenance internals leak to Scout/public surfaces
+
+5. Decision authority
 
 ```text
-P0 ✅ Capture / AI triage / Review / Current Direction
-P1 ✅ Decision Timeline / Project Map / first Decision activation
-P2 ✅ Public Project Map / Scout read / External Feedback / evidence + outcome closure
-P3 GitHub integration ✅ bounded end-to-end provider observation → explicit Capture provenance path
-P3 Notion Phase 47 ✅ pointer foundation
-P3 Notion Phase 48 ✅ OAuth credential lifecycle + exact verification + bounded ephemeral read
+Provider observation → automatic Decision       NO
+Provider Capture     → automatic approval       NO
+Builder Review       → explicit approval        YES
 ```
 
-V2 P3 source order remains:
+6. P3 foundation closure recommendation
+   - identify only concrete structural debt required before another provider
+   - do not generalize abstractions without an actual cross-provider need
 
-1. GitHub integration ✅
-2. Notion integration — active
-3. Figma / Slack intake
-4. automatic Decision candidate detection
+Phase 50 should not implement Figma, Slack, provider writes, webhook/polling sync, automatic Decision detection, PIE runtime, Factory Intelligence, or production deployment unless a separate explicit phase authorizes them.
 
-### Recommended next bounded phase
+---
 
-**Phase 49 — Notion Observation → Explicit Capture Provenance**
-
-Expected authority flow:
+## Terminal state
 
 ```text
-verified bounded Notion observation
-→ Builder explicitly selects Capture
-→ server revalidates exact Notion source under current authorization
-→ private Rough Note
-→ Notion source provenance in provider-neutral capture_source_refs
-→ evidence-mode AI structuring
-→ Builder Review
-→ Builder-approved Decision
+PHASE_49_REPOSITORY_APPLICATION_CONTRACT = CLOSED
+
+LIVE_DATABASE_ACTIVATION = NOT VERIFIED
+LIVE_NOTION_OAUTH_REGISTRATION = NOT VERIFIED
+LIVE_SECRET_CONFIGURATION = NOT VERIFIED
+LIVE_PROVIDER_E2E = NOT VERIFIED
+PRODUCTION_DEPLOYMENT = NOT PERFORMED
+
+NEXT = PHASE_50_P3_PROVIDER_INTEGRATION_END_TO_END_CLOSURE_AUDIT
 ```
-
-Phase 49 must remain explicit-Capture-first.
-
-It must not introduce:
-
-- automatic Capture from Refresh
-- workspace-wide crawl/mirror
-- background sync/polling
-- Notion write permission
-- revision-history fabrication
-- automatic Decision candidate approval
-- automatic Decision/publication/Current Direction mutation
-- PIE or Factory Intelligence coupling
-
-Before implementing Phase 49, audit the current `capture_source_refs` proof semantics and decide the minimum Notion-specific source identity/proof tuple from the actual bounded read contract. Do not mechanically reuse GitHub proof semantics where provider identity differs.
