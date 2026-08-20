@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
+import { normalizeFigmaResourceUrl } from "@/lib/figma/resource";
 import { normalizeGitHubRepositoryUrl } from "@/lib/github/repository";
 import { normalizeNotionResourceUrl } from "@/lib/notion/resource";
 import { createClient } from "@/lib/supabase/server";
@@ -164,10 +165,7 @@ export async function removeGitHubRepositoryAction(projectId: string, formData: 
 
   const archived = await supabase
     .from("project_links")
-    .update({
-      visibility_status: "internal",
-      archived_at: now,
-    })
+    .update({ visibility_status: "internal", archived_at: now })
     .eq("id", linkId)
     .eq("project_id", projectId)
     .eq("link_type", "github")
@@ -317,4 +315,134 @@ export async function removeNotionResourceAction(projectId: string, formData: Fo
 
   revalidateIntegrationSurfaces(projectId, project.public_slug);
   redirect(integrationsPath(projectId, { updated: "notion-removed" }));
+}
+
+export async function addFigmaResourceAction(projectId: string, formData: FormData) {
+  const normalized = normalizeFigmaResourceUrl(String(formData.get("resourceUrl") ?? ""));
+  const requestedLabel = String(formData.get("label") ?? "").trim();
+  const visibility = String(formData.get("visibility") ?? "internal").trim();
+
+  if (!normalized || requestedLabel.length > 120 || !visibilityValues.has(visibility)) {
+    redirect(integrationsPath(projectId, { error: "invalid-figma-resource" }));
+  }
+
+  const label = requestedLabel || normalized.defaultLabel;
+  const { supabase, context, project } = await ownedProjectContext(projectId);
+  const existing = await supabase
+    .from("project_links")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("link_type", "figma")
+    .eq("url", normalized.url)
+    .is("archived_at", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.error) {
+    redirect(integrationsPath(projectId, { error: "figma-link-save" }));
+  }
+
+  if (existing.data) {
+    const updated = await supabase
+      .from("project_links")
+      .update({ label, visibility_status: visibility })
+      .eq("id", existing.data.id)
+      .eq("project_id", projectId)
+      .eq("link_type", "figma")
+      .is("archived_at", null)
+      .select("id")
+      .maybeSingle();
+    if (updated.error || !updated.data) {
+      redirect(integrationsPath(projectId, { error: "figma-link-save" }));
+    }
+  } else {
+    const inserted = await supabase
+      .from("project_links")
+      .insert({
+        project_id: projectId,
+        created_by_builder_profile_id: context.builderProfileId,
+        label,
+        url: normalized.url,
+        link_type: "figma",
+        visibility_status: visibility,
+      })
+      .select("id")
+      .single();
+    if (inserted.error) {
+      redirect(integrationsPath(projectId, { error: "figma-link-save" }));
+    }
+  }
+
+  revalidateIntegrationSurfaces(projectId, project.public_slug);
+  redirect(integrationsPath(projectId, { updated: "figma-linked" }));
+}
+
+export async function setFigmaResourceVisibilityAction(
+  projectId: string,
+  formData: FormData,
+) {
+  const linkId = String(formData.get("linkId") ?? "").trim();
+  const visibility = String(formData.get("visibility") ?? "").trim();
+  if (!linkId || !visibilityValues.has(visibility)) {
+    redirect(integrationsPath(projectId, { error: "figma-link-update" }));
+  }
+
+  const { supabase, project } = await ownedProjectContext(projectId);
+  const updated = await supabase
+    .from("project_links")
+    .update({ visibility_status: visibility })
+    .eq("id", linkId)
+    .eq("project_id", projectId)
+    .eq("link_type", "figma")
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) {
+    redirect(integrationsPath(projectId, { error: "figma-link-update" }));
+  }
+
+  revalidateIntegrationSurfaces(projectId, project.public_slug);
+  redirect(integrationsPath(projectId, { updated: "figma-visibility" }));
+}
+
+export async function removeFigmaResourceAction(projectId: string, formData: FormData) {
+  const linkId = String(formData.get("linkId") ?? "").trim();
+  if (!linkId) {
+    redirect(integrationsPath(projectId, { error: "figma-link-remove" }));
+  }
+
+  const { supabase, project } = await ownedProjectContext(projectId);
+  const activeReadBinding = await supabase
+    .from("integration_bindings")
+    .select("id")
+    .eq("project_link_id", linkId)
+    .eq("provider", "figma")
+    .eq("status", "active")
+    .is("archived_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (activeReadBinding.error) {
+    redirect(integrationsPath(projectId, { error: "figma-link-remove" }));
+  }
+  if (activeReadBinding.data) {
+    redirect(integrationsPath(projectId, { error: "figma-link-read-connected" }));
+  }
+
+  const archived = await supabase
+    .from("project_links")
+    .update({ visibility_status: "internal", archived_at: new Date().toISOString() })
+    .eq("id", linkId)
+    .eq("project_id", projectId)
+    .eq("link_type", "figma")
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (archived.error || !archived.data) {
+    redirect(integrationsPath(projectId, { error: "figma-link-remove" }));
+  }
+
+  revalidateIntegrationSurfaces(projectId, project.public_slug);
+  redirect(integrationsPath(projectId, { updated: "figma-removed" }));
 }
