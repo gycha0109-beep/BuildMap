@@ -1,4 +1,4 @@
-const NOTION_HOSTS = new Set(["notion.so", "www.notion.so"]);
+const NOTION_HOSTS = new Set(["notion.so", "www.notion.so", "app.notion.com"]);
 
 const compactIdPattern = /([0-9a-fA-F]{32})$/;
 const uuidIdPattern = /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
