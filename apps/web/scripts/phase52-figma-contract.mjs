@@ -92,8 +92,8 @@ assert.match(captureAction, /eq\("observation_key", observationKey\)/);
 assert.match(captureAction, /verifyFigmaCaptureSourceProof/);
 appearsBefore(
   captureAction,
-  'from("capture_source_refs")\n    \.insert',
-  'from("ai_structured_drafts")\n    \.insert',
+  "const sourceRef = await supabase",
+  "const draft = await supabase",
   "Provenance must be persisted before AI draft generation begins.",
 );
 assert.match(captureAction, /status: "failed"/);
