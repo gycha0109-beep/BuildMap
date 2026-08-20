@@ -8,6 +8,11 @@ import {
   isGitHubAppConfigured,
   verifyGitHubCaptureSourceProof,
 } from "@/lib/github/app";
+import {
+  isNotionCaptureProofConfigured,
+  type NotionCaptureSourceType,
+  verifyNotionCaptureSourceProof,
+} from "@/lib/notion/provenance";
 import { createClient } from "@/lib/supabase/server";
 
 function workspacePath(projectId: string, error?: string, notice?: string) {
@@ -438,7 +443,7 @@ export async function assessExistingCaptureAction(
   const providerSource = await supabase
     .from("capture_source_refs")
     .select(
-      "provider, project_link_id, source_type, external_source_id, canonical_url, source_proof",
+      "provider, project_link_id, source_type, external_source_id, canonical_url, source_title, occurred_at, observed_at, source_proof, observation_key",
     )
     .eq("rough_note_id", roughNoteId)
     .maybeSingle();
@@ -449,22 +454,49 @@ export async function assessExistingCaptureAction(
   let verifiedProviderEvidence = false;
   if (providerSource.data) {
     if (
-      providerSource.data.provider !== "github" ||
-      !["merged_pull_request", "release"].includes(providerSource.data.source_type) ||
-      !isGitHubAppConfigured()
+      providerSource.data.provider === "github" &&
+      ["merged_pull_request", "release"].includes(providerSource.data.source_type) &&
+      isGitHubAppConfigured()
     ) {
-      redirect(reviewPath(projectId, "invalid-ai-source"));
+      verifiedProviderEvidence = verifyGitHubCaptureSourceProof(
+        {
+          roughNoteId,
+          projectLinkId: providerSource.data.project_link_id,
+          sourceType: providerSource.data.source_type as "merged_pull_request" | "release",
+          sourceId: providerSource.data.external_source_id,
+          canonicalUrl: providerSource.data.canonical_url,
+        },
+        providerSource.data.source_proof,
+      );
+    } else if (
+      providerSource.data.provider === "notion" &&
+      providerSource.data.observation_key &&
+      ["page_current_state", "database_current_state"].includes(
+        providerSource.data.source_type,
+      ) &&
+      isNotionCaptureProofConfigured()
+    ) {
+      try {
+        verifiedProviderEvidence = verifyNotionCaptureSourceProof(
+          {
+            roughNoteId,
+            projectLinkId: providerSource.data.project_link_id,
+            sourceType: providerSource.data.source_type as NotionCaptureSourceType,
+            sourceId: providerSource.data.external_source_id,
+            observationKey: providerSource.data.observation_key,
+            canonicalUrl: providerSource.data.canonical_url,
+            sourceTitle: providerSource.data.source_title,
+            occurredAt: providerSource.data.occurred_at,
+            observedAt: providerSource.data.observed_at,
+            captureBody: capture.data.body,
+          },
+          providerSource.data.source_proof,
+        );
+      } catch {
+        verifiedProviderEvidence = false;
+      }
     }
-    verifiedProviderEvidence = verifyGitHubCaptureSourceProof(
-      {
-        roughNoteId,
-        projectLinkId: providerSource.data.project_link_id,
-        sourceType: providerSource.data.source_type as "merged_pull_request" | "release",
-        sourceId: providerSource.data.external_source_id,
-        canonicalUrl: providerSource.data.canonical_url,
-      },
-      providerSource.data.source_proof,
-    );
+
     if (!verifiedProviderEvidence) {
       redirect(reviewPath(projectId, "invalid-ai-source"));
     }
