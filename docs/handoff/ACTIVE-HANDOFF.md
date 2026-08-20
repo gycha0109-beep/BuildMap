@@ -8,56 +8,44 @@
 
 ---
 
-## Current implementation baseline
+# Current implementation baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- Phase 50 starting main: `e6a0e426ec9f9f4e2780a87e88e385a8fa1562d6`
-- Phase 50 implementation PR: `#63`
-- exact final tested implementation head: `b3f877a2a3cddcc82110bf914a1525e5cd677a46`
-- exact final tested implementation tree: `cb1010d16cf86bf3e72f9e8172809ef3097c08b9`
-- Web App CI: `#106 PASS`
-- Phase 50 squash merge commit: `f5444b1c5b014673022eb9063fabd30a88498e7b`
-- merged implementation tree: `cb1010d16cf86bf3e72f9e8172809ef3097c08b9`
-- implementation state: **Phase 50 — P3 Provider Integration End-to-End Closure Audit CLOSED at repository/application-contract level**
-- production deployment: `NOT PERFORMED`
-- Vercel Git deployment: disabled by repository configuration
+- Phase 51 starting main: `2289070c51f38f135b38e192178cccdb5264fa6c`
+- Phase 51 implementation PR: `#65`
+- exact final tested implementation head: `3d36bd7f64fd770c52f749836043b29390b05f77`
+- exact final tested implementation tree: `a8b092cd00c62efd45182f26a7aa30662e0ac30a`
+- Web App CI: `#108 PASS`
+- Phase 51 squash merge commit: `1e2418896ce556931492c4afab32e17c0a4c315f`
+- merged implementation tree: `a8b092cd00c62efd45182f26a7aa30662e0ac30a`
+- migration files changed by Phase 51: `NO`
+- migrations `00–20`: unchanged
+- current Phase 51 production deployment: `NOT PERFORMED`
+- repository Vercel Git deployment: disabled again after controlled Preview validation
 
 Implementation equality:
 
 ```text
 CI-TESTED IMPLEMENTATION TREE
-cb1010d16cf86bf3e72f9e8172809ef3097c08b9
+ a8b092cd00c62efd45182f26a7aa30662e0ac30a
 
 ==
 
 MERGED IMPLEMENTATION TREE
-cb1010d16cf86bf3e72f9e8172809ef3097c08b9
+ a8b092cd00c62efd45182f26a7aa30662e0ac30a
 ```
 
-Phase 50 did not change SQL/schema/migrations. Migrations `00–20` remain unchanged. The latest exact migration-tree validation remains Phase 49 Database Contract Gate `#41 PASS`.
-
-Important activation boundary:
+Phase 51 state:
 
 ```text
-Repository/application contract through Phase 50: CLOSED
-Migration 17 live target DB state: NOT VERIFIED
-Migration 18 live target DB state: NOT VERIFIED
-Migration 19 live target DB state: NOT VERIFIED
-Migration 20 live target DB state: NOT VERIFIED
-Live GitHub App environment/configuration: NOT VERIFIED
-Live Notion Public OAuth registration/configuration: NOT VERIFIED
-Live GitHub provider E2E: NOT VERIFIED
-Live Notion provider E2E: NOT VERIFIED
-Production deployment: NOT PERFORMED
+PHASE_51_P3_INTEGRATION_ACTIVATION_READINESS_CONTROLLED_LIVE_E2E = CLOSED
 ```
-
-Do not infer runtime activation from repository closure.
 
 ---
 
 # Product definition and authority
 
-BuildMap V2 is an AI-native Capture-first Decision Journal for Builders.
+BuildMap V2 remains an AI-native **Capture-first Decision Journal for Builders**.
 
 Core question:
 
@@ -96,11 +84,194 @@ Still authoritative:
 
 ---
 
-# P3 provider foundation state
+# Hosted database activation state
 
-Phase 50 audited GitHub and Notion as one provider-intake layer before adding another provider.
+Phase 51 directly verified the configured hosted Supabase migration history.
 
-The current provider-neutral model remains valid:
+Applied provider migrations:
+
+- migration 17 — `integration_bindings`
+- migration 18 — `capture_source_refs`
+- migration 19 — Notion OAuth credential lifecycle + verified resource type
+- migration 20 — optional bounded observation identity
+
+Current authority:
+
+```text
+LIVE_MIGRATION_17 = VERIFIED APPLIED
+LIVE_MIGRATION_18 = VERIFIED APPLIED
+LIVE_MIGRATION_19 = VERIFIED APPLIED
+LIVE_MIGRATION_20 = VERIFIED APPLIED
+```
+
+No migration was applied, edited, reordered, or manufactured by Phase 51.
+
+Repository migration authority remains the unchanged `00–20` set.
+
+---
+
+# GitHub integration — controlled live state
+
+Phase 51 completed one controlled real GitHub E2E against:
+
+`gycha0109-beep/BuildMap`
+
+Validated path:
+
+```text
+internal repository pointer
+→ GitHub App installation restricted to exact repository
+→ user OAuth
+→ exact installation/repository verification
+→ active private binding
+→ Builder-triggered bounded merged PR / Release read
+→ explicit Builder Capture
+→ exact server re-read
+→ private Rough Note
+→ immutable GitHub provenance
+→ evidence-mode AI Structured Draft
+→ Builder Review candidate
+→ no automatic approved Decision
+```
+
+Observed provider identity during the controlled E2E:
+
+- repository ID: `1306433852`
+- installation ID: `155131457`
+
+One real merged-PR Capture was preserved as private provider provenance.
+
+## GitHub disconnect / reconnect closure
+
+Explicit `Read access 해제` was verified to:
+
+- remove the active binding;
+- retain disconnected binding history;
+- retain the Project Link;
+- retain historical Capture/provenance;
+- leave Notion state unchanged;
+- create no Decision mutation.
+
+A live defect was found: reconnect always forced `/installations/new` even when the GitHub App was still installed for the exact repository.
+
+Phase 51 remediation now:
+
+1. reads the latest disconnected binding for the exact Project Link;
+2. verifies its binding proof against the current exact repository pointer;
+3. proves the stored installation is still live by minting a repository-scoped installation token;
+4. if valid, skips new installation and proceeds to the existing PKCE user OAuth path;
+5. if invalid/unavailable, falls back to the original fresh-install flow.
+
+The repaired reconnect was then validated live.
+
+Post-reconnect:
+
+```text
+GitHub active binding       = restored
+historical disconnected row = retained
+GitHub Capture count        = unchanged
+Notion active binding       = preserved
+```
+
+Stored installation identity alone is never accepted as reconnect authority.
+
+---
+
+# Notion integration — controlled live state
+
+Phase 51 completed one controlled real Notion E2E against:
+
+- workspace: `make 자동화`
+- resource: `사업 과제`
+- type: `database`
+- exact resource ID: `10538de5-a5db-4002-a52c-01b82e2cd097`
+
+Validated path:
+
+```text
+internal Notion pointer
+→ Public OAuth resource selection
+→ code exchange
+→ sealed bot-level credential persistence
+→ exact database verification
+→ private resource binding
+→ Builder-triggered bounded current-state read
+→ ephemeral preview
+→ explicit Builder Capture
+→ exact server re-read
+→ observation fingerprint equality
+→ private Rough Note
+→ immutable provenance + observation_key
+→ evidence-mode AI Structured Draft
+→ Builder Review candidate
+→ no automatic approved Decision
+```
+
+Refresh alone created no Capture.
+
+One real bounded database current-state Capture was preserved as private provider provenance.
+
+## Notion copied-link compatibility remediation
+
+Current Notion UI produced copied links in the form:
+
+```text
+https://app.notion.com/p/<resource-id>...
+```
+
+The pre-Phase-51 parser accepted only `notion.so` / `www.notion.so`.
+
+Phase 51 now accepts the current `app.notion.com` host while preserving canonical stored resource identity.
+
+A Notion resource does **not** need to be publicly published to the web. BuildMap read authority comes from OAuth resource authorization.
+
+## Notion page/database verification remediation
+
+For a valid database ID tested against the page endpoint, Notion returned:
+
+```text
+HTTP 400
+provider code: validation_error
+```
+
+The pre-Phase-51 verifier treated only `404` as an endpoint-type miss and therefore converted this into a fatal authorization failure.
+
+Phase 51 now treats only the narrow `400 validation_error` endpoint-type mismatch as a safe lookup miss and continues exact verification against the alternate page/database endpoint.
+
+Actual authorization/provider failures remain fatal.
+
+## Notion disconnect / reconnect closure
+
+Explicit `Read access 해제` was verified to:
+
+- remove the active Notion binding;
+- transition the credential lifecycle to disconnected when no active binding remained;
+- retain Project Link;
+- retain historical Notion Capture/provenance;
+- leave GitHub state unchanged;
+- create no Decision mutation.
+
+Reconnect then re-ran OAuth and exact resource verification.
+
+Post-reconnect authority:
+
+```text
+Notion active binding       = restored
+credential status           = active
+credential_version          = 3
+encryption_key_version      = 1
+exact database ID           = unchanged
+Notion Capture count        = unchanged
+GitHub active binding       = preserved
+```
+
+The same provider `bot_id` credential row is reactivated/upserted by design rather than creating a second permanent credential row.
+
+---
+
+# Provider-neutral intake model
+
+The Phase 50 provider-neutral model is now proven against real hosted GitHub + Notion flows:
 
 ```text
 project_links
@@ -124,291 +295,63 @@ Builder approval
 Decision
 ```
 
-No generalized integration platform or new provider schema was justified.
+No generalized integration platform or new provider schema is justified by Phase 51.
 
-### `project_links`
-
-User-facing provider pointer and visibility only.
-
-### `integration_bindings`
-
-Private verified Project Link ↔ provider authorization/resource association.
-
-It is not Decision identity and must not become raw provider payload storage.
-
-### `capture_source_refs`
-
-Private immutable provider provenance attached to a Builder Capture.
-
-It is not a synchronized event ledger and is not PIE Evidence authority.
-
----
-
-# GitHub integration state
-
-Current bounded flow:
-
-```text
-canonical repository pointer
-→ GitHub App installation + PKCE user verification
-→ exact repository association
-→ private integration binding
-→ Builder-triggered bounded activity read
-→ merged PR / Release observation
-→ Builder explicit Capture
-→ server exact source re-read
-→ private Rough Note
-→ immutable provider provenance
-→ evidence-mode AI structuring
-→ Builder Review
-→ Builder approval
-→ Decision
-→ Builder-only Evidence reverse trace
-```
-
-Current provider signals:
-
-- merged Pull Requests;
-- Releases.
-
-Still excluded:
-
-- Issues stream;
-- raw commit stream ingestion;
-- workflow/deployment stream ingestion;
-- webhook ingestion;
-- polling/cron/background sync;
-- provider writes;
-- automatic Capture;
-- automatic Decision detection/approval.
-
-## Phase 50 GitHub remediation
-
-GitHub OAuth/API requests now have an explicit eight-second network timeout.
-
-Covered external calls include:
-
-- OAuth code exchange;
-- user installation lookup;
-- installation repository verification;
-- installation access-token minting;
-- merged PR reads;
-- Release reads;
-- activity list reads.
-
-Timeout/transport failure remains provider-local and does not mutate BuildMap core state.
-
-## GitHub provenance semantics
-
-GitHub source identity remains stable provider-object identity:
-
-```text
-merged PR → pr:{number}
-Release   → release:{provider release id}
-observation_key = NULL
-```
-
-The historical GitHub source-proof contract remains unchanged. It verifies provider source/link identity; the Rough Note body is not the GitHub provenance authority under the frozen Phase 46 contract.
-
-This differs intentionally from Notion current-state snapshot proof and must not be silently rewritten without an explicit proof-version migration/compatibility plan.
-
-Historical GitHub proof verification currently remains coupled to the existing GitHub App configuration predicate. Treat proof-secret rotation or a future separation of historical proof verification from live App capability as explicit future hardening work, not an implicit Phase 50 format change.
-
----
-
-# Notion integration state
-
-Current bounded flow:
-
-```text
-canonical Notion page/database pointer
-→ Public OAuth
-→ exact user / Project / Project Link revalidation
-→ exact page/database verification
-→ private bot-level sealed credential
-→ private resource binding
-→ Builder-triggered bounded current-state read
-→ signed bounded Capture selection
-→ Builder explicit Capture
-→ server exact re-read
-→ observation fingerprint equality check
-→ private Rough Note
-→ immutable current-state provenance
-→ evidence-mode AI structuring
-→ Builder Review
-→ Builder approval
-→ Decision
-→ Builder-only Evidence reverse trace
-```
-
-Notion remains bounded to:
-
-### Page
-
-- exact page metadata;
-- one top-level block-children request;
-- up to 20 top-level blocks;
-- up to 4,000 normalized text characters;
-- no recursive full-page traversal.
-
-### Database
-
-- exact database metadata;
-- up to five bounded data-source labels/IDs;
-- no row query;
-- no database mirror.
-
-## Notion observation identity
-
-Notion is mutable current knowledge state.
-
-```text
-external_source_id = exact provider resource UUID
-observation_key = SHA-256 of bounded normalized current observation
-```
-
-Same resource + unchanged bounded state cannot be duplicated.
-
-Same resource + changed bounded state may be explicitly captured again.
-
-`observation_key` is a BuildMap observation discriminator, not a Notion revision/version ID.
-
-## Phase 50 Notion remediation — AI retry
-
-Before Phase 50, the common Review retry action recognized provider provenance only for GitHub.
-
-Now a failed Notion evidence AI draft may be retried when stored provenance verifies.
-
-Retry:
-
-- requires `page_current_state` or `database_current_state`;
-- requires `observation_key`;
-- verifies the persisted Rough Note body with the Notion source proof;
-- requires only Notion Capture proof capability;
-- does not require a live Notion provider re-read;
-- does not require active OAuth client/encryption configuration;
-- fails closed if stored proof is invalid;
-- uses evidence-mode AI structuring, not ordinary triage.
-
-## Phase 50 Notion remediation — historical Evidence
-
-Builder-only Evidence no longer uses the full live OAuth configuration predicate merely to verify stored Notion provenance.
-
-It now uses the proof-only predicate:
-
-`isNotionCaptureProofConfigured()`
-
-Therefore:
-
-```text
-live Notion read disabled
-+ proof secret retained
-→ historical stored Notion provenance can still verify
-```
-
-No provider read occurs from the Evidence screen.
-
----
-
-# Intentional GitHub / Notion differences
-
-Phase 50 freezes equal BuildMap authority boundaries, not identical provider mechanics.
+Provider-specific differences remain intentional:
 
 | Contract | GitHub | Notion |
 | --- | --- | --- |
-| user pointer | repository root | page/database root |
+| pointer | repository root | page/database root |
 | durable provider credential | no stored access token | sealed bot OAuth credential |
 | observation | merged PR / Release | bounded mutable current state |
-| duplicate key | provider object identity | resource + observation key |
-| `observation_key` | NULL | required SHA-256 |
+| duplicate identity | provider source identity | resource + observation key |
+| `observation_key` | NULL | deterministic SHA-256 |
 | Capture verification | exact source re-read | signed preview + exact re-read + fingerprint equality |
-| proof body hash | no, frozen identity proof | yes, snapshot proof |
-| pointer removal with active binding | may archive binding + pointer | must disconnect read access first |
+| disconnect lifecycle | binding archive; provider App may remain installed | binding disconnect + credential lifecycle/revoke boundary |
 
-These differences are provider lifecycle/semantics requirements and are not provider-neutral model failures.
-
----
-
-# Failure isolation closure
-
-Must remain true:
-
-```text
-provider unavailable before Capture persistence
-→ no new BuildMap core state
-```
-
-If a new Rough Note succeeds but provider provenance insertion fails:
-
-```text
-new unconverted Rough Note
-→ archive compensation
-→ no successful provider Capture claim
-```
-
-If provenance succeeds but AI fails:
-
-```text
-Capture + provenance remain
-→ explicit Builder AI retry remains available
-→ no automatic Decision
-```
-
-Provider failures must not mutate unrelated:
-
-- Project state;
-- existing Decisions;
-- Current Direction;
-- publication;
-- Feedback;
-- Outcomes;
-- other provider integrations;
-- ordinary Captures.
-
-Notion controlled credential lifecycle changes remain limited to explicit connect/refresh/disconnect boundaries.
+Do not erase these provider semantic differences merely to make the implementation look uniform.
 
 ---
 
-# Public/private closure
+# Public / private boundary
 
-Scout/Public remains based only on public-safe BuildMap views and Builder-selected public pointers.
-
-Public provider display remains pointer-only through `public_project_links`.
+The controlled E2E Project remained private and had zero public provider pointers during validation.
 
 Never expose directly to Scout/Public:
 
 - `integration_bindings`;
-- `capture_source_refs`;
+- `capture_source_refs` internals;
 - Rough Note bodies;
-- AI Structured Drafts;
-- GitHub installation identity;
-- Notion bot/workspace identity;
-- source proofs;
-- Notion access/refresh token ciphertext;
-- bounded provider previews;
+- AI Structured Draft internals;
+- binding/source proofs;
 - observation keys;
-- Capture tokens;
-- provider error internals.
+- GitHub installation identity;
+- Notion bot/workspace authorization identity;
+- access/refresh token ciphertext;
+- provider Capture tokens;
+- provider error diagnostics.
 
-Provider-derived information may become public only after it has become a Builder-approved BuildMap Decision and separately satisfies the existing publication/sensitivity boundary.
+Provider-derived information may become public only after it becomes a Builder-approved BuildMap Decision and separately satisfies existing publication/sensitivity rules.
 
 ---
 
 # Decision authority closure
 
-Forbidden:
+Both real provider Captures reached:
 
 ```text
-provider Refresh/read → Rough Note
-provider observation → automatic Decision candidate
-provider Capture → automatic approval
-AI Draft → approved Decision without Builder action
+AI Candidate
++ Builder 확인 필요
 ```
 
-Required:
+and stopped there.
+
+No provider E2E test candidate was auto-approved.
+
+Required invariant:
 
 ```text
-external observation
+Provider Observation
 → Builder explicit Capture
 → private provenance
 → AI candidate
@@ -417,77 +360,54 @@ external observation
 → official Decision
 ```
 
-Decision approval continues to bind the authenticated Builder profile.
+Forbidden:
+
+```text
+Provider Refresh → automatic Capture
+Provider Observation → automatic Decision candidate persistence
+Provider Capture → automatic approval
+AI Draft → approved Decision without Builder action
+```
 
 ---
 
-# Database / migration authority
+# Phase 51 authoritative docs
 
-Migrations `00–20` remain unchanged by Phase 50.
+Decision / activation record:
 
-Provider-related additive migrations remain:
-
-- 17 — `integration_bindings`;
-- 18 — `capture_source_refs`;
-- 19 — Notion OAuth credential lifecycle + Notion verified resource type;
-- 20 — optional bounded observation identity.
-
-Latest exact migration-tree CI authority:
-
-- Phase 49 Database Contract Gate `#41`: `PASS`
-
-Phase 50 did not modify SQL, therefore no new migration or synthetic DB-gate claim was created.
-
-Live target DB state for migrations 17–20 remains `NOT VERIFIED`.
-
----
-
-# Phase 50 authoritative docs
-
-Decision / audit:
-
-`docs/decisions/phase50-p3-provider-integration-end-to-end-closure-audit.md`
+`docs/decisions/phase51-p3-integration-activation-readiness-controlled-live-e2e.md`
 
 Regression/access contract:
 
-`docs/access-policy-tests/phase50-p3-provider-integration-end-to-end-closure-audit.md`
+`docs/access-policy-tests/phase51-p3-integration-activation-readiness-controlled-live-e2e.md`
 
 ---
 
-# Phase 50 CI / merge evidence
+# Phase 51 CI / merge evidence
 
 Implementation PR:
 
-`#63`
+`#65`
 
 Exact final tested implementation head:
 
-`b3f877a2a3cddcc82110bf914a1525e5cd677a46`
+`3d36bd7f64fd770c52f749836043b29390b05f77`
 
 Exact final tested implementation tree:
 
-`cb1010d16cf86bf3e72f9e8172809ef3097c08b9`
+`a8b092cd00c62efd45182f26a7aa30662e0ac30a`
 
-Web App CI #106:
+Web App CI #108:
 
 `PASS`
 
-Validated on that exact head:
-
-- exact event SHA checkout;
-- Node 22;
-- dependency install;
-- lint;
-- typecheck;
-- production build.
-
 Squash merge commit:
 
-`f5444b1c5b014673022eb9063fabd30a88498e7b`
+`1e2418896ce556931492c4afab32e17c0a4c315f`
 
 Merged implementation tree:
 
-`cb1010d16cf86bf3e72f9e8172809ef3097c08b9`
+`a8b092cd00c62efd45182f26a7aa30662e0ac30a`
 
 Therefore:
 
@@ -495,30 +415,26 @@ Therefore:
 CI-TESTED IMPLEMENTATION TREE == MERGED IMPLEMENTATION TREE
 ```
 
-Phase 50 repository/application-contract closure is valid.
+No SQL/schema/migration file changed in PR #65.
 
 ---
 
-# Runtime / deployment boundary
+# Deployment boundary
 
-Repository closure does not prove provider activation.
+Phase 51 used a controlled Vercel Preview to validate provider secrets/configuration and real E2E behavior.
 
-Still unverified/not performed:
+The temporary branch-only Preview deployment allowance was removed before PR #65.
 
-1. target BuildMap DB migration state for 17–20;
-2. live GitHub App environment configuration;
-3. real GitHub installation/OAuth/repository association;
-4. real GitHub merged-PR/Release read;
-5. real GitHub explicit provider Capture;
-6. live Notion Public connection registration;
-7. Notion callback URI/runtime secrets;
-8. real Notion OAuth page-picker/code exchange;
-9. real Notion page/database bounded read;
-10. real Notion explicit current-state Capture;
-11. real Notion token refresh/revoke behavior;
-12. production deployment.
+Current repository setting again disables Git deployment.
 
-No production deployment was performed by Phase 50.
+Important:
+
+```text
+PHASE_51_PREVIEW_E2E = VERIFIED
+CURRENT_MAIN_PRODUCTION_DEPLOYMENT = NOT PERFORMED
+```
+
+Do not infer that the Phase 51 implementation is deployed to production merely because the hosted DB and Preview provider E2E succeeded.
 
 ---
 
@@ -542,59 +458,64 @@ Still required:
 
 # Next bounded work
 
-## Phase 51 — P3 Integration Activation Readiness & Controlled Live E2E
+Phase 51 closes the GitHub + Notion P3 provider foundation at repository/application-contract **and controlled hosted E2E** level.
 
-Recommended next step before adding Figma/Slack or another provider.
+Do not add GitHub/Notion background synchronization merely because activation is now proven.
 
-Reason:
+Recommended next bounded product Phase:
 
-GitHub and Notion repository contracts are now structurally closed, but migrations 17–20 and both provider runtimes have not yet been proven against a real target environment. Adding another provider before validating the existing P3 slice would increase unverified integration surface.
+## Phase 52 — Figma Integration Foundation
 
-Phase 51 should begin audit-first and must not assume production authority.
+Why Figma next:
 
-Expected bounded sequence:
+- GitHub already covers Build History;
+- Notion already covers Knowledge Context;
+- Figma can add bounded Design Context without duplicating those two providers;
+- it can reuse the now-proven provider-neutral pointer/binding/observation/Capture/provenance authority model;
+- design artifacts are strongly relevant to explaining why a product changed.
+
+Phase 52 should begin audit-first and add **one provider only**.
+
+Expected bounded scope:
 
 ```text
-current authoritative main
-→ verify target environment identity
-→ verify migration 17–20 live state
-→ prepare/apply only missing migrations through controlled process if explicitly authorized
-→ verify GitHub App runtime configuration
-→ one controlled GitHub repository association/read E2E
-→ one controlled GitHub explicit Capture → Review path
-→ verify Notion Public OAuth registration/runtime configuration
-→ one controlled Notion page/database association/read E2E
-→ one controlled Notion explicit Capture → Review path
-→ disconnect/reconnect failure-isolation checks
-→ activation evidence closeout
+Figma Project/File pointer
+→ exact read authorization
+→ bounded design observation
+→ Builder explicit Capture
+→ private provenance
+→ AI candidate
+→ Builder Review
+→ explicit Decision approval
 ```
 
-Important:
+Still out of scope by default:
 
-- do not auto-approve test Captures as Decisions;
-- do not deploy production merely because E2E succeeds;
-- do not fabricate refresh-token expiry/revision history;
-- do not widen provider permissions;
-- do not add a third provider in the same Phase;
-- stop and report if external credentials/registration are unavailable.
-
-If live activation is intentionally deferred, the alternative next bounded product Phase may be separately chosen, but it must not silently convert `NOT VERIFIED` runtime claims into `COMPLETE`.
+- Slack in the same Phase;
+- webhook/polling/background sync;
+- broad workspace crawling;
+- provider writes;
+- automatic Decision detection;
+- PIE runtime;
+- Factory Intelligence runtime;
+- production deployment unless separately authorized.
 
 ---
 
 # Terminal classification
 
 ```text
-PHASE_50_P3_PROVIDER_INTEGRATION_CLOSURE = CLOSED
+PHASE_51_P3_INTEGRATION_ACTIVATION_READINESS_CONTROLLED_LIVE_E2E = CLOSED
 
-GITHUB_REPOSITORY_CONTRACT = CLOSED
-NOTION_REPOSITORY_CONTRACT = CLOSED
-PROVIDER_NEUTRAL_INTAKE_BOUNDARY = CLOSED
-PUBLIC_PRIVATE_PROVIDER_BOUNDARY = CLOSED
+MIGRATIONS_17_20_HOSTED_TARGET = VERIFIED APPLIED
+GITHUB_LIVE_ASSOCIATION_READ_CAPTURE = PASS
+NOTION_LIVE_ASSOCIATION_READ_CAPTURE = PASS
+GITHUB_DISCONNECT_RECONNECT_ISOLATION = PASS
+NOTION_DISCONNECT_RECONNECT_ISOLATION = PASS
+PROVIDER_NEUTRAL_INTAKE_BOUNDARY = PRESERVED
+PUBLIC_PRIVATE_PROVIDER_BOUNDARY = PRESERVED
 BUILDER_DECISION_AUTHORITY = PRESERVED
 
-LIVE_DATABASE_ACTIVATION = NOT VERIFIED
-LIVE_GITHUB_E2E = NOT VERIFIED
-LIVE_NOTION_E2E = NOT VERIFIED
-PRODUCTION_DEPLOYMENT = NOT PERFORMED
+CURRENT_MAIN_PRODUCTION_DEPLOYMENT = NOT PERFORMED
+NEXT_RECOMMENDED_BOUNDED_PHASE = PHASE_52_FIGMA_INTEGRATION_FOUNDATION
 ```
