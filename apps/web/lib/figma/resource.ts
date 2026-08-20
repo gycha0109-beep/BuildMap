@@ -76,3 +76,8 @@ export function parseCanonicalFigmaResourceUrl(value: string): CanonicalFigmaRes
 export function normalizeFigmaResourceUrl(value: string) {
   return parseCanonicalFigmaResourceUrl(value);
 }
+
+export function isCanonicalFigmaResourceUrl(value: string) {
+  const parsed = parseCanonicalFigmaResourceUrl(value);
+  return Boolean(parsed && parsed.url === value);
+}
