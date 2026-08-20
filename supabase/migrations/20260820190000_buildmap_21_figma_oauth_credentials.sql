@@ -9,7 +9,7 @@ create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
 create table if not exists private.figma_oauth_credentials (
-  figma_user_id text primary key check (char_length(figma_user_id) between 1 and 255),
+  figma_user_id text not null check (char_length(figma_user_id) between 1 and 255),
   created_by_builder_profile_id uuid not null references public.builder_profiles(id) on delete restrict,
   access_token_ciphertext text check (
     access_token_ciphertext is null
@@ -34,6 +34,7 @@ create table if not exists private.figma_oauth_credentials (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   disconnected_at timestamptz,
+  primary key (created_by_builder_profile_id, figma_user_id),
   check (
     (
       status = 'active'
@@ -53,11 +54,11 @@ create table if not exists private.figma_oauth_credentials (
 );
 
 comment on table private.figma_oauth_credentials is
-  'Server-bound Figma OAuth authorization records keyed by Figma user_id_string. Token values are application-sealed AES-256-GCM ciphertext; direct browser/table access is denied.';
+  'Server-bound Figma OAuth authorization records scoped by BuildMap Builder + Figma user_id_string. Token values are application-sealed AES-256-GCM ciphertext; direct browser/table access is denied.';
 comment on column private.figma_oauth_credentials.access_token_expires_at is
   'Provider-reported OAuth access-token expiry. BuildMap may refresh before expiry; it is not provider resource revision metadata.';
 comment on column private.figma_oauth_credentials.credential_version is
-  'Monotonic optimistic-concurrency version used with the refresh lock so the single Figma app/user access token cannot be replaced out of order.';
+  'Monotonic optimistic-concurrency version used with the refresh lock so the single Figma app/user access token cannot be replaced out of order within one Builder boundary.';
 
 create index if not exists figma_oauth_credentials_owner_idx
   on private.figma_oauth_credentials(created_by_builder_profile_id)
@@ -90,7 +91,6 @@ set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_project_id uuid;
-  v_existing_credential_owner uuid;
   v_credential_version bigint;
   v_binding_id uuid;
   v_previous_figma_user_id text;
@@ -134,16 +134,6 @@ begin
     raise exception using errcode = '22023', message = 'invalid_figma_authorization';
   end if;
 
-  select fc.created_by_builder_profile_id
-    into v_existing_credential_owner
-  from private.figma_oauth_credentials fc
-  where fc.figma_user_id = p_figma_user_id;
-
-  if v_existing_credential_owner is not null
-    and v_existing_credential_owner <> p_created_by_builder_profile_id then
-    raise exception using errcode = '42501', message = 'credential_owner_mismatch';
-  end if;
-
   select ib.id, ib.external_connection_id
     into v_binding_id, v_previous_figma_user_id
   from public.integration_bindings ib
@@ -178,7 +168,7 @@ begin
     null,
     null
   )
-  on conflict (figma_user_id) do update
+  on conflict (created_by_builder_profile_id, figma_user_id) do update
   set access_token_ciphertext = excluded.access_token_ciphertext,
       refresh_token_ciphertext = excluded.refresh_token_ciphertext,
       access_token_expires_at = excluded.access_token_expires_at,
@@ -298,6 +288,7 @@ begin
   from public.integration_bindings ib
   join private.figma_oauth_credentials fc
     on fc.figma_user_id = ib.external_connection_id
+   and fc.created_by_builder_profile_id = ib.created_by_builder_profile_id
   where ib.project_link_id = p_project_link_id
     and ib.provider = 'figma'
     and ib.status = 'active'
@@ -349,6 +340,7 @@ as $$
 declare
   v_project_id uuid;
   v_figma_user_id text;
+  v_builder_profile_id uuid;
   v_lock_id uuid;
   v_row private.figma_oauth_credentials%rowtype;
 begin
@@ -363,8 +355,8 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  select ib.external_connection_id
-    into v_figma_user_id
+  select ib.external_connection_id, ib.created_by_builder_profile_id
+    into v_figma_user_id, v_builder_profile_id
   from public.integration_bindings ib
   where ib.project_link_id = p_project_link_id
     and ib.provider = 'figma'
@@ -372,7 +364,7 @@ begin
     and ib.archived_at is null
   limit 1;
 
-  if v_figma_user_id is null then
+  if v_figma_user_id is null or v_builder_profile_id is null then
     return pg_catalog.jsonb_build_object('ok', false, 'error', 'refresh_busy_or_disconnected');
   end if;
 
@@ -382,6 +374,7 @@ begin
   set refresh_lock_id = v_lock_id,
       refresh_lock_expires_at = pg_catalog.now() + interval '30 seconds'
   where fc.figma_user_id = v_figma_user_id
+    and fc.created_by_builder_profile_id = v_builder_profile_id
     and fc.status = 'active'
     and fc.refresh_token_ciphertext is not null
     and exists (
@@ -430,6 +423,7 @@ as $$
 declare
   v_project_id uuid;
   v_figma_user_id text;
+  v_builder_profile_id uuid;
   v_new_version bigint;
 begin
   select pl.project_id
@@ -443,8 +437,8 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  select ib.external_connection_id
-    into v_figma_user_id
+  select ib.external_connection_id, ib.created_by_builder_profile_id
+    into v_figma_user_id, v_builder_profile_id
   from public.integration_bindings ib
   where ib.project_link_id = p_project_link_id
     and ib.provider = 'figma'
@@ -453,6 +447,7 @@ begin
   limit 1;
 
   if v_figma_user_id is null
+    or v_builder_profile_id is null
     or coalesce(pg_catalog.length(p_access_token_ciphertext), 0) < 16
     or p_access_token_ciphertext !~ '^v[0-9]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
     or coalesce(pg_catalog.length(p_refresh_token_ciphertext), 0) < 16
@@ -473,6 +468,7 @@ begin
       refresh_lock_id = null,
       refresh_lock_expires_at = null
   where fc.figma_user_id = v_figma_user_id
+    and fc.created_by_builder_profile_id = v_builder_profile_id
     and fc.status = 'active'
     and fc.refresh_lock_id = p_lock_id
     and fc.refresh_lock_expires_at > pg_catalog.now()
@@ -490,7 +486,10 @@ begin
     return pg_catalog.jsonb_build_object('ok', false, 'error', 'refresh_conflict');
   end if;
 
-  return pg_catalog.jsonb_build_object('ok', true, 'credential_version', v_new_version);
+  return pg_catalog.jsonb_build_object(
+    'ok', true,
+    'credential_version', v_new_version
+  );
 end;
 $$;
 
@@ -506,6 +505,7 @@ as $$
 declare
   v_project_id uuid;
   v_figma_user_id text;
+  v_builder_profile_id uuid;
 begin
   select pl.project_id
     into v_project_id
@@ -518,8 +518,8 @@ begin
     raise exception using errcode = '42501', message = 'not_allowed';
   end if;
 
-  select ib.external_connection_id
-    into v_figma_user_id
+  select ib.external_connection_id, ib.created_by_builder_profile_id
+    into v_figma_user_id, v_builder_profile_id
   from public.integration_bindings ib
   where ib.project_link_id = p_project_link_id
     and ib.provider = 'figma'
@@ -527,11 +527,12 @@ begin
     and ib.archived_at is null
   limit 1;
 
-  if v_figma_user_id is not null then
+  if v_figma_user_id is not null and v_builder_profile_id is not null then
     update private.figma_oauth_credentials fc
     set refresh_lock_id = null,
         refresh_lock_expires_at = null
     where fc.figma_user_id = v_figma_user_id
+      and fc.created_by_builder_profile_id = v_builder_profile_id
       and fc.status = 'active'
       and fc.refresh_lock_id = p_lock_id
       and exists (
