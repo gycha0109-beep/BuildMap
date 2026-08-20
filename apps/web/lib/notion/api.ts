@@ -284,8 +284,12 @@ function verifiedResourceFromPayload(
   };
 }
 
-function isNotFound(error: unknown) {
-  return error instanceof NotionProviderError && error.status === 404;
+function isResourceLookupMiss(error: unknown) {
+  return (
+    error instanceof NotionProviderError &&
+    (error.status === 404 ||
+      (error.status === 400 && error.providerCode === "validation_error"))
+  );
 }
 
 export async function verifyNotionProjectResource(
@@ -300,7 +304,7 @@ export async function verifyNotionProjectResource(
     );
     if (page) return page;
   } catch (error) {
-    if (!isNotFound(error)) throw error;
+    if (!isResourceLookupMiss(error)) throw error;
   }
 
   try {
@@ -311,7 +315,7 @@ export async function verifyNotionProjectResource(
     );
     if (database) return database;
   } catch (error) {
-    if (!isNotFound(error)) throw error;
+    if (!isResourceLookupMiss(error)) throw error;
   }
 
   try {
@@ -326,7 +330,7 @@ export async function verifyNotionProjectResource(
     }
   } catch (error) {
     if (error instanceof UnsupportedNotionResourceError) throw error;
-    if (!isNotFound(error)) throw error;
+    if (!isResourceLookupMiss(error)) throw error;
   }
 
   return null;

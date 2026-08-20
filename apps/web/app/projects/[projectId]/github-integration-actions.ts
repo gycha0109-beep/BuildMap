@@ -1,13 +1,18 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
 import {
   createGitHubInstallState,
   createGitHubInstallUrl,
+  createGitHubOAuthSession,
+  githubOAuthCookieName,
   isGitHubAppConfigured,
+  verifyGitHubBindingProof,
 } from "@/lib/github/app";
+import { createInstallationAccessToken } from "@/lib/github/api";
 import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
 import { createClient } from "@/lib/supabase/server";
 
@@ -65,7 +70,70 @@ export async function beginGitHubReadConnectionAction(projectId: string, formDat
     redirect(integrationsPath(projectId, { error: "github-app-not-configured" }));
   }
 
-  const { user } = await ownedGitHubLink(projectId, linkId);
+  const { supabase, user, link } = await ownedGitHubLink(projectId, linkId);
+  const repository = parseCanonicalGitHubRepositoryUrl(link.url);
+  if (!repository) {
+    redirect(integrationsPath(projectId, { error: "github-read-link-invalid" }));
+  }
+
+  const previous = await supabase
+    .from("integration_bindings")
+    .select(
+      "external_connection_id, external_resource_id, external_resource_label, binding_proof, archived_at",
+    )
+    .eq("project_link_id", linkId)
+    .eq("provider", "github")
+    .eq("status", "disconnected")
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let reusableInstallationId: string | null = null;
+  if (previous.data) {
+    const proofValid =
+      previous.data.external_resource_label.toLowerCase() === repository.fullName.toLowerCase() &&
+      verifyGitHubBindingProof(
+        {
+          projectLinkId: linkId,
+          installationId: previous.data.external_connection_id,
+          repositoryId: previous.data.external_resource_id,
+          fullName: repository.fullName,
+        },
+        previous.data.binding_proof,
+      );
+
+    if (proofValid) {
+      try {
+        await createInstallationAccessToken({
+          installationId: previous.data.external_connection_id,
+          repositoryId: previous.data.external_resource_id,
+        });
+        reusableInstallationId = previous.data.external_connection_id;
+      } catch {
+        reusableInstallationId = null;
+      }
+    }
+  }
+
+  if (reusableInstallationId) {
+    const oauth = createGitHubOAuthSession({
+      projectId,
+      linkId,
+      userId: user.id,
+      installationId: reusableInstallationId,
+    });
+    const cookieStore = await cookies();
+    cookieStore.set(githubOAuthCookieName(), oauth.sealedCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/integrations/github",
+      maxAge: oauth.maxAge,
+    });
+    redirect(oauth.authorizeUrl);
+  }
+
   const state = createGitHubInstallState({
     projectId,
     linkId,
