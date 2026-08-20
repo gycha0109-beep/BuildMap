@@ -5,8 +5,8 @@ import {
   isGitHubAppConfigured,
   verifyGitHubCaptureSourceProof,
 } from "@/lib/github/app";
-import { isNotionOAuthConfigured } from "@/lib/notion/oauth";
 import {
+  isNotionCaptureProofConfigured,
   type NotionCaptureSourceType,
   verifyNotionCaptureSourceProof,
 } from "@/lib/notion/provenance";
@@ -117,7 +117,7 @@ export default async function EvidencePage({
   const { projectId } = await params;
   const supabase = await createClient();
   const githubProofConfigured = isGitHubAppConfigured();
-  const notionProofConfigured = isNotionOAuthConfigured();
+  const notionProofConfigured = isNotionCaptureProofConfigured();
 
   const decisions = await supabase
     .from("change_cards")
