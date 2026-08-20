@@ -1,0 +1,121 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const read = (relative) => readFile(path.join(root, relative), "utf8");
+
+const [
+  oauth,
+  resource,
+  readBoundary,
+  previewRoute,
+  previewComponent,
+  captureAction,
+  integrationActions,
+  migration21,
+  envExample,
+  vercelConfig,
+  publicMap,
+] = await Promise.all([
+  read("apps/web/lib/figma/oauth.ts"),
+  read("apps/web/lib/figma/resource.ts"),
+  read("apps/web/lib/figma/read.ts"),
+  read("apps/web/app/api/projects/[projectId]/integrations/figma/context/route.ts"),
+  read("apps/web/components/buildmap/figma-context-preview.tsx"),
+  read("apps/web/app/projects/[projectId]/figma-capture-actions.ts"),
+  read("apps/web/app/projects/[projectId]/integration-actions.ts"),
+  read("supabase/migrations/20260820190000_buildmap_21_figma_oauth_credentials.sql"),
+  read("apps/web/.env.example"),
+  read("apps/web/vercel.json"),
+  read("apps/web/app/p/[publicSlug]/page.tsx"),
+]);
+
+function appearsBefore(text, first, second, message) {
+  const firstIndex = text.indexOf(first);
+  const secondIndex = text.indexOf(second);
+  assert.notEqual(firstIndex, -1, `${message}: missing ${first}`);
+  assert.notEqual(secondIndex, -1, `${message}: missing ${second}`);
+  assert.ok(firstIndex < secondIndex, message);
+}
+
+assert.match(oauth, /FIGMA_OAUTH_SCOPES = \["file_metadata:read", "file_content:read"\]/);
+assert.doesNotMatch(oauth, /file_versions:read|comments:write|webhooks:write|projects:read/);
+assert.match(oauth, /code_challenge_method", "S256"/);
+assert.match(oauth, /FIGMA_OAUTH_SESSION_COOKIE/);
+assert.doesNotMatch(envExample, /NEXT_PUBLIC_FIGMA/);
+
+assert.match(resource, /fileKey/);
+assert.match(resource, /nodeId/);
+assert.match(resource, /normalizeNodeId/);
+assert.doesNotMatch(resource, /teamId|projectId/);
+
+assert.match(integrationActions, /link_type: "figma"/);
+const figmaPointerSection = integrationActions.slice(
+  integrationActions.indexOf("export async function addFigmaResourceAction"),
+);
+assert.match(figmaPointerSection, /from\("project_links"\)/);
+assert.doesNotMatch(
+  figmaPointerSection.split("export async function setFigmaResourceVisibilityAction")[0],
+  /from\("integration_bindings"\)|save_figma_oauth_authorization/,
+  "Saving a Figma pointer must not create authorization/binding state.",
+);
+
+assert.match(readBoundary, /eq\("project_id", input\.projectId\)/);
+assert.match(readBoundary, /eq\("project_link_id", input\.linkId\)/);
+assert.match(readBoundary, /verifyFigmaBindingProof/);
+assert.match(readBoundary, /loadFigmaCredential/);
+assert.match(readBoundary, /readBoundedFigmaContext/);
+
+assert.match(previewRoute, /Cache-Control": "no-store"/);
+assert.match(previewRoute, /createFigmaCaptureToken/);
+assert.doesNotMatch(previewRoute, /from\("rough_notes"\)|from\("capture_source_refs"\)|from\("change_cards"\)/);
+assert.doesNotMatch(previewRoute, /\.insert\(|\.update\(/);
+assert.match(previewComponent, /Refresh Figma context/);
+assert.match(previewComponent, /preview is ephemeral/);
+assert.match(previewComponent, /Capture as evidence/);
+
+appearsBefore(
+  captureAction,
+  "readVerifiedFigmaProjectContext",
+  'from("rough_notes")',
+  "Capture must exact re-read the provider before Rough Note persistence.",
+);
+appearsBefore(
+  captureAction,
+  "observationKey !== captureToken.observationKey",
+  'from("rough_notes")',
+  "Capture must reject stale/mismatched bounded observation before persistence.",
+);
+assert.match(captureAction, /eq\("observation_key", observationKey\)/);
+assert.match(captureAction, /verifyFigmaCaptureSourceProof/);
+appearsBefore(
+  captureAction,
+  'from("capture_source_refs")\n    \.insert',
+  'from("ai_structured_drafts")\n    \.insert',
+  "Provenance must be persisted before AI draft generation begins.",
+);
+assert.match(captureAction, /status: "failed"/);
+assert.doesNotMatch(captureAction, /from\("change_cards"\)|from\("decisions"\)|approved_at/);
+
+assert.match(migration21, /create table if not exists private\.figma_oauth_credentials/);
+assert.match(migration21, /revoke all privileges on table private\.figma_oauth_credentials from public, anon, authenticated/);
+assert.match(migration21, /claim_figma_oauth_refresh/);
+assert.match(migration21, /credential_version/);
+assert.match(migration21, /refresh_lock_expires_at/);
+assert.match(migration21, /provider = 'figma'/);
+assert.doesNotMatch(migration21, /alter table public\.capture_source_refs|alter table public\.integration_bindings|alter table public\.project_links/);
+
+const vercel = JSON.parse(vercelConfig);
+assert.equal(vercel.git?.deploymentEnabled, false, "Production deployment must remain disabled.");
+
+assert.doesNotMatch(publicMap, /integration_bindings|capture_source_refs|oauth_credentials|access_token|refresh_token/);
+
+console.log("Phase52FigmaContract: PASS");
+console.log("PointerDoesNotAuthorize: PASS");
+console.log("RefreshIsEphemeral: PASS");
+console.log("CaptureExactRereadBeforePersistence: PASS");
+console.log("CredentialBrowserBoundary: PASS");
+console.log("AutomaticDecisionForbidden: PASS");
+console.log("ProductionDeploymentDisabled: PASS");
