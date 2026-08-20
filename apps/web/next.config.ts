@@ -18,7 +18,7 @@ if (
   process.env.VERCEL_ENV === "preview" &&
   process.env.VERCEL_GIT_COMMIT_REF === "agent/phase51-activation-readiness"
 ) {
-  console.info("BuildMap Phase51 preview readiness", {
+  console.info("BuildMap Phase51 preview readiness recheck", {
     supabaseHost: envHostname("NEXT_PUBLIC_SUPABASE_URL"),
     siteHost: envHostname("NEXT_PUBLIC_SITE_URL"),
     githubCallbackHost: envHostname("GITHUB_APP_CALLBACK_URL"),
