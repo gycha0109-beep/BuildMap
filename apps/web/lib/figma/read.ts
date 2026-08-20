@@ -42,14 +42,14 @@ function mappedProviderError(error: unknown): FigmaReadBoundaryError {
       "Figma context could not be read right now. BuildMap data was not changed.",
     );
   }
-  if (error.status === 403) {
+  if (error.status === 401 || error.status === 403) {
     return new FigmaReadBoundaryError(
       "figma_reconnect_required",
       409,
       "Figma authorization is no longer usable. Reconnect read access.",
     );
   }
-  if (error.status === 404) {
+  if (error.status === 400 || error.status === 404) {
     return new FigmaReadBoundaryError(
       "figma_resource_unavailable",
       409,
@@ -124,6 +124,7 @@ async function refreshCredentialAndRead(input: {
 
     let accessToken = rotated.accessToken;
     if (!completed.completed) {
+      await releaseFigmaRefresh(input.supabase, input.linkId, claim.lockId);
       const latest = await loadFigmaCredential(input.supabase, input.linkId);
       if (!latest.credential || latest.credential.figmaUserId !== claim.figmaUserId) {
         throw new FigmaReadBoundaryError(
@@ -292,7 +293,7 @@ export async function readVerifiedFigmaProjectContext(input: {
           nodeId: resource.nodeId,
         });
       } catch (error) {
-        if (!(error instanceof FigmaProviderError) || error.status !== 403) {
+        if (!(error instanceof FigmaProviderError) || ![401, 403].includes(error.status)) {
           throw mappedProviderError(error);
         }
         preview = await refreshCredentialAndRead({
