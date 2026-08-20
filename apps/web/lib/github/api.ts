@@ -4,6 +4,8 @@ import {
   githubRequestHeaders,
 } from "./app";
 
+const GITHUB_REQUEST_TIMEOUT_MS = 8_000;
+
 export type VerifiedGitHubRepository = {
   installationId: string;
   repositoryId: string;
@@ -57,11 +59,17 @@ async function githubFetchJson<T>(url: string, init: RequestInit = {}) {
   const headers = new Headers(githubRequestHeaders);
   new Headers(init.headers).forEach((value, key) => headers.set(key, value));
 
-  const response = await fetch(url, {
-    ...init,
-    cache: "no-store",
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      headers,
+      signal: init.signal ?? AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    throw new GitHubProviderError("GitHub request failed.", 0);
+  }
 
   if (!response.ok) {
     throw new GitHubProviderError(`GitHub request failed with ${response.status}.`, response.status);
@@ -80,15 +88,21 @@ export async function exchangeGitHubOAuthCode(code: string, codeVerifier: string
     code_verifier: codeVerifier,
   });
 
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    throw new GitHubProviderError("GitHub OAuth exchange failed.", 0);
+  }
 
   if (!response.ok) {
     throw new GitHubProviderError("GitHub OAuth exchange failed.", response.status);
