@@ -11,35 +11,41 @@
 # Current implementation baseline
 
 - repository: `gycha0109-beep/BuildMap`
-- Phase 51 starting main: `2289070c51f38f135b38e192178cccdb5264fa6c`
-- Phase 51 implementation PR: `#65`
-- exact final tested implementation head: `3d36bd7f64fd770c52f749836043b29390b05f77`
-- exact final tested implementation tree: `a8b092cd00c62efd45182f26a7aa30662e0ac30a`
-- Web App CI: `#108 PASS`
-- Phase 51 squash merge commit: `1e2418896ce556931492c4afab32e17c0a4c315f`
-- merged implementation tree: `a8b092cd00c62efd45182f26a7aa30662e0ac30a`
-- migration files changed by Phase 51: `NO`
+- Phase 52 starting main: `d977d024f1dc6aadb016cf449492637464cf633b`
+- Phase 52 implementation PR: `#67`
+- exact final tested implementation head: `06af9ee5cfcee99567f350fcb32c53c6e070c24d`
+- exact final tested implementation tree: `5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
+- Web App CI: `#123 PASS`
+- Database Contract Gate: `#56 PASS`
+- Phase 52 squash merge commit: `e5263b66743b3b824c39ce715e7a26eebfd4ae05`
+- merged implementation tree: `5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
+- migration added by Phase 52: `20260820190000_buildmap_21_figma_oauth_credentials.sql`
 - migrations `00–20`: unchanged
-- current Phase 51 production deployment: `NOT PERFORMED`
-- repository Vercel Git deployment: disabled again after controlled Preview validation
+- hosted migration 21: verified applied under repository timestamp `20260820190000`
+- production deployment: `NOT PERFORMED`
+- repository Vercel Git deployment: `deploymentEnabled = false`
 
 Implementation equality:
 
 ```text
 CI-TESTED IMPLEMENTATION TREE
- a8b092cd00c62efd45182f26a7aa30662e0ac30a
+ 5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c
 
 ==
 
 MERGED IMPLEMENTATION TREE
- a8b092cd00c62efd45182f26a7aa30662e0ac30a
+ 5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c
 ```
 
-Phase 51 state:
+Phase 52 classification:
 
 ```text
-PHASE_51_P3_INTEGRATION_ACTIVATION_READINESS_CONTROLLED_LIVE_E2E = CLOSED
+PHASE_52_FIGMA_INTEGRATION_FOUNDATION_REPOSITORY = CLOSED
+PHASE_52_HOSTED_MIGRATION_21 = CLOSED
+PHASE_52_CONTROLLED_LIVE_E2E = PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED
 ```
+
+Do **not** rewrite the last line as full live-E2E closure. The successful association/read/Capture path, duplicate behavior, disconnect preservation, rate-limit isolation, and cross-provider isolation were verified live, but stale-observation rejection and reconnect completion could not be re-run to completion after the Figma Starter API quota was exhausted.
 
 ---
 
@@ -51,10 +57,11 @@ Core question:
 
 > 왜 이 프로젝트가 지금의 모습이 되었는가?
 
-Positioning:
+Provider roles:
 
 - GitHub = Build History
-- Notion = Knowledge History / Knowledge Context
+- Notion = Knowledge Context / History
+- Figma = Design Context
 - BuildMap = Decision History
 
 Primary mental model:
@@ -68,6 +75,7 @@ Provider authority invariant:
 ```text
 Pointer
 != Authorization / Credential
+!= Verified Binding
 != Observation
 != Capture
 != Decision
@@ -79,282 +87,16 @@ Still authoritative:
 - BuildMap owns Decision identity.
 - Builder owns official Decision approval.
 - AI is conservative and non-authoritative.
-- external provider identities remain additive references only.
-- public-safe views and explicit publication remain Scout/public authority.
+- provider objects and provider identities remain additive external references only.
+- Provider Refresh never authorizes Capture or Decision by itself.
 
----
-
-# Hosted database activation state
-
-Phase 51 directly verified the configured hosted Supabase migration history.
-
-Applied provider migrations:
-
-- migration 17 — `integration_bindings`
-- migration 18 — `capture_source_refs`
-- migration 19 — Notion OAuth credential lifecycle + verified resource type
-- migration 20 — optional bounded observation identity
-
-Current authority:
-
-```text
-LIVE_MIGRATION_17 = VERIFIED APPLIED
-LIVE_MIGRATION_18 = VERIFIED APPLIED
-LIVE_MIGRATION_19 = VERIFIED APPLIED
-LIVE_MIGRATION_20 = VERIFIED APPLIED
-```
-
-No migration was applied, edited, reordered, or manufactured by Phase 51.
-
-Repository migration authority remains the unchanged `00–20` set.
-
----
-
-# GitHub integration — controlled live state
-
-Phase 51 completed one controlled real GitHub E2E against:
-
-`gycha0109-beep/BuildMap`
-
-Validated path:
-
-```text
-internal repository pointer
-→ GitHub App installation restricted to exact repository
-→ user OAuth
-→ exact installation/repository verification
-→ active private binding
-→ Builder-triggered bounded merged PR / Release read
-→ explicit Builder Capture
-→ exact server re-read
-→ private Rough Note
-→ immutable GitHub provenance
-→ evidence-mode AI Structured Draft
-→ Builder Review candidate
-→ no automatic approved Decision
-```
-
-Observed provider identity during the controlled E2E:
-
-- repository ID: `1306433852`
-- installation ID: `155131457`
-
-One real merged-PR Capture was preserved as private provider provenance.
-
-## GitHub disconnect / reconnect closure
-
-Explicit `Read access 해제` was verified to:
-
-- remove the active binding;
-- retain disconnected binding history;
-- retain the Project Link;
-- retain historical Capture/provenance;
-- leave Notion state unchanged;
-- create no Decision mutation.
-
-A live defect was found: reconnect always forced `/installations/new` even when the GitHub App was still installed for the exact repository.
-
-Phase 51 remediation now:
-
-1. reads the latest disconnected binding for the exact Project Link;
-2. verifies its binding proof against the current exact repository pointer;
-3. proves the stored installation is still live by minting a repository-scoped installation token;
-4. if valid, skips new installation and proceeds to the existing PKCE user OAuth path;
-5. if invalid/unavailable, falls back to the original fresh-install flow.
-
-The repaired reconnect was then validated live.
-
-Post-reconnect:
-
-```text
-GitHub active binding       = restored
-historical disconnected row = retained
-GitHub Capture count        = unchanged
-Notion active binding       = preserved
-```
-
-Stored installation identity alone is never accepted as reconnect authority.
-
----
-
-# Notion integration — controlled live state
-
-Phase 51 completed one controlled real Notion E2E against:
-
-- workspace: `make 자동화`
-- resource: `사업 과제`
-- type: `database`
-- exact resource ID: `10538de5-a5db-4002-a52c-01b82e2cd097`
-
-Validated path:
-
-```text
-internal Notion pointer
-→ Public OAuth resource selection
-→ code exchange
-→ sealed bot-level credential persistence
-→ exact database verification
-→ private resource binding
-→ Builder-triggered bounded current-state read
-→ ephemeral preview
-→ explicit Builder Capture
-→ exact server re-read
-→ observation fingerprint equality
-→ private Rough Note
-→ immutable provenance + observation_key
-→ evidence-mode AI Structured Draft
-→ Builder Review candidate
-→ no automatic approved Decision
-```
-
-Refresh alone created no Capture.
-
-One real bounded database current-state Capture was preserved as private provider provenance.
-
-## Notion copied-link compatibility remediation
-
-Current Notion UI produced copied links in the form:
-
-```text
-https://app.notion.com/p/<resource-id>...
-```
-
-The pre-Phase-51 parser accepted only `notion.so` / `www.notion.so`.
-
-Phase 51 now accepts the current `app.notion.com` host while preserving canonical stored resource identity.
-
-A Notion resource does **not** need to be publicly published to the web. BuildMap read authority comes from OAuth resource authorization.
-
-## Notion page/database verification remediation
-
-For a valid database ID tested against the page endpoint, Notion returned:
-
-```text
-HTTP 400
-provider code: validation_error
-```
-
-The pre-Phase-51 verifier treated only `404` as an endpoint-type miss and therefore converted this into a fatal authorization failure.
-
-Phase 51 now treats only the narrow `400 validation_error` endpoint-type mismatch as a safe lookup miss and continues exact verification against the alternate page/database endpoint.
-
-Actual authorization/provider failures remain fatal.
-
-## Notion disconnect / reconnect closure
-
-Explicit `Read access 해제` was verified to:
-
-- remove the active Notion binding;
-- transition the credential lifecycle to disconnected when no active binding remained;
-- retain Project Link;
-- retain historical Notion Capture/provenance;
-- leave GitHub state unchanged;
-- create no Decision mutation.
-
-Reconnect then re-ran OAuth and exact resource verification.
-
-Post-reconnect authority:
-
-```text
-Notion active binding       = restored
-credential status           = active
-credential_version          = 3
-encryption_key_version      = 1
-exact database ID           = unchanged
-Notion Capture count        = unchanged
-GitHub active binding       = preserved
-```
-
-The same provider `bot_id` credential row is reactivated/upserted by design rather than creating a second permanent credential row.
-
----
-
-# Provider-neutral intake model
-
-The Phase 50 provider-neutral model is now proven against real hosted GitHub + Notion flows:
-
-```text
-project_links
-    ↓
-integration_bindings
-    ↓
-provider observation/read
-    ↓
-Builder explicit Capture
-    ↓
-rough_notes
-    ↓
-capture_source_refs
-    ↓
-AI Structured Draft
-    ↓
-Review
-    ↓
-Builder approval
-    ↓
-Decision
-```
-
-No generalized integration platform or new provider schema is justified by Phase 51.
-
-Provider-specific differences remain intentional:
-
-| Contract | GitHub | Notion |
-| --- | --- | --- |
-| pointer | repository root | page/database root |
-| durable provider credential | no stored access token | sealed bot OAuth credential |
-| observation | merged PR / Release | bounded mutable current state |
-| duplicate identity | provider source identity | resource + observation key |
-| `observation_key` | NULL | deterministic SHA-256 |
-| Capture verification | exact source re-read | signed preview + exact re-read + fingerprint equality |
-| disconnect lifecycle | binding archive; provider App may remain installed | binding disconnect + credential lifecycle/revoke boundary |
-
-Do not erase these provider semantic differences merely to make the implementation look uniform.
-
----
-
-# Public / private boundary
-
-The controlled E2E Project remained private and had zero public provider pointers during validation.
-
-Never expose directly to Scout/Public:
-
-- `integration_bindings`;
-- `capture_source_refs` internals;
-- Rough Note bodies;
-- AI Structured Draft internals;
-- binding/source proofs;
-- observation keys;
-- GitHub installation identity;
-- Notion bot/workspace authorization identity;
-- access/refresh token ciphertext;
-- provider Capture tokens;
-- provider error diagnostics.
-
-Provider-derived information may become public only after it becomes a Builder-approved BuildMap Decision and separately satisfies existing publication/sensitivity rules.
-
----
-
-# Decision authority closure
-
-Both real provider Captures reached:
-
-```text
-AI Candidate
-+ Builder 확인 필요
-```
-
-and stopped there.
-
-No provider E2E test candidate was auto-approved.
-
-Required invariant:
+Allowed path:
 
 ```text
 Provider Observation
 → Builder explicit Capture
 → private provenance
-→ AI candidate
+→ AI Candidate
 → Builder Review
 → explicit Builder approval
 → official Decision
@@ -363,51 +105,365 @@ Provider Observation
 Forbidden:
 
 ```text
+Provider Observation → automatic Decision
 Provider Refresh → automatic Capture
-Provider Observation → automatic Decision candidate persistence
 Provider Capture → automatic approval
-AI Draft → approved Decision without Builder action
 ```
 
 ---
 
-# Phase 51 authoritative docs
+# Hosted database activation state
 
-Decision / activation record:
+Hosted target:
 
-`docs/decisions/phase51-p3-integration-activation-readiness-controlled-live-e2e.md`
+`fuzwuotlbodlpkwcqygj`
 
-Regression/access contract:
+Phase 52 added only migration 21:
 
-`docs/access-policy-tests/phase51-p3-integration-activation-readiness-controlled-live-e2e.md`
+`20260820190000_buildmap_21_figma_oauth_credentials.sql`
+
+Migration 21 provides:
+
+- `private.figma_oauth_credentials`;
+- Builder + Figma-user composite credential identity;
+- AES-256-GCM application-sealed access/refresh token ciphertext;
+- access-token expiry tracking;
+- monotonic credential version;
+- 30-second serialized refresh lock;
+- active/disconnected lifecycle;
+- direct browser/private-schema table access denial;
+- SECURITY DEFINER RPC boundaries for save/read/refresh/disconnect.
+
+Existing provider-neutral tables remain authoritative and unchanged:
+
+- `project_links` = pointer + visibility;
+- `integration_bindings` = private verified provider/resource association;
+- `capture_source_refs` = private immutable Capture provenance.
+
+## Migration-history correction
+
+The connector used for the first hosted application recorded the already-applied migration 21 SQL under its execution-time version `20260821010703` rather than the repository filename timestamp.
+
+No schema rollback/re-application was required. Migration history was repaired so hosted authority now records:
+
+```text
+20260820190000 | buildmap_21_figma_oauth_credentials
+```
+
+The transient `20260821010703` history entry is no longer authoritative.
+
+Current hosted migration authority:
+
+```text
+MIGRATIONS_00_20 = PRESERVED
+MIGRATION_21_SCHEMA = VERIFIED PRESENT
+MIGRATION_21_HISTORY_VERSION = VERIFIED 20260820190000
+```
 
 ---
 
-# Phase 51 CI / merge evidence
+# Figma Integration Foundation
+
+Controlled flow implemented:
+
+```text
+Figma file / selected-node pointer
+→ separate OAuth read authorization
+→ PKCE S256 authorization-code exchange
+→ exact file/resource verification
+→ private verified binding
+→ Builder-triggered bounded Design Context observation
+→ ephemeral no-store preview
+→ Builder explicit Capture
+→ server exact re-read
+→ observation identity equality
+→ private Rough Note
+→ immutable Figma provenance
+→ AI Structured Draft
+→ Builder Review
+→ explicit approval required for Decision
+```
+
+Minimal Figma OAuth scopes:
+
+```text
+file_metadata:read
+file_content:read
+```
+
+Not requested by Phase 52:
+
+- deprecated broad `files:read`;
+- `file_versions:read`;
+- project/team enumeration;
+- comments/write;
+- webhooks;
+- polling/background sync;
+- provider writes.
+
+OAuth state and PKCE session are server-controlled. Tokens are never exposed through `NEXT_PUBLIC_*` configuration.
+
+---
+
+# Pointer / authorization separation
+
+Live validation confirmed the intended separation:
+
+```text
+Figma pointer saved
+!= OAuth credential
+!= active verified binding
+```
+
+The Integrations UI may show a provider pointer count even when provider read access is disconnected. Phase 52 added explicit UI clarification that top-level provider counts are pointer counts, while `Read connected` / `Connect ... read access` represents authorization state.
+
+Public visibility means only the safe canonical Figma URL + label pointer may appear on the Public Project Map. It does not publish:
+
+- OAuth credentials;
+- verified binding internals;
+- observation fingerprint;
+- private preview content;
+- Capture provenance;
+- Rough Notes;
+- AI Drafts.
+
+---
+
+# Controlled live Figma E2E evidence
+
+A real Figma file/node pointer was used in the controlled Preview environment.
+
+Verified success path:
+
+```text
+pointer
+→ Figma OAuth approval
+→ exact resource verification
+→ active private binding
+→ bounded Refresh
+→ explicit Capture as evidence
+→ server exact re-read
+→ private Rough Note
+→ capture_source_ref provenance
+→ AI Structured Draft
+→ no automatic Change Card/Decision
+```
+
+Observed post-Capture state during validation:
+
+```text
+Figma Capture     = 1
+Figma Rough Note  = 1
+Figma AI Draft    = 1
+new Decision      = 0
+```
+
+Refresh itself did not create a Rough Note or Decision.
+
+The first successful Capture therefore proves the main authority path through real Figma OAuth and provider reads.
+
+---
+
+# Live defect remediation — duplicate Capture provenance proof
+
+The first duplicate-Capture attempt exposed a real provenance-proof bug.
+
+Root cause:
+
+- original proof signed a timestamp formatted with UTC `Z`;
+- PostgreSQL `timestamptz` round-trip returned the same instant formatted as `+00:00`;
+- the timestamp represented the same time but the signed string differed;
+- duplicate provenance HMAC verification therefore failed.
+
+Remediation:
+
+- proof timestamps are canonicalized before HMAC input;
+- Phase 52 static regression coverage freezes that behavior.
+
+Live re-test after the fix:
+
+```text
+Figma Capture     = 1 unchanged
+Rough Note        = 1 unchanged
+AI Draft          = 1 unchanged
+Decision          = 0 unchanged
+```
+
+Therefore:
+
+```text
+FIGMA_DUPLICATE_CAPTURE = PASS
+```
+
+---
+
+# Live provider rate-limit behavior
+
+Repeated controlled node-pointer reads exhausted the available Figma Starter API quota during the live validation sequence.
+
+The implementation correctly surfaced provider rate limiting without mutating BuildMap data.
+
+A second live defect was found in the UI retry guidance: BuildMap previously capped the provider `Retry-After` value at 300 seconds, which could falsely imply that every limit would clear after five minutes.
+
+Remediation:
+
+- the artificial 300-second cap was removed;
+- provider retry duration is preserved rather than shortened by BuildMap.
+
+While rate-limited, BuildMap retained:
+
+```text
+Figma Capture     = 1
+Rough Note        = 1
+AI Draft          = 1
+Decision          = 0
+```
+
+Therefore:
+
+```text
+FIGMA_RATE_LIMIT_FAILURE_ISOLATION = PASS
+```
+
+---
+
+# Disconnect preservation and cross-provider isolation
+
+Explicit Figma `Read access 해제` was validated live.
+
+Post-disconnect hosted state:
+
+```text
+Figma active binding      = 0
+Figma disconnected binding history = retained
+Figma credential status   = disconnected
+access token ciphertext   = cleared
+refresh token ciphertext  = cleared
+Figma pointer              = retained
+Figma Capture              = retained
+Figma Rough Note           = retained
+Figma AI Draft             = retained
+GitHub active binding      = preserved
+Notion active binding      = preserved
+Decision mutation          = 0
+```
+
+Therefore:
+
+```text
+FIGMA_DISCONNECT_HISTORY_PRESERVATION = PASS
+FIGMA_CROSS_PROVIDER_ISOLATION = PASS
+```
+
+Disconnect does not remove the pointer and does not delete historical evidence.
+
+---
+
+# Reconnect and stale-observation live status
+
+## Reconnect
+
+A reconnect attempt reached the real Figma OAuth approval callback, but the callback intentionally requires a fresh exact provider verification before restoring credential/binding authority.
+
+By that time the provider quota was exhausted. The final exact file/node read was rate-limited, so BuildMap did **not** recreate an active binding or persist a new active credential.
+
+This is the correct fail-closed behavior.
+
+Classification:
+
+```text
+FIGMA_RECONNECT_OAUTH_CALLBACK_REACHED = VERIFIED
+FIGMA_RECONNECT_BINDING_RESTORED = BLOCKED_BY_PROVIDER_QUOTA
+```
+
+Do not mark reconnect as PASS until a future controlled provider read completes after quota becomes available.
+
+## Stale observation
+
+The intended contract is implemented and statically covered:
+
+```text
+Refresh observation A
+→ provider changes to B
+→ Capture with A
+→ server exact re-read B
+→ observation mismatch
+→ no Rough Note/provenance/AI Draft persistence
+```
+
+A live stale-mismatch re-test could not be completed after provider quota exhaustion.
+
+Classification:
+
+```text
+FIGMA_STALE_MISMATCH_CONTRACT = IMPLEMENTED + CI COVERED
+FIGMA_STALE_MISMATCH_LIVE = BLOCKED_BY_PROVIDER_QUOTA
+```
+
+---
+
+# Public / private boundary
+
+Public Project Map may render public Figma pointer URL/label only after canonical Figma URL validation.
+
+Never expose directly to Scout/Public:
+
+- `integration_bindings`;
+- `capture_source_refs` internals;
+- `private.figma_oauth_credentials`;
+- access/refresh token ciphertext;
+- binding/source proofs;
+- observation keys;
+- provider Capture tokens;
+- Rough Note bodies;
+- AI Structured Draft internals;
+- bounded private provider preview contents;
+- provider diagnostics.
+
+Provider-derived content may become official/public Decision material only through existing Builder Review, approval, publication, and sensitivity boundaries.
+
+---
+
+# Phase 52 authoritative docs
+
+Decision / implementation record:
+
+`docs/decisions/phase52-figma-integration-foundation.md`
+
+Regression/access contract:
+
+`docs/access-policy-tests/phase52-figma-integration-foundation.md`
 
 Implementation PR:
 
-`#65`
+`#67`
+
+---
+
+# Phase 52 CI / merge evidence
 
 Exact final tested implementation head:
 
-`3d36bd7f64fd770c52f749836043b29390b05f77`
+`06af9ee5cfcee99567f350fcb32c53c6e070c24d`
 
 Exact final tested implementation tree:
 
-`a8b092cd00c62efd45182f26a7aa30662e0ac30a`
+`5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
 
-Web App CI #108:
+Exact-head checks:
 
-`PASS`
+```text
+Web App CI #123          = PASS
+Database Contract #56   = PASS
+```
 
 Squash merge commit:
 
-`1e2418896ce556931492c4afab32e17c0a4c315f`
+`e5263b66743b3b824c39ce715e7a26eebfd4ae05`
 
 Merged implementation tree:
 
-`a8b092cd00c62efd45182f26a7aa30662e0ac30a`
+`5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
 
 Therefore:
 
@@ -415,26 +471,32 @@ Therefore:
 CI-TESTED IMPLEMENTATION TREE == MERGED IMPLEMENTATION TREE
 ```
 
-No SQL/schema/migration file changed in PR #65.
-
 ---
 
 # Deployment boundary
 
-Phase 51 used a controlled Vercel Preview to validate provider secrets/configuration and real E2E behavior.
+Phase 52 used controlled non-production Preview deployments for Figma OAuth/live validation.
 
-The temporary branch-only Preview deployment allowance was removed before PR #65.
+Temporary Preview branch deployment allowances were removed after validation.
 
-Current repository setting again disables Git deployment.
+Repository state at implementation merge:
+
+```json
+{
+  "git": {
+    "deploymentEnabled": false
+  }
+}
+```
 
 Important:
 
 ```text
-PHASE_51_PREVIEW_E2E = VERIFIED
+PHASE_52_CONTROLLED_PREVIEW = USED FOR LIVE VALIDATION
 CURRENT_MAIN_PRODUCTION_DEPLOYMENT = NOT PERFORMED
 ```
 
-Do not infer that the Phase 51 implementation is deployed to production merely because the hosted DB and Preview provider E2E succeeded.
+Do not infer production deployment from hosted Supabase migration activation or Preview E2E.
 
 ---
 
@@ -452,70 +514,52 @@ Still required:
 - BuildMap Decision IDs remain authoritative;
 - provider identities remain external/additive;
 - `capture_source_refs` remains BuildMap intake provenance, not PIE Evidence authority;
-- no runtime PIE or Factory Intelligence coupling is introduced by provider integration.
+- no runtime PIE or Factory Intelligence coupling is introduced by Figma integration.
 
 ---
 
 # Next bounded work
 
-Phase 51 closes the GitHub + Notion P3 provider foundation at repository/application-contract **and controlled hosted E2E** level.
+Do **not** start Phase 53 merely to hide the two provider-quota-blocked live checks.
 
-Do not add GitHub/Notion background synchronization merely because activation is now proven.
+The immediate bounded follow-up is:
 
-Recommended next bounded product Phase:
+## Phase 52 live quota follow-up
 
-## Phase 52 — Figma Integration Foundation
+When Figma Tier-1 read quota becomes available again, perform only the missing controlled checks:
 
-Why Figma next:
+1. reconnect the existing Figma pointer and prove the active binding is restored only after fresh exact verification;
+2. verify Capture count remains unchanged after reconnect;
+3. perform one stale-observation mismatch test and prove zero persistence;
+4. re-check GitHub/Notion isolation;
+5. do not add new provider scope or background synchronization.
 
-- GitHub already covers Build History;
-- Notion already covers Knowledge Context;
-- Figma can add bounded Design Context without duplicating those two providers;
-- it can reuse the now-proven provider-neutral pointer/binding/observation/Capture/provenance authority model;
-- design artifacts are strongly relevant to explaining why a product changed.
+If those checks pass, Phase 52 controlled live E2E may be reclassified from `PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED` to `CLOSED` in a docs-only update.
 
-Phase 52 should begin audit-first and add **one provider only**.
-
-Expected bounded scope:
-
-```text
-Figma Project/File pointer
-→ exact read authorization
-→ bounded design observation
-→ Builder explicit Capture
-→ private provenance
-→ AI candidate
-→ Builder Review
-→ explicit Decision approval
-```
-
-Still out of scope by default:
-
-- Slack in the same Phase;
-- webhook/polling/background sync;
-- broad workspace crawling;
-- provider writes;
-- automatic Decision detection;
-- PIE runtime;
-- Factory Intelligence runtime;
-- production deployment unless separately authorized.
+Until then the implementation is merged and usable within its current authority contract, but the blocked live checks must remain explicit.
 
 ---
 
 # Terminal classification
 
 ```text
-PHASE_51_P3_INTEGRATION_ACTIVATION_READINESS_CONTROLLED_LIVE_E2E = CLOSED
+PHASE_52_FIGMA_INTEGRATION_FOUNDATION_REPOSITORY = CLOSED
+PHASE_52_HOSTED_MIGRATION_21 = CLOSED
+PHASE_52_CONTROLLED_LIVE_E2E = PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED
 
-MIGRATIONS_17_20_HOSTED_TARGET = VERIFIED APPLIED
-GITHUB_LIVE_ASSOCIATION_READ_CAPTURE = PASS
-NOTION_LIVE_ASSOCIATION_READ_CAPTURE = PASS
-GITHUB_DISCONNECT_RECONNECT_ISOLATION = PASS
-NOTION_DISCONNECT_RECONNECT_ISOLATION = PASS
-PROVIDER_NEUTRAL_INTAKE_BOUNDARY = PRESERVED
+MIGRATION_21_HOSTED_TARGET = VERIFIED APPLIED AS 20260820190000
+FIGMA_LIVE_ASSOCIATION_READ_CAPTURE = PASS
+FIGMA_REFRESH_ZERO_PERSISTENCE = PASS
+FIGMA_DUPLICATE_CAPTURE = PASS
+FIGMA_RATE_LIMIT_FAILURE_ISOLATION = PASS
+FIGMA_DISCONNECT_HISTORY_PRESERVATION = PASS
+FIGMA_CROSS_PROVIDER_ISOLATION = PASS
+FIGMA_RECONNECT_BINDING_RESTORED = BLOCKED_BY_PROVIDER_QUOTA
+FIGMA_STALE_MISMATCH_LIVE = BLOCKED_BY_PROVIDER_QUOTA
 PUBLIC_PRIVATE_PROVIDER_BOUNDARY = PRESERVED
 BUILDER_DECISION_AUTHORITY = PRESERVED
+CI_TESTED_TREE_EQUALS_MERGED_TREE = PASS
 
 CURRENT_MAIN_PRODUCTION_DEPLOYMENT = NOT PERFORMED
-NEXT_RECOMMENDED_BOUNDED_PHASE = PHASE_52_FIGMA_INTEGRATION_FOUNDATION
+NEXT_BOUNDED_WORK = PHASE_52_LIVE_QUOTA_FOLLOWUP
 ```
