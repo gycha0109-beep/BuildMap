@@ -117,26 +117,15 @@ export function createFigmaCaptureToken(input: {
   return encodeSignedPayload(payload);
 }
 
-export function verifyFigmaCaptureToken(value: string) {
-  const payload = decodeSignedPayload<FigmaCaptureTokenPayload>(value);
-  if (!payload || payload.version !== 1 || payload.provider !== "figma") return null;
-  if (payload.expiresAt < Math.floor(Date.now() / 1000)) return null;
-  if (
-    !payload.projectId ||
-    !payload.projectLinkId ||
-    !payload.fileKey ||
-    !payload.observationKey ||
-    !payload.nonce ||
-    (payload.resourceType !== "file" && payload.resourceType !== "branch") ||
-    !/^[a-f0-9]{64}$/.test(payload.observationKey)
-  ) {
-    return null;
-  }
-  return payload;
-}
-
 function captureBodyHash(value: string) {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function canonicalProofTimestamp(value: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toISOString().replace(".000Z", "Z");
 }
 
 function captureSourceProofPayload(input: FigmaCaptureSourceProofInput) {
@@ -151,8 +140,8 @@ function captureSourceProofPayload(input: FigmaCaptureSourceProofInput) {
     observationKey: input.observationKey,
     canonicalUrl: input.canonicalUrl,
     sourceTitle: input.sourceTitle,
-    occurredAt: input.occurredAt,
-    observedAt: input.observedAt,
+    occurredAt: canonicalProofTimestamp(input.occurredAt),
+    observedAt: canonicalProofTimestamp(input.observedAt),
     captureBodySha256: captureBodyHash(input.captureBody),
   });
 }
