@@ -97,7 +97,8 @@ function basicAuthorization() {
 function parseRetryAfter(response: Response) {
   const value = response.headers.get("Retry-After")?.trim() ?? "";
   if (!/^\d+$/.test(value)) return null;
-  return Math.min(Number(value), 300);
+  const seconds = Number(value);
+  return Number.isSafeInteger(seconds) && seconds >= 0 ? seconds : null;
 }
 
 async function readProviderErrorCode(response: Response) {
