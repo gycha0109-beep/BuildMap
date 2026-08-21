@@ -9,6 +9,7 @@ const read = (relative) => readFile(path.join(root, relative), "utf8");
 const [
   oauth,
   resource,
+  api,
   readBoundary,
   provenance,
   previewRoute,
@@ -22,6 +23,7 @@ const [
 ] = await Promise.all([
   read("apps/web/lib/figma/oauth.ts"),
   read("apps/web/lib/figma/resource.ts"),
+  read("apps/web/lib/figma/api.ts"),
   read("apps/web/lib/figma/read.ts"),
   read("apps/web/lib/figma/provenance.ts"),
   read("apps/web/app/api/projects/[projectId]/integrations/figma/context/route.ts"),
@@ -52,6 +54,10 @@ assert.match(resource, /fileKey/);
 assert.match(resource, /nodeId/);
 assert.match(resource, /normalizeNodeId/);
 assert.doesNotMatch(resource, /teamId|projectId/);
+
+assert.match(api, /response\.headers\.get\("Retry-After"\)/);
+assert.match(api, /Number\.isSafeInteger\(seconds\)/);
+assert.doesNotMatch(api, /Math\.min\(Number\(value\), 300\)/);
 
 assert.match(integrationActions, /link_type: "figma"/);
 const figmaPointerSection = integrationActions.slice(
@@ -128,6 +134,7 @@ console.log("PointerDoesNotAuthorize: PASS");
 console.log("RefreshIsEphemeral: PASS");
 console.log("CaptureExactRereadBeforePersistence: PASS");
 console.log("ProvenanceTimestampRoundTripStable: PASS");
+console.log("ProviderRetryAfterPreserved: PASS");
 console.log("CredentialBrowserBoundary: PASS");
 console.log("PublicFigmaPointerSafeBoundary: PASS");
 console.log("AutomaticDecisionForbidden: PASS");
