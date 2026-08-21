@@ -10,6 +10,7 @@ const [
   oauth,
   resource,
   readBoundary,
+  provenance,
   previewRoute,
   previewComponent,
   captureAction,
@@ -22,6 +23,7 @@ const [
   read("apps/web/lib/figma/oauth.ts"),
   read("apps/web/lib/figma/resource.ts"),
   read("apps/web/lib/figma/read.ts"),
+  read("apps/web/lib/figma/provenance.ts"),
   read("apps/web/app/api/projects/[projectId]/integrations/figma/context/route.ts"),
   read("apps/web/components/buildmap/figma-context-preview.tsx"),
   read("apps/web/app/projects/[projectId]/figma-capture-actions.ts"),
@@ -67,6 +69,11 @@ assert.match(readBoundary, /eq\("project_link_id", input\.linkId\)/);
 assert.match(readBoundary, /verifyFigmaBindingProof/);
 assert.match(readBoundary, /loadFigmaCredential/);
 assert.match(readBoundary, /readBoundedFigmaContext/);
+
+assert.match(provenance, /function canonicalProofTimestamp/);
+assert.match(provenance, /toISOString\(\)\.replace\("\.000Z", "Z"\)/);
+assert.match(provenance, /occurredAt: canonicalProofTimestamp\(input\.occurredAt\)/);
+assert.match(provenance, /observedAt: canonicalProofTimestamp\(input\.observedAt\)/);
 
 assert.match(previewRoute, /Cache-Control": "no-store"/);
 assert.match(previewRoute, /createFigmaCaptureToken/);
@@ -120,6 +127,7 @@ console.log("Phase52FigmaContract: PASS");
 console.log("PointerDoesNotAuthorize: PASS");
 console.log("RefreshIsEphemeral: PASS");
 console.log("CaptureExactRereadBeforePersistence: PASS");
+console.log("ProvenanceTimestampRoundTripStable: PASS");
 console.log("CredentialBrowserBoundary: PASS");
 console.log("PublicFigmaPointerSafeBoundary: PASS");
 console.log("AutomaticDecisionForbidden: PASS");
