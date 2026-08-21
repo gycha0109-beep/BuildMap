@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { cardTypeLabels, formatDateTime } from "@/lib/buildmap/presentation";
+import { isCanonicalFigmaResourceUrl } from "@/lib/figma/resource";
 import { isCanonicalNotionResourceUrl } from "@/lib/notion/resource";
 import { createPublicClient } from "@/lib/supabase/public";
 import styles from "./page.module.css";
@@ -137,6 +138,9 @@ export default async function PublicProjectMapPage({
   );
   const notionLinks = publicLinks.filter(
     (link) => link.link_type === "notion" && isCanonicalNotionResourceUrl(link.url),
+  );
+  const figmaLinks = publicLinks.filter(
+    (link) => link.link_type === "figma" && isCanonicalFigmaResourceUrl(link.url),
   );
   const latestDecision = rows.length > 0 ? rows[rows.length - 1] : null;
   const currentDirection = latestDecision
@@ -340,6 +344,28 @@ export default async function PublicProjectMapPage({
                       <a href={link.url} rel="noreferrer" target="_blank">
                         <strong>{link.label}</strong>
                         <small>Notion pointer ↗</small>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {figmaLinks.length > 0 ? (
+              <section className={styles.sideCard}>
+                <div className={styles.sectionHead}>
+                  <div>
+                    <p className="section-kicker">Design context</p>
+                    <h2>Figma resources</h2>
+                  </div>
+                  <Badge tone="primary">{figmaLinks.length}</Badge>
+                </div>
+                <ul className={styles.compactList}>
+                  {figmaLinks.map((link) => (
+                    <li className={styles.compactItem} key={link.project_link_id}>
+                      <a href={link.url} rel="noreferrer" target="_blank">
+                        <strong>{link.label}</strong>
+                        <small>Figma pointer ↗</small>
                       </a>
                     </li>
                   ))}
