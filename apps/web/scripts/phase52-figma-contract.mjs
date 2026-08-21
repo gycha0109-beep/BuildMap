@@ -110,12 +110,17 @@ assert.doesNotMatch(migration21, /alter table public\.capture_source_refs|alter 
 const vercel = JSON.parse(vercelConfig);
 assert.equal(vercel.git?.deploymentEnabled, false, "Production deployment must remain disabled.");
 
-assert.doesNotMatch(publicMap, /integration_bindings|capture_source_refs|oauth_credentials|access_token|refresh_token/);
+assert.match(publicMap, /isCanonicalFigmaResourceUrl/);
+assert.match(publicMap, /link\.link_type === "figma"/);
+assert.match(publicMap, /Figma pointer ↗/);
+assert.match(publicMap, /from\("public_project_links"\)/);
+assert.doesNotMatch(publicMap, /integration_bindings|capture_source_refs|oauth_credentials|access_token|refresh_token|binding_proof|source_proof|observation_key|rough_notes|ai_structured_drafts/);
 
 console.log("Phase52FigmaContract: PASS");
 console.log("PointerDoesNotAuthorize: PASS");
 console.log("RefreshIsEphemeral: PASS");
 console.log("CaptureExactRereadBeforePersistence: PASS");
 console.log("CredentialBrowserBoundary: PASS");
+console.log("PublicFigmaPointerSafeBoundary: PASS");
 console.log("AutomaticDecisionForbidden: PASS");
 console.log("ProductionDeploymentDisabled: PASS");
