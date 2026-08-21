@@ -139,7 +139,7 @@ export default async function ProjectIntegrationsPage({
   const githubAppConfigured = isGitHubAppConfigured();
   const notionOAuthConfigured = isNotionOAuthConfigured();
 
-  const [githubLinks, notionLinks, githubBindings, notionBindings] = await Promise.all([
+  const [githubLinks, notionLinks, githubBindings, notionBindings, figmaLinks] = await Promise.all([
     supabase
       .from("project_links")
       .select("id, label, url, visibility_status, created_at")
@@ -170,10 +170,17 @@ export default async function ProjectIntegrationsPage({
       .eq("provider", "notion")
       .eq("status", "active")
       .is("archived_at", null),
+    supabase
+      .from("project_links")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("link_type", "figma")
+      .is("archived_at", null),
   ]);
 
   const githubRows = (githubLinks.data ?? []) as ProviderLink[];
   const notionRows = (notionLinks.data ?? []) as ProviderLink[];
+  const figmaCount = figmaLinks.count ?? 0;
   const githubBindingRows = (githubBindings.data ?? []) as GitHubBinding[];
   const notionBindingRows = (notionBindings.data ?? []) as NotionBinding[];
   const githubLinkById = new Map(githubRows.map((link) => [link.id, link]));
@@ -261,12 +268,13 @@ export default async function ProjectIntegrationsPage({
           <p className="section-kicker">Integrations</p>
           <h2 style={{ marginBottom: 5 }}>External context 연결</h2>
           <p className="section-help">
-            GitHub Build History와 Notion Knowledge Context를 BuildMap Project에 연결합니다. Provider object는 BuildMap Project나 Decision identity를 대체하지 않습니다.
+            GitHub Build History, Notion Knowledge Context, Figma Design Context를 BuildMap Project에 연결합니다. Provider object는 BuildMap Project나 Decision identity를 대체하지 않습니다.
           </p>
         </div>
         <div className="header-actions">
           <Badge tone="primary">GitHub {githubRows.length}</Badge>
           <Badge tone="review">Notion {notionRows.length}</Badge>
+          <Badge tone="primary">Figma {figmaCount}</Badge>
         </div>
       </div>
 
@@ -281,6 +289,9 @@ export default async function ProjectIntegrationsPage({
       ) : null}
       {notionLinks.error ? (
         <div className="alert error">Notion resource 연결 상태를 불러오지 못했습니다.</div>
+      ) : null}
+      {figmaLinks.error ? (
+        <div className="alert error">Figma resource 연결 상태를 불러오지 못했습니다.</div>
       ) : null}
       {githubBindings.error ? (
         <div className="alert error">GitHub read binding 상태를 불러오지 못했습니다.</div>
@@ -457,7 +468,7 @@ export default async function ProjectIntegrationsPage({
               <span>Visibility</span>
               <select defaultValue="internal" name="visibility">
                 <option value="internal">Internal only</option>
-                <option value="public">Public Map에 pointer 표시</option>
+                <option value="public">Public Map에 표시</option>
               </select>
             </label>
           </div>

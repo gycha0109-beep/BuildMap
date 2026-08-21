@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:phase52": "node scripts/phase52-figma-contract.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
