@@ -117,6 +117,24 @@ export function createFigmaCaptureToken(input: {
   return encodeSignedPayload(payload);
 }
 
+export function verifyFigmaCaptureToken(value: string) {
+  const payload = decodeSignedPayload<FigmaCaptureTokenPayload>(value);
+  if (!payload || payload.version !== 1 || payload.provider !== "figma") return null;
+  if (payload.expiresAt < Math.floor(Date.now() / 1000)) return null;
+  if (
+    !payload.projectId ||
+    !payload.projectLinkId ||
+    !payload.fileKey ||
+    !payload.observationKey ||
+    !payload.nonce ||
+    (payload.resourceType !== "file" && payload.resourceType !== "branch") ||
+    !/^[a-f0-9]{64}$/.test(payload.observationKey)
+  ) {
+    return null;
+  }
+  return payload;
+}
+
 function captureBodyHash(value: string) {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
