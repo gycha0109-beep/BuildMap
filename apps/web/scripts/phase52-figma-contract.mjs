@@ -20,6 +20,8 @@ const [
   envExample,
   vercelConfig,
   publicMap,
+  integrationsPage,
+  figmaSection,
 ] = await Promise.all([
   read("apps/web/lib/figma/oauth.ts"),
   read("apps/web/lib/figma/resource.ts"),
@@ -34,6 +36,8 @@ const [
   read("apps/web/.env.example"),
   read("apps/web/vercel.json"),
   read("apps/web/app/p/[publicSlug]/page.tsx"),
+  read("apps/web/app/projects/[projectId]/integrations/page.tsx"),
+  read("apps/web/components/buildmap/figma-integration-section.tsx"),
 ]);
 
 function appearsBefore(text, first, second, message) {
@@ -129,6 +133,31 @@ assert.match(publicMap, /Figma pointer ↗/);
 assert.match(publicMap, /from\("public_project_links"\)/);
 assert.doesNotMatch(publicMap, /integration_bindings|capture_source_refs|oauth_credentials|access_token|refresh_token|binding_proof|source_proof|observation_key|rough_notes|ai_structured_drafts/);
 
+assert.match(integrationsPage, /FigmaIntegrationNotice/);
+assert.match(integrationsPage, /FigmaIntegrationSection/);
+assert.match(integrationsPage, /상단 provider 숫자는 저장된 pointer 수입니다/);
+appearsBefore(
+  integrationsPage,
+  "<FigmaIntegrationNotice />",
+  "GitHub · Build History",
+  "Provider OAuth feedback must be visible before the provider configuration sections.",
+);
+appearsBefore(
+  integrationsPage,
+  "Notion resources",
+  "<FigmaIntegrationSection projectId={projectId} />",
+  "Figma must be composed as the third provider after Notion.",
+);
+appearsBefore(
+  integrationsPage,
+  "<FigmaIntegrationSection projectId={projectId} />",
+  "Authority boundary",
+  "The overall authority boundary must remain the final integrations section.",
+);
+assert.doesNotMatch(figmaSection, /FigmaIntegrationNotice/);
+assert.doesNotMatch(figmaSection, /Figma authority boundary/);
+assert.match(integrationsPage, /Figma Design Context는 모두 외부 source context입니다/);
+
 console.log("Phase52FigmaContract: PASS");
 console.log("PointerDoesNotAuthorize: PASS");
 console.log("RefreshIsEphemeral: PASS");
@@ -137,5 +166,7 @@ console.log("ProvenanceTimestampRoundTripStable: PASS");
 console.log("ProviderRetryAfterPreserved: PASS");
 console.log("CredentialBrowserBoundary: PASS");
 console.log("PublicFigmaPointerSafeBoundary: PASS");
+console.log("IntegrationsCompositionOrder: PASS");
+console.log("ProviderFeedbackVisibleBeforeSections: PASS");
 console.log("AutomaticDecisionForbidden: PASS");
 console.log("ProductionDeploymentDisabled: PASS");
