@@ -37,6 +37,39 @@ MERGED IMPLEMENTATION TREE
  5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c
 ```
 
+## 2026-08-24 Integrations composition remediation
+
+A controlled Figma reconnect retry exposed presentation-composition debt in the Integrations route: the provider-specific leaf `layout.tsx` appended Figma after the page-level GitHub/Notion content and after the overall authority boundary. This also placed Figma OAuth feedback far below the Integrations header.
+
+The remediation was intentionally presentation-only:
+
+- implementation PR: `#72`
+- exact tested head: `d7676d7e5057d021f86b6b6b382e9678f5c87449`
+- exact tested tree: `f597b30abe2c3d27ef9c3a67328faf4932356081`
+- Web App CI: `#125 PASS`
+- squash merge commit: `97488c5df1a6c5e9e02d5b50077cf274e15f2ccb`
+- merged tree: `f597b30abe2c3d27ef9c3a67328faf4932356081`
+- schema/migration change: `NONE`
+- provider read/Capture/Decision semantics change: `NONE`
+- production deployment: `NOT PERFORMED`
+
+Composition authority is now:
+
+```text
+Integrations header / provider feedback
+→ GitHub
+→ Notion
+→ Figma
+→ one final overall Authority Boundary
+```
+
+The Figma-specific leaf layout append was removed. Figma OAuth feedback is rendered with the other top-level integration feedback, and Phase 52 static coverage freezes provider order and final-boundary placement.
+
+```text
+PR_72_CI_TESTED_TREE == PR_72_MERGED_TREE = PASS
+PHASE_52_INTEGRATIONS_COMPOSITION_REMEDIATION = CLOSED
+```
+
 Phase 52 classification:
 
 ```text
@@ -319,10 +352,24 @@ AI Draft          = 1
 Decision          = 0
 ```
 
+A controlled reconnect retry on **2026-08-24** reached Figma OAuth approval and returned to the BuildMap callback twice, but fresh exact provider verification again returned the `figma-rate-limited` branch. Hosted readback remained:
+
+```text
+Figma active binding = 0
+Figma pointer        = 1
+Figma Capture        = 1
+GitHub active binding = 1
+Notion active binding = 1
+Decision mutation     = 0
+```
+
+No new active Figma credential/binding was persisted. This confirms that the remaining reconnect blocker is still the provider rate limit rather than a BuildMap mutation or cross-provider isolation defect.
+
 Therefore:
 
 ```text
 FIGMA_RATE_LIMIT_FAILURE_ISOLATION = PASS
+FIGMA_RECONNECT_20260824 = BLOCKED_BY_PROVIDER_QUOTA
 ```
 
 ---
@@ -365,7 +412,7 @@ Disconnect does not remove the pointer and does not delete historical evidence.
 
 A reconnect attempt reached the real Figma OAuth approval callback, but the callback intentionally requires a fresh exact provider verification before restoring credential/binding authority.
 
-By that time the provider quota was exhausted. The final exact file/node read was rate-limited, so BuildMap did **not** recreate an active binding or persist a new active credential.
+The original attempt and the controlled 2026-08-24 retry were both blocked by provider rate limiting during the required exact file/node verification. BuildMap therefore did **not** recreate an active binding or persist a new active credential.
 
 This is the correct fail-closed behavior.
 
@@ -438,6 +485,10 @@ Implementation PR:
 
 `#67`
 
+Presentation-composition remediation PR:
+
+`#72`
+
 ---
 
 # Phase 52 CI / merge evidence
@@ -465,10 +516,21 @@ Merged implementation tree:
 
 `5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
 
+Post-closeout presentation remediation:
+
+```text
+PR #72 tested head = d7676d7e5057d021f86b6b6b382e9678f5c87449
+PR #72 tested tree = f597b30abe2c3d27ef9c3a67328faf4932356081
+Web App CI #125   = PASS
+PR #72 merge      = 97488c5df1a6c5e9e02d5b50077cf274e15f2ccb
+merged tree       = f597b30abe2c3d27ef9c3a67328faf4932356081
+```
+
 Therefore:
 
 ```text
-CI-TESTED IMPLEMENTATION TREE == MERGED IMPLEMENTATION TREE
+PHASE_52_ORIGINAL_CI_TESTED_TREE == PHASE_52_ORIGINAL_MERGED_TREE
+PR_72_CI_TESTED_TREE == PR_72_MERGED_TREE
 ```
 
 ---
@@ -479,7 +541,7 @@ Phase 52 used controlled non-production Preview deployments for Figma OAuth/live
 
 Temporary Preview branch deployment allowances were removed after validation.
 
-Repository state at implementation merge:
+Repository state at implementation merge and after PR #72 remains:
 
 ```json
 {
@@ -545,6 +607,7 @@ Until then the implementation is merged and usable within its current authority 
 ```text
 PHASE_52_FIGMA_INTEGRATION_FOUNDATION_REPOSITORY = CLOSED
 PHASE_52_HOSTED_MIGRATION_21 = CLOSED
+PHASE_52_INTEGRATIONS_COMPOSITION_REMEDIATION = CLOSED
 PHASE_52_CONTROLLED_LIVE_E2E = PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED
 
 MIGRATION_21_HOSTED_TARGET = VERIFIED APPLIED AS 20260820190000
@@ -554,6 +617,7 @@ FIGMA_DUPLICATE_CAPTURE = PASS
 FIGMA_RATE_LIMIT_FAILURE_ISOLATION = PASS
 FIGMA_DISCONNECT_HISTORY_PRESERVATION = PASS
 FIGMA_CROSS_PROVIDER_ISOLATION = PASS
+FIGMA_RECONNECT_20260824 = BLOCKED_BY_PROVIDER_QUOTA
 FIGMA_RECONNECT_BINDING_RESTORED = BLOCKED_BY_PROVIDER_QUOTA
 FIGMA_STALE_MISMATCH_LIVE = BLOCKED_BY_PROVIDER_QUOTA
 PUBLIC_PRIVATE_PROVIDER_BOUNDARY = PRESERVED
