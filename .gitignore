@@ -11,3 +11,6 @@ node_modules/
 dist/
 coverage/
 .buildmap.local.ps1
+
+# PIE local evidence
+.pie/
