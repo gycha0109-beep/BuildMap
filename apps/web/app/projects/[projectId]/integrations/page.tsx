@@ -1,3 +1,5 @@
+import { FigmaIntegrationNotice } from "@/components/buildmap/figma-integration-notice";
+import { FigmaIntegrationSection } from "@/components/buildmap/figma-integration-section";
 import { GitHubActivityPreview } from "@/components/buildmap/github-activity-preview";
 import { NotionResourcePreview } from "@/components/buildmap/notion-resource-preview";
 import { Badge } from "@/components/ui/badge";
@@ -284,6 +286,10 @@ export default async function ProjectIntegrationsPage({
       {query.updated && successMessages[query.updated] ? (
         <div className="alert success">{successMessages[query.updated]}</div>
       ) : null}
+      <FigmaIntegrationNotice />
+      <div className="alert">
+        상단 provider 숫자는 저장된 pointer 수입니다. Pointer 존재 여부와 OAuth/App read access 연결 상태는 별도이며, 실제 read authorization은 각 provider 카드의 `Read connected` 또는 `Connect ... read access` 상태로 확인합니다.
+      </div>
       {githubLinks.error ? (
         <div className="alert error">GitHub repository 연결 상태를 불러오지 못했습니다.</div>
       ) : null}
@@ -591,11 +597,13 @@ export default async function ProjectIntegrationsPage({
         )}
       </section>
 
+      <FigmaIntegrationSection projectId={projectId} />
+
       <section className="surface-card">
         <p className="section-kicker">Authority boundary</p>
         <h2>External provider context는 Decision authority가 아닙니다.</h2>
         <p className="section-help" style={{ marginBottom: 0 }}>
-          GitHub observation과 Notion current knowledge preview는 모두 외부 source context입니다. Pointer, credential, observation, Capture, Decision은 서로 다른 authority boundary이며 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
+          GitHub observation, Notion current knowledge preview, Figma Design Context는 모두 외부 source context입니다. Pointer, credential, verified binding, observation, Capture, Decision은 서로 다른 authority boundary이며 공식 Decision은 계속 Builder Review와 승인으로만 생성됩니다.
         </p>
       </section>
     </div>
