@@ -1,5 +1,4 @@
 import { FigmaContextPreview } from "@/components/buildmap/figma-context-preview";
-import { FigmaIntegrationNotice } from "@/components/buildmap/figma-integration-notice";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/buildmap/presentation";
 import {
@@ -106,9 +105,7 @@ export async function FigmaIntegrationSection({ projectId }: { projectId: string
   const disconnectFigmaReadConnection = disconnectFigmaReadConnectionAction.bind(null, projectId);
 
   return (
-    <div className="page-stack">
-      <FigmaIntegrationNotice />
-
+    <>
       {figmaLinks.error ? (
         <div className="alert error">Figma pointer 상태를 불러오지 못했습니다.</div>
       ) : null}
@@ -276,14 +273,6 @@ export async function FigmaIntegrationSection({ projectId }: { projectId: string
           </div>
         )}
       </section>
-
-      <section className="surface-card">
-        <p className="section-kicker">Figma authority boundary</p>
-        <h2>Design Context도 Decision authority가 아닙니다.</h2>
-        <p className="section-help" style={{ marginBottom: 0 }}>
-          Figma pointer, OAuth credential, verified association, bounded observation, explicit Capture, official Decision은 서로 다른 authority입니다. Refresh는 ephemeral이며 Builder가 `Capture as evidence`를 누른 뒤에도 AI Candidate → Builder Review → explicit approval을 거쳐야만 공식 Decision이 됩니다.
-        </p>
-      </section>
-    </div>
+    </>
   );
 }
