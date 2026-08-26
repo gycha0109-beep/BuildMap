@@ -125,7 +125,7 @@ assert.match(migration21, /provider = 'figma'/);
 assert.doesNotMatch(migration21, /alter table public\.capture_source_refs|alter table public\.integration_bindings|alter table public\.project_links/);
 
 const vercel = JSON.parse(vercelConfig);
-assert.equal(vercel.git?.deploymentEnabled, true, "Approved Git production deployment must remain enabled.");
+assert.equal(vercel.git?.deploymentEnabled, true, "Approved main-branch Git production deployment must remain enabled.");
 
 assert.match(publicMap, /isCanonicalFigmaResourceUrl/);
 assert.match(publicMap, /link\.link_type === "figma"/);
