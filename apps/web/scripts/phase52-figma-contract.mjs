@@ -125,7 +125,7 @@ assert.match(migration21, /provider = 'figma'/);
 assert.doesNotMatch(migration21, /alter table public\.capture_source_refs|alter table public\.integration_bindings|alter table public\.project_links/);
 
 const vercel = JSON.parse(vercelConfig);
-assert.equal(vercel.git?.deploymentEnabled, false, "Production deployment must remain disabled.");
+assert.equal(vercel.git?.deploymentEnabled, true, "Approved Git production deployment must remain enabled.");
 
 assert.match(publicMap, /isCanonicalFigmaResourceUrl/);
 assert.match(publicMap, /link\.link_type === "figma"/);
@@ -169,4 +169,4 @@ console.log("PublicFigmaPointerSafeBoundary: PASS");
 console.log("IntegrationsCompositionOrder: PASS");
 console.log("ProviderFeedbackVisibleBeforeSections: PASS");
 console.log("AutomaticDecisionForbidden: PASS");
-console.log("ProductionDeploymentDisabled: PASS");
+console.log("ProductionGitDeploymentEnabled: PASS");
