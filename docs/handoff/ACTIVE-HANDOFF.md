@@ -22,8 +22,8 @@
 - migration added by Phase 52: `20260820190000_buildmap_21_figma_oauth_credentials.sql`
 - migrations `00–20`: unchanged
 - hosted migration 21: verified applied under repository timestamp `20260820190000`
-- production deployment: `NOT PERFORMED`
-- repository Vercel Git deployment: `deploymentEnabled = false`
+- production deployment: `ACTIVE VIA VERCEL GIT CD`
+- repository Vercel Git deployment: `deploymentEnabled = true`
 
 Implementation equality:
 
@@ -68,6 +68,60 @@ The Figma-specific leaf layout append was removed. Figma OAuth feedback is rende
 ```text
 PR_72_CI_TESTED_TREE == PR_72_MERGED_TREE = PASS
 PHASE_52_INTEGRATIONS_COMPOSITION_REMEDIATION = CLOSED
+```
+
+## 2026-08-26 protected-main production CD activation
+
+The temporary repository-wide Vercel Git deployment block has been retired after establishing a protected `main` production authority.
+
+GitHub branch authority now requires:
+
+- active ruleset targeting `main`;
+- pull request before merge;
+- required status check `Lint, typecheck, build`;
+- required approvals `0` for the solo-maintainer workflow;
+- force pushes blocked;
+- branch deletion blocked;
+- bypass list empty.
+
+Production CD activation evidence:
+
+```text
+PR #74 tested head = 58ee89bd7fc2bce74913b6d753259fc35768a86d
+PR #74 tested tree = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
+Web App CI #129   = PASS
+PIE Prospective Shadow #13 = PASS
+PR #74 squash merge = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
+merged tree          = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
+```
+
+The merge itself triggered Vercel through the Git integration; no manual production deploy command was used.
+
+```text
+VERCEL_DEPLOYMENT = dpl_5CUzUWTAX1tu4ze8b72fRjZrjJ8k
+SOURCE             = git
+TARGET             = production
+GITHUB_REF         = main
+GITHUB_SHA         = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
+READY_STATE        = READY
+PRODUCTION_SMOKE   = HTTP 200
+```
+
+Production aliases include:
+
+- `build-map-six.vercel.app`;
+- `build-map-johnny-self.vercel.app`;
+- `build-map-git-main-johnny-self.vercel.app`.
+
+Therefore:
+
+```text
+MAIN_BRANCH_PROTECTION = ACTIVE
+MAIN_PR_GATE = ACTIVE
+MAIN_REQUIRED_WEB_CI = ACTIVE
+PR_74_CI_TESTED_TREE == PR_74_MERGED_TREE = PASS
+VERCEL_GIT_PRODUCTION_CD = ACTIVE
+FIRST_PROTECTED_MAIN_CD = PASS
 ```
 
 Phase 52 classification:
@@ -489,6 +543,10 @@ Presentation-composition remediation PR:
 
 `#72`
 
+Production CD activation PR:
+
+`#74`
+
 ---
 
 # Phase 52 CI / merge evidence
@@ -526,39 +584,65 @@ PR #72 merge      = 97488c5df1a6c5e9e02d5b50077cf274e15f2ccb
 merged tree       = f597b30abe2c3d27ef9c3a67328faf4932356081
 ```
 
+Production CD activation:
+
+```text
+PR #74 tested head = 58ee89bd7fc2bce74913b6d753259fc35768a86d
+PR #74 tested tree = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
+Web App CI #129   = PASS
+PR #74 merge      = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
+merged tree       = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
+```
+
 Therefore:
 
 ```text
 PHASE_52_ORIGINAL_CI_TESTED_TREE == PHASE_52_ORIGINAL_MERGED_TREE
 PR_72_CI_TESTED_TREE == PR_72_MERGED_TREE
+PR_74_CI_TESTED_TREE == PR_74_MERGED_TREE
 ```
 
 ---
 
 # Deployment boundary
 
-Phase 52 used controlled non-production Preview deployments for Figma OAuth/live validation.
+Phase 52 used controlled non-production Preview deployments for Figma OAuth/live validation while repository-wide Git deployment was intentionally disabled.
 
-Temporary Preview branch deployment allowances were removed after validation.
+As of **2026-08-26**, the temporary production block is retired under the protected-main workflow.
 
-Repository state at implementation merge and after PR #72 remains:
+Current repository authority:
 
 ```json
 {
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": true
   }
 }
 ```
 
-Important:
+Deployment flow:
 
 ```text
-PHASE_52_CONTROLLED_PREVIEW = USED FOR LIVE VALIDATION
-CURRENT_MAIN_PRODUCTION_DEPLOYMENT = NOT PERFORMED
+feature/docs branch
+→ Pull Request
+→ required `Lint, typecheck, build`
+→ squash merge to protected main
+→ Vercel Git integration
+→ production deployment
 ```
 
-Do not infer production deployment from hosted Supabase migration activation or Preview E2E.
+First protected-main production CD evidence:
+
+```text
+merge commit = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
+deployment   = dpl_5CUzUWTAX1tu4ze8b72fRjZrjJ8k
+target       = production
+source       = git
+state        = READY
+smoke        = HTTP 200
+```
+
+No manual `vercel --prod` / API production deployment was used for this activation.
 
 ---
 
@@ -624,6 +708,12 @@ PUBLIC_PRIVATE_PROVIDER_BOUNDARY = PRESERVED
 BUILDER_DECISION_AUTHORITY = PRESERVED
 CI_TESTED_TREE_EQUALS_MERGED_TREE = PASS
 
-CURRENT_MAIN_PRODUCTION_DEPLOYMENT = NOT PERFORMED
+MAIN_BRANCH_PROTECTION = ACTIVE
+MAIN_PR_GATE = ACTIVE
+MAIN_REQUIRED_STATUS_CHECK = Lint, typecheck, build
+VERCEL_GIT_PRODUCTION_CD = ACTIVE
+FIRST_PROTECTED_MAIN_CD = PASS
+CURRENT_MAIN_PRODUCTION_DEPLOYMENT = READY
+
 NEXT_BOUNDED_WORK = PHASE_52_LIVE_QUOTA_FOLLOWUP
 ```
