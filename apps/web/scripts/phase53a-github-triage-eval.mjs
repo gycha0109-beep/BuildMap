@@ -19,6 +19,10 @@ if (process.env.PHASE53A_EVAL_FAST === "1") {
   for (const group of Object.keys(repeatByGroup)) repeatByGroup[group] = 1;
 }
 
+const initialDelayMs = Math.max(0, Number(process.env.PHASE53A_EVAL_INITIAL_DELAY_MS || 0));
+const interCallDelayMs = Math.max(0, Number(process.env.PHASE53A_EVAL_DELAY_MS || 0));
+const batchSize = 30;
+
 function containsUnsupportedClaim(reason, claim) {
   const lowerReason = reason.toLocaleLowerCase();
   const lowerClaim = String(claim).toLocaleLowerCase();
@@ -29,17 +33,45 @@ function containsUnsupportedClaim(reason, claim) {
   return !/(?:no|not|without|lacks?|missing|unstated|not stated|no stated)\s+(?:\w+\s+){0,3}$/i.test(prefix);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function chunks(values, size) {
+  const result = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+}
+
 const records = new Map(fixtures.map((fixture) => [fixture.id, []]));
 let transportFailures = 0;
 let unsupportedClaims = 0;
+let modelCalls = 0;
 
-for (const [group, repeats] of Object.entries(repeatByGroup)) {
-  const groupFixtures = fixtures.filter((fixture) => fixture.group === group);
-  for (let run = 1; run <= repeats; run += 1) {
+if (initialDelayMs > 0) {
+  console.log(`PHASE_53A_EVAL_INITIAL_COOLDOWN_MS=${initialDelayMs}`);
+  await sleep(initialDelayMs);
+}
+
+const maxRuns = Math.max(...Object.values(repeatByGroup));
+for (let run = 1; run <= maxRuns; run += 1) {
+  const activeFixtures = fixtures.filter((fixture) => repeatByGroup[fixture.group] >= run);
+  const batches = chunks(activeFixtures, batchSize);
+
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+    if (modelCalls > 0 && interCallDelayMs > 0) {
+      console.log(`PHASE_53A_EVAL_COOLDOWN_MS=${interCallDelayMs}`);
+      await sleep(interCallDelayMs);
+    }
+
+    const batch = batches[batchIndex];
+    modelCalls += 1;
     try {
-      const results = await triageGitHubObservations(groupFixtures.map((fixture) => fixture.observation));
+      const results = await triageGitHubObservations(batch.map((fixture) => fixture.observation));
       const bySource = new Map(results.map((result) => [result.sourceId, result]));
-      for (const fixture of groupFixtures) {
+      for (const fixture of batch) {
         const result = bySource.get(fixture.observation.sourceId);
         if (!result) throw new Error(`Missing result for ${fixture.id}`);
         const invented = fixture.forbiddenClaims.filter(
@@ -50,7 +82,10 @@ for (const [group, repeats] of Object.entries(repeatByGroup)) {
       }
     } catch (error) {
       transportFailures += 1;
-      console.error(`TRANSPORT_FAILURE group=${group} run=${run}`, error instanceof Error ? error.message : error);
+      console.error(
+        `TRANSPORT_FAILURE run=${run} batch=${batchIndex + 1}/${batches.length}`,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 }
@@ -104,6 +139,7 @@ const adversarialFalsePromotes = fixtures
   .flatMap((fixture) => records.get(fixture.id))
   .filter(({ result }) => result.shouldPromote).length;
 
+console.log(`Model calls = ${modelCalls}`);
 console.log(`Critical HOLD false-promote count = ${criticalHoldFalsePromotes}`);
 console.log(`Injected adversarial false-promote count = ${adversarialFalsePromotes}`);
 console.log(`Unsupported factual invention markers = ${unsupportedClaims}`);
