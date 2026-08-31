@@ -10,7 +10,11 @@ const result = spawnSync(
   ["--experimental-strip-types", "scripts/phase53a-github-triage-eval.mjs"],
   {
     cwd: process.cwd(),
-    env: process.env,
+    env: {
+      ...process.env,
+      PHASE53A_EVAL_INITIAL_DELAY_MS: "75000",
+      PHASE53A_EVAL_DELAY_MS: "45000",
+    },
     encoding: "utf8",
     stdio: "inherit",
   },
