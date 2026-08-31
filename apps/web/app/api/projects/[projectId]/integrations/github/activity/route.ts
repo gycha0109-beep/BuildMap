@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { isGitHubAppConfigured, verifyGitHubBindingProof } from "@/lib/github/app";
 import { GitHubProviderError, readGitHubActivity } from "@/lib/github/api";
+import { triageGitHubObservations } from "@/lib/github/decision-triage";
 import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,6 +11,10 @@ function jsonError(code: string, message: string, status: number) {
     { error: { code, message } },
     { status, headers: { "Cache-Control": "no-store" } },
   );
+}
+
+function triageKey(sourceType: string, sourceId: string) {
+  return `${sourceType}:${sourceId}`;
 }
 
 export async function GET(
@@ -107,11 +112,45 @@ export async function GET(
       owner: repository.owner,
       repository: repository.repository,
     });
+
+    let triageStatus: "available" | "unavailable" = "available";
+    const triageBySource = new Map<
+      string,
+      Awaited<ReturnType<typeof triageGitHubObservations>>[number]
+    >();
+
+    try {
+      const triageResults = await triageGitHubObservations(observations);
+      for (const result of triageResults) {
+        triageBySource.set(triageKey(result.sourceType, result.sourceId), result);
+      }
+    } catch (error) {
+      triageStatus = "unavailable";
+      console.error("BuildMap GitHub ephemeral triage unavailable", {
+        name: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
+
     return NextResponse.json(
       {
         repository: repository.fullName,
         observedAt: new Date().toISOString(),
-        observations,
+        triageStatus,
+        observations: observations.map((observation) => {
+          const triage = triageBySource.get(
+            triageKey(observation.sourceType, observation.sourceId),
+          );
+          return {
+            ...observation,
+            triage: triage
+              ? {
+                  classification: triage.classification,
+                  shouldPromote: triage.shouldPromote,
+                  reason: triage.reason,
+                }
+              : null,
+          };
+        }),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
