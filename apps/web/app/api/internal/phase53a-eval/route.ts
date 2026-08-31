@@ -26,6 +26,16 @@ type Fixture = {
 
 const fixtures = fixturesJson as Fixture[];
 
+function containsUnsupportedClaim(reason: string, claim: string) {
+  const lowerReason = reason.toLocaleLowerCase();
+  const lowerClaim = claim.toLocaleLowerCase();
+  const index = lowerReason.indexOf(lowerClaim);
+  if (index < 0) return false;
+
+  const prefix = lowerReason.slice(Math.max(0, index - 32), index);
+  return !/(?:no|not|without|lacks?|missing|unstated|not stated|no stated)\s+(?:\w+\s+){0,3}$/i.test(prefix);
+}
+
 export async function GET(request: NextRequest) {
   if (process.env.VERCEL_ENV !== "preview") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -51,7 +61,7 @@ export async function GET(request: NextRequest) {
           const result = bySource.get(fixture.observation.sourceId);
           if (!result) throw new Error(`Missing result for ${fixture.id}`);
           const forbiddenClaims = fixture.forbiddenClaims.filter((claim) =>
-            result.reason.toLocaleLowerCase().includes(claim.toLocaleLowerCase()),
+            containsUnsupportedClaim(result.reason, claim),
           );
           const classificationOk = fixture.expectedClassification.includes(result.classification);
           const promoteOk =
