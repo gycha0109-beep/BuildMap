@@ -11,8 +11,8 @@ permissions:
 
 jobs:
   diagnostic:
-    uses: gycha0109-beep/Project_Intelligence_Engine/.github/workflows/calibration-policy-ambiguity.yml@b1a5c6f44742528e8ee581402a9612656a8f8996
+    uses: gycha0109-beep/Project_Intelligence_Engine/.github/workflows/calibration-policy-ambiguity.yml@10e96098b1495b005a8fa934810c53766ecd4ab1
     with:
       repository: ${{ github.repository }}
       source_pie_revision: 96f9061d7538e92dbb8fdc8567147b3d6c01744e
-      diagnostic_revision: b1a5c6f44742528e8ee581402a9612656a8f8996
+      diagnostic_revision: 10e96098b1495b005a8fa934810c53766ecd4ab1
