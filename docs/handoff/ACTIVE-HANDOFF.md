@@ -4,145 +4,46 @@
 
 이 문서는 현재 BuildMap 구현 단계의 authoritative handoff다.
 
-`docs/handoff/CURRENT-HANDOFF.md`는 historical snapshot으로 유지한다. 상세 설계 근거는 각 Phase decision/access-policy 문서와 git history에 보존한다.
+Phase 52의 상세 historical handoff는 main commit `09b03e599f1174b682c2eed2c60125fc8211fc03`의 이 파일에 보존되어 있다. 2026-08-31 최종 live closeout 근거는 다음 문서가 authoritative하다.
+
+`docs/handoff/PHASE52-LIVE-CLOSEOUT-20260831.md`
+
+Phase 53A 평가/구현 계약은 다음 문서가 authoritative하다.
+
+`docs/decisions/phase53a-github-ephemeral-decision-worthiness-triage-evaluation-design.md`
 
 ---
 
-# Current implementation baseline
+# Current repository / deployment authority
 
 - repository: `gycha0109-beep/BuildMap`
-- Phase 52 starting main: `d977d024f1dc6aadb016cf449492637464cf633b`
-- Phase 52 implementation PR: `#67`
-- exact final tested implementation head: `06af9ee5cfcee99567f350fcb32c53c6e070c24d`
-- exact final tested implementation tree: `5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
-- Web App CI: `#123 PASS`
-- Database Contract Gate: `#56 PASS`
-- Phase 52 squash merge commit: `e5263b66743b3b824c39ce715e7a26eebfd4ae05`
-- merged implementation tree: `5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
-- migration added by Phase 52: `20260820190000_buildmap_21_figma_oauth_credentials.sql`
-- migrations `00–20`: unchanged
-- hosted migration 21: verified applied under repository timestamp `20260820190000`
-- production deployment: `ACTIVE VIA VERCEL GIT CD`
-- repository Vercel Git deployment: `deploymentEnabled = true`
+- baseline main before Phase 52 live closeout: `09b03e599f1174b682c2eed2c60125fc8211fc03`
+- baseline tree: `1480102164e6e06923fe01b00e995f558ccfa5d8`
+- protected `main`: active
+- PR before merge: required
+- required status check: `Lint, typecheck, build`
+- required approvals: `0`
+- force push: blocked
+- branch deletion: blocked
+- Vercel Git production CD: active
+- `apps/web/vercel.json`: `deploymentEnabled = true`
 
-Implementation equality:
+Production authority remains:
 
 ```text
-CI-TESTED IMPLEMENTATION TREE
- 5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c
-
-==
-
-MERGED IMPLEMENTATION TREE
- 5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c
+feature/docs branch
+→ Pull Request
+→ required Web App CI
+→ squash merge to protected main
+→ Vercel Git integration
+→ production deployment
 ```
-
-## 2026-08-24 Integrations composition remediation
-
-A controlled Figma reconnect retry exposed presentation-composition debt in the Integrations route: the provider-specific leaf `layout.tsx` appended Figma after the page-level GitHub/Notion content and after the overall authority boundary. This also placed Figma OAuth feedback far below the Integrations header.
-
-The remediation was intentionally presentation-only:
-
-- implementation PR: `#72`
-- exact tested head: `d7676d7e5057d021f86b6b6b382e9678f5c87449`
-- exact tested tree: `f597b30abe2c3d27ef9c3a67328faf4932356081`
-- Web App CI: `#125 PASS`
-- squash merge commit: `97488c5df1a6c5e9e02d5b50077cf274e15f2ccb`
-- merged tree: `f597b30abe2c3d27ef9c3a67328faf4932356081`
-- schema/migration change: `NONE`
-- provider read/Capture/Decision semantics change: `NONE`
-- production deployment: `NOT PERFORMED`
-
-Composition authority is now:
-
-```text
-Integrations header / provider feedback
-→ GitHub
-→ Notion
-→ Figma
-→ one final overall Authority Boundary
-```
-
-The Figma-specific leaf layout append was removed. Figma OAuth feedback is rendered with the other top-level integration feedback, and Phase 52 static coverage freezes provider order and final-boundary placement.
-
-```text
-PR_72_CI_TESTED_TREE == PR_72_MERGED_TREE = PASS
-PHASE_52_INTEGRATIONS_COMPOSITION_REMEDIATION = CLOSED
-```
-
-## 2026-08-26 protected-main production CD activation
-
-The temporary repository-wide Vercel Git deployment block has been retired after establishing a protected `main` production authority.
-
-GitHub branch authority now requires:
-
-- active ruleset targeting `main`;
-- pull request before merge;
-- required status check `Lint, typecheck, build`;
-- required approvals `0` for the solo-maintainer workflow;
-- force pushes blocked;
-- branch deletion blocked;
-- bypass list empty.
-
-Production CD activation evidence:
-
-```text
-PR #74 tested head = 58ee89bd7fc2bce74913b6d753259fc35768a86d
-PR #74 tested tree = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
-Web App CI #129   = PASS
-PIE Prospective Shadow #13 = PASS
-PR #74 squash merge = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
-merged tree          = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
-```
-
-The merge itself triggered Vercel through the Git integration; no manual production deploy command was used.
-
-```text
-VERCEL_DEPLOYMENT = dpl_5CUzUWTAX1tu4ze8b72fRjZrjJ8k
-SOURCE             = git
-TARGET             = production
-GITHUB_REF         = main
-GITHUB_SHA         = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
-READY_STATE        = READY
-PRODUCTION_SMOKE   = HTTP 200
-```
-
-Production aliases include:
-
-- `build-map-six.vercel.app`;
-- `build-map-johnny-self.vercel.app`;
-- `build-map-git-main-johnny-self.vercel.app`.
-
-Therefore:
-
-```text
-MAIN_BRANCH_PROTECTION = ACTIVE
-MAIN_PR_GATE = ACTIVE
-MAIN_REQUIRED_WEB_CI = ACTIVE
-PR_74_CI_TESTED_TREE == PR_74_MERGED_TREE = PASS
-VERCEL_GIT_PRODUCTION_CD = ACTIVE
-FIRST_PROTECTED_MAIN_CD = PASS
-```
-
-Phase 52 classification:
-
-```text
-PHASE_52_FIGMA_INTEGRATION_FOUNDATION_REPOSITORY = CLOSED
-PHASE_52_HOSTED_MIGRATION_21 = CLOSED
-PHASE_52_CONTROLLED_LIVE_E2E = PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED
-```
-
-Do **not** rewrite the last line as full live-E2E closure. The successful association/read/Capture path, duplicate behavior, disconnect preservation, rate-limit isolation, and cross-provider isolation were verified live, but stale-observation rejection and reconnect completion could not be re-run to completion after the Figma Starter API quota was exhausted.
 
 ---
 
-# Product definition and authority
+# Product / authority invariant
 
 BuildMap V2 remains an AI-native **Capture-first Decision Journal for Builders**.
-
-Core question:
-
-> 왜 이 프로젝트가 지금의 모습이 되었는가?
 
 Provider roles:
 
@@ -157,14 +58,17 @@ Primary mental model:
 Capture → Review → Decision
 ```
 
-Provider authority invariant:
+Authority invariant:
 
 ```text
 Pointer
 != Authorization / Credential
 != Verified Binding
 != Observation
+!= AI Promote suggestion
 != Capture
+!= AI Draft
+!= Change Card
 != Decision
 ```
 
@@ -172,15 +76,17 @@ Still authoritative:
 
 - BuildMap owns Project identity.
 - BuildMap owns Decision identity.
+- Builder owns explicit Capture intent.
 - Builder owns official Decision approval.
 - AI is conservative and non-authoritative.
-- provider objects and provider identities remain additive external references only.
+- provider identities remain additive external references only.
 - Provider Refresh never authorizes Capture or Decision by itself.
 
-Allowed path:
+Allowed provider path:
 
 ```text
 Provider Observation
+→ optional ephemeral AI assistance
 → Builder explicit Capture
 → private provenance
 → AI Candidate
@@ -192,54 +98,23 @@ Provider Observation
 Forbidden:
 
 ```text
-Provider Observation → automatic Decision
 Provider Refresh → automatic Capture
+Provider Refresh → automatic AI Draft
+Provider Observation → automatic Decision
+AI Promote → automatic Capture
+AI Hold → prohibit manual Capture
 Provider Capture → automatic approval
 ```
 
 ---
 
-# Hosted database activation state
+# Hosted database authority
 
 Hosted target:
 
 `fuzwuotlbodlpkwcqygj`
 
-Phase 52 added only migration 21:
-
-`20260820190000_buildmap_21_figma_oauth_credentials.sql`
-
-Migration 21 provides:
-
-- `private.figma_oauth_credentials`;
-- Builder + Figma-user composite credential identity;
-- AES-256-GCM application-sealed access/refresh token ciphertext;
-- access-token expiry tracking;
-- monotonic credential version;
-- 30-second serialized refresh lock;
-- active/disconnected lifecycle;
-- direct browser/private-schema table access denial;
-- SECURITY DEFINER RPC boundaries for save/read/refresh/disconnect.
-
-Existing provider-neutral tables remain authoritative and unchanged:
-
-- `project_links` = pointer + visibility;
-- `integration_bindings` = private verified provider/resource association;
-- `capture_source_refs` = private immutable Capture provenance.
-
-## Migration-history correction
-
-The connector used for the first hosted application recorded the already-applied migration 21 SQL under its execution-time version `20260821010703` rather than the repository filename timestamp.
-
-No schema rollback/re-application was required. Migration history was repaired so hosted authority now records:
-
-```text
-20260820190000 | buildmap_21_figma_oauth_credentials
-```
-
-The transient `20260821010703` history entry is no longer authoritative.
-
-Current hosted migration authority:
+Phase 52 migration authority remains:
 
 ```text
 MIGRATIONS_00_20 = PRESERVED
@@ -247,473 +122,173 @@ MIGRATION_21_SCHEMA = VERIFIED PRESENT
 MIGRATION_21_HISTORY_VERSION = VERIFIED 20260820190000
 ```
 
----
+Do not rerun migration 21.
 
-# Figma Integration Foundation
-
-Controlled flow implemented:
-
-```text
-Figma file / selected-node pointer
-→ separate OAuth read authorization
-→ PKCE S256 authorization-code exchange
-→ exact file/resource verification
-→ private verified binding
-→ Builder-triggered bounded Design Context observation
-→ ephemeral no-store preview
-→ Builder explicit Capture
-→ server exact re-read
-→ observation identity equality
-→ private Rough Note
-→ immutable Figma provenance
-→ AI Structured Draft
-→ Builder Review
-→ explicit approval required for Decision
-```
-
-Minimal Figma OAuth scopes:
-
-```text
-file_metadata:read
-file_content:read
-```
-
-Not requested by Phase 52:
-
-- deprecated broad `files:read`;
-- `file_versions:read`;
-- project/team enumeration;
-- comments/write;
-- webhooks;
-- polling/background sync;
-- provider writes.
-
-OAuth state and PKCE session are server-controlled. Tokens are never exposed through `NEXT_PUBLIC_*` configuration.
+Phase 53A currently has no demonstrated schema requirement. Do not add migration 22 merely to persist AI triage, scores, reasoning, provider observation snapshots, or caches.
 
 ---
 
-# Pointer / authorization separation
+# Phase 52 terminal status
 
-Live validation confirmed the intended separation:
-
-```text
-Figma pointer saved
-!= OAuth credential
-!= active verified binding
-```
-
-The Integrations UI may show a provider pointer count even when provider read access is disconnected. Phase 52 added explicit UI clarification that top-level provider counts are pointer counts, while `Read connected` / `Connect ... read access` represents authorization state.
-
-Public visibility means only the safe canonical Figma URL + label pointer may appear on the Public Project Map. It does not publish:
-
-- OAuth credentials;
-- verified binding internals;
-- observation fingerprint;
-- private preview content;
-- Capture provenance;
-- Rough Notes;
-- AI Drafts.
-
----
-
-# Controlled live Figma E2E evidence
-
-A real Figma file/node pointer was used in the controlled Preview environment.
-
-Verified success path:
-
-```text
-pointer
-→ Figma OAuth approval
-→ exact resource verification
-→ active private binding
-→ bounded Refresh
-→ explicit Capture as evidence
-→ server exact re-read
-→ private Rough Note
-→ capture_source_ref provenance
-→ AI Structured Draft
-→ no automatic Change Card/Decision
-```
-
-Observed post-Capture state during validation:
-
-```text
-Figma Capture     = 1
-Figma Rough Note  = 1
-Figma AI Draft    = 1
-new Decision      = 0
-```
-
-Refresh itself did not create a Rough Note or Decision.
-
-The first successful Capture therefore proves the main authority path through real Figma OAuth and provider reads.
-
----
-
-# Live defect remediation — duplicate Capture provenance proof
-
-The first duplicate-Capture attempt exposed a real provenance-proof bug.
-
-Root cause:
-
-- original proof signed a timestamp formatted with UTC `Z`;
-- PostgreSQL `timestamptz` round-trip returned the same instant formatted as `+00:00`;
-- the timestamp represented the same time but the signed string differed;
-- duplicate provenance HMAC verification therefore failed.
-
-Remediation:
-
-- proof timestamps are canonicalized before HMAC input;
-- Phase 52 static regression coverage freezes that behavior.
-
-Live re-test after the fix:
-
-```text
-Figma Capture     = 1 unchanged
-Rough Note        = 1 unchanged
-AI Draft          = 1 unchanged
-Decision          = 0 unchanged
-```
-
-Therefore:
-
-```text
-FIGMA_DUPLICATE_CAPTURE = PASS
-```
-
----
-
-# Live provider rate-limit behavior
-
-Repeated controlled node-pointer reads exhausted the available Figma Starter API quota during the live validation sequence.
-
-The implementation correctly surfaced provider rate limiting without mutating BuildMap data.
-
-A second live defect was found in the UI retry guidance: BuildMap previously capped the provider `Retry-After` value at 300 seconds, which could falsely imply that every limit would clear after five minutes.
-
-Remediation:
-
-- the artificial 300-second cap was removed;
-- provider retry duration is preserved rather than shortened by BuildMap.
-
-While rate-limited, BuildMap retained:
-
-```text
-Figma Capture     = 1
-Rough Note        = 1
-AI Draft          = 1
-Decision          = 0
-```
-
-A controlled reconnect retry on **2026-08-24** reached Figma OAuth approval and returned to the BuildMap callback twice, but fresh exact provider verification again returned the `figma-rate-limited` branch. Hosted readback remained:
-
-```text
-Figma active binding = 0
-Figma pointer        = 1
-Figma Capture        = 1
-GitHub active binding = 1
-Notion active binding = 1
-Decision mutation     = 0
-```
-
-No new active Figma credential/binding was persisted. This confirms that the remaining reconnect blocker is still the provider rate limit rather than a BuildMap mutation or cross-provider isolation defect.
-
-Therefore:
-
-```text
-FIGMA_RATE_LIMIT_FAILURE_ISOLATION = PASS
-FIGMA_RECONNECT_20260824 = BLOCKED_BY_PROVIDER_QUOTA
-```
-
----
-
-# Disconnect preservation and cross-provider isolation
-
-Explicit Figma `Read access 해제` was validated live.
-
-Post-disconnect hosted state:
-
-```text
-Figma active binding      = 0
-Figma disconnected binding history = retained
-Figma credential status   = disconnected
-access token ciphertext   = cleared
-refresh token ciphertext  = cleared
-Figma pointer              = retained
-Figma Capture              = retained
-Figma Rough Note           = retained
-Figma AI Draft             = retained
-GitHub active binding      = preserved
-Notion active binding      = preserved
-Decision mutation          = 0
-```
-
-Therefore:
-
-```text
-FIGMA_DISCONNECT_HISTORY_PRESERVATION = PASS
-FIGMA_CROSS_PROVIDER_ISOLATION = PASS
-```
-
-Disconnect does not remove the pointer and does not delete historical evidence.
-
----
-
-# Reconnect and stale-observation live status
-
-## Reconnect
-
-A reconnect attempt reached the real Figma OAuth approval callback, but the callback intentionally requires a fresh exact provider verification before restoring credential/binding authority.
-
-The original attempt and the controlled 2026-08-24 retry were both blocked by provider rate limiting during the required exact file/node verification. BuildMap therefore did **not** recreate an active binding or persist a new active credential.
-
-This is the correct fail-closed behavior.
-
-Classification:
-
-```text
-FIGMA_RECONNECT_OAUTH_CALLBACK_REACHED = VERIFIED
-FIGMA_RECONNECT_BINDING_RESTORED = BLOCKED_BY_PROVIDER_QUOTA
-```
-
-Do not mark reconnect as PASS until a future controlled provider read completes after quota becomes available.
-
-## Stale observation
-
-The intended contract is implemented and statically covered:
-
-```text
-Refresh observation A
-→ provider changes to B
-→ Capture with A
-→ server exact re-read B
-→ observation mismatch
-→ no Rough Note/provenance/AI Draft persistence
-```
-
-A live stale-mismatch re-test could not be completed after provider quota exhaustion.
-
-Classification:
-
-```text
-FIGMA_STALE_MISMATCH_CONTRACT = IMPLEMENTED + CI COVERED
-FIGMA_STALE_MISMATCH_LIVE = BLOCKED_BY_PROVIDER_QUOTA
-```
-
----
-
-# Public / private boundary
-
-Public Project Map may render public Figma pointer URL/label only after canonical Figma URL validation.
-
-Never expose directly to Scout/Public:
-
-- `integration_bindings`;
-- `capture_source_refs` internals;
-- `private.figma_oauth_credentials`;
-- access/refresh token ciphertext;
-- binding/source proofs;
-- observation keys;
-- provider Capture tokens;
-- Rough Note bodies;
-- AI Structured Draft internals;
-- bounded private provider preview contents;
-- provider diagnostics.
-
-Provider-derived content may become official/public Decision material only through existing Builder Review, approval, publication, and sensitivity boundaries.
-
----
-
-# Phase 52 authoritative docs
-
-Decision / implementation record:
-
-`docs/decisions/phase52-figma-integration-foundation.md`
-
-Regression/access contract:
-
-`docs/access-policy-tests/phase52-figma-integration-foundation.md`
-
-Implementation PR:
-
-`#67`
-
-Presentation-composition remediation PR:
-
-`#72`
-
-Production CD activation PR:
-
-`#74`
-
----
-
-# Phase 52 CI / merge evidence
-
-Exact final tested implementation head:
-
-`06af9ee5cfcee99567f350fcb32c53c6e070c24d`
-
-Exact final tested implementation tree:
-
-`5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
-
-Exact-head checks:
-
-```text
-Web App CI #123          = PASS
-Database Contract #56   = PASS
-```
-
-Squash merge commit:
-
-`e5263b66743b3b824c39ce715e7a26eebfd4ae05`
-
-Merged implementation tree:
-
-`5e2bd11bbf47853b1cd4698b86f0381f7aa8a23c`
-
-Post-closeout presentation remediation:
-
-```text
-PR #72 tested head = d7676d7e5057d021f86b6b6b382e9678f5c87449
-PR #72 tested tree = f597b30abe2c3d27ef9c3a67328faf4932356081
-Web App CI #125   = PASS
-PR #72 merge      = 97488c5df1a6c5e9e02d5b50077cf274e15f2ccb
-merged tree       = f597b30abe2c3d27ef9c3a67328faf4932356081
-```
-
-Production CD activation:
-
-```text
-PR #74 tested head = 58ee89bd7fc2bce74913b6d753259fc35768a86d
-PR #74 tested tree = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
-Web App CI #129   = PASS
-PR #74 merge      = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
-merged tree       = f3d24d51c0c2f5a37375871d6ffb7481b6df2cda
-```
-
-Therefore:
-
-```text
-PHASE_52_ORIGINAL_CI_TESTED_TREE == PHASE_52_ORIGINAL_MERGED_TREE
-PR_72_CI_TESTED_TREE == PR_72_MERGED_TREE
-PR_74_CI_TESTED_TREE == PR_74_MERGED_TREE
-```
-
----
-
-# Deployment boundary
-
-Phase 52 used controlled non-production Preview deployments for Figma OAuth/live validation while repository-wide Git deployment was intentionally disabled.
-
-As of **2026-08-26**, the temporary production block is retired under the protected-main workflow.
-
-Current repository authority:
-
-```json
-{
-  "git": {
-    "deploymentEnabled": true
-  }
-}
-```
-
-Deployment flow:
-
-```text
-feature/docs branch
-→ Pull Request
-→ required `Lint, typecheck, build`
-→ squash merge to protected main
-→ Vercel Git integration
-→ production deployment
-```
-
-First protected-main production CD evidence:
-
-```text
-merge commit = 4f9e32ff1ab686e281d0d551f182a973cd0e1a70
-deployment   = dpl_5CUzUWTAX1tu4ze8b72fRjZrjJ8k
-target       = production
-source       = git
-state        = READY
-smoke        = HTTP 200
-```
-
-No manual `vercel --prod` / API production deployment was used for this activation.
-
----
-
-# PIE / Factory Intelligence boundary
-
-Authoritative stance remains:
-
-> PIE is BuildMap-independent. BuildMap is PIE-aware only at the integration boundary.
-
-> Align now, integrate later.
-
-Still required:
-
-- BuildMap Project IDs remain authoritative;
-- BuildMap Decision IDs remain authoritative;
-- provider identities remain external/additive;
-- `capture_source_refs` remains BuildMap intake provenance, not PIE Evidence authority;
-- no runtime PIE or Factory Intelligence coupling is introduced by Figma integration.
-
----
-
-# Next bounded work
-
-Do **not** start Phase 53 merely to hide the two provider-quota-blocked live checks.
-
-The immediate bounded follow-up is:
-
-## Phase 52 live quota follow-up
-
-When Figma Tier-1 read quota becomes available again, perform only the missing controlled checks:
-
-1. reconnect the existing Figma pointer and prove the active binding is restored only after fresh exact verification;
-2. verify Capture count remains unchanged after reconnect;
-3. perform one stale-observation mismatch test and prove zero persistence;
-4. re-check GitHub/Notion isolation;
-5. do not add new provider scope or background synchronization.
-
-If those checks pass, Phase 52 controlled live E2E may be reclassified from `PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED` to `CLOSED` in a docs-only update.
-
-Until then the implementation is merged and usable within its current authority contract, but the blocked live checks must remain explicit.
-
----
-
-# Terminal classification
+The final controlled quota follow-up is complete.
 
 ```text
 PHASE_52_FIGMA_INTEGRATION_FOUNDATION_REPOSITORY = CLOSED
 PHASE_52_HOSTED_MIGRATION_21 = CLOSED
 PHASE_52_INTEGRATIONS_COMPOSITION_REMEDIATION = CLOSED
-PHASE_52_CONTROLLED_LIVE_E2E = PARTIALLY_CLOSED_PROVIDER_QUOTA_BLOCKED
+PHASE_52_CONTROLLED_LIVE_E2E = CLOSED
 
-MIGRATION_21_HOSTED_TARGET = VERIFIED APPLIED AS 20260820190000
 FIGMA_LIVE_ASSOCIATION_READ_CAPTURE = PASS
 FIGMA_REFRESH_ZERO_PERSISTENCE = PASS
 FIGMA_DUPLICATE_CAPTURE = PASS
 FIGMA_RATE_LIMIT_FAILURE_ISOLATION = PASS
 FIGMA_DISCONNECT_HISTORY_PRESERVATION = PASS
 FIGMA_CROSS_PROVIDER_ISOLATION = PASS
-FIGMA_RECONNECT_20260824 = BLOCKED_BY_PROVIDER_QUOTA
-FIGMA_RECONNECT_BINDING_RESTORED = BLOCKED_BY_PROVIDER_QUOTA
-FIGMA_STALE_MISMATCH_LIVE = BLOCKED_BY_PROVIDER_QUOTA
+FIGMA_RECONNECT_OAUTH_CALLBACK_REACHED = PASS
+FIGMA_RECONNECT_BINDING_RESTORED = PASS
+FIGMA_RECONNECT_CAPTURE_COUNT_UNCHANGED = PASS
+FIGMA_STALE_MISMATCH_CONTRACT = PASS
+FIGMA_STALE_MISMATCH_LIVE = PASS
+FIGMA_STALE_MISMATCH_ZERO_PERSISTENCE = PASS
 PUBLIC_PRIVATE_PROVIDER_BOUNDARY = PRESERVED
 BUILDER_DECISION_AUTHORITY = PRESERVED
-CI_TESTED_TREE_EQUALS_MERGED_TREE = PASS
+```
 
+Final live evidence is recorded in:
+
+`docs/handoff/PHASE52-LIVE-CLOSEOUT-20260831.md`
+
+---
+
+# Phase 53A — next bounded implementation
+
+The Phase 52 provider-quota gate is satisfied. Under explicit Builder instruction, Phase 53A implementation is now authorized.
+
+Target slice:
+
+**GitHub Ephemeral Decision-Worthiness Triage**
+
+Required flow:
+
+```text
+GitHub Refresh
+→ bounded merged PR / Release observations
+→ ephemeral AI decision-worthiness triage
+→ Promote / Hold suggestion
+→ Builder explicit Capture as evidence
+→ existing exact server re-read
+→ Rough Note + immutable provenance
+→ existing AI Structured Draft
+→ Builder Review
+→ explicit Builder approval
+→ official Decision
+```
+
+Provider scope:
+
+```text
+GitHub only
+```
+
+Do not add Notion/Figma triage or a generalized provider detector framework in Phase 53A.
+
+Conceptual result:
+
+```ts
+type ObservationTriage = {
+  classification:
+    | "note"
+    | "observation"
+    | "insufficient"
+    | "decision_candidate"
+    | "direction_change";
+  shouldPromote: boolean;
+  reason: string;
+};
+```
+
+`shouldPromote = true` iff classification is `decision_candidate` or `direction_change`.
+
+Pre-Capture triage must not generate or persist:
+
+- Change Card title;
+- structured summary;
+- evidence;
+- decision;
+- change content;
+- next check;
+- Rough Note;
+- Capture provenance;
+- AI Structured Draft;
+- Change Card;
+- Decision.
+
+AI failure must fail open to the already-read raw GitHub activity. Raw observations and manual `Capture as evidence` must remain usable.
+
+Provider content is untrusted data. PR/release title, summary, context, quoted text, code blocks, and external instructions must never override evaluator policy.
+
+Do not directly reuse post-Capture `assessCapture()` as the provider evaluator because that contract can construct a structured draft. Classification semantics may be reused, but the Phase 53A evaluator must return only the bounded triage result.
+
+---
+
+# Phase 53A deterministic gates
+
+Must pass 100%:
+
+```text
+TRIAGE_ZERO_ROUGH_NOTE_PERSISTENCE
+TRIAGE_ZERO_AI_DRAFT_PERSISTENCE
+TRIAGE_ZERO_CHANGE_CARD_PERSISTENCE
+TRIAGE_ZERO_DECISION_MUTATION
+AI_HOLD_MANUAL_CAPTURE_ALLOWED
+AI_PROMOTE_REQUIRES_MANUAL_CAPTURE
+AI_FAILURE_RAW_ACTIVITY_REMAINS_AVAILABLE
+AI_MALFORMED_OUTPUT_RETURNS_RAW_ACTIVITY
+PROMPT_INJECTION_DOES_NOT_CONTROL_CLASSIFICATION
+PROVIDER_EXACT_REREAD_STILL_REQUIRED_ON_CAPTURE
+BUILDER_APPROVAL_STILL_REQUIRED_FOR_DECISION
+GITHUB_TRIAGE_FAILURE_DOES_NOT_MUTATE_NOTION
+GITHUB_TRIAGE_FAILURE_DOES_NOT_MUTATE_FIGMA
+```
+
+Semantic fixtures and thresholds remain frozen by the Phase 53A evaluation-design document.
+
+Normal PR CI should contain deterministic authority/static regression coverage. Probabilistic repeated model evaluation should remain a controlled evaluation run rather than making ordinary PR CI depend on AI credentials.
+
+---
+
+# Implementation discipline
+
+For Phase 53A:
+
+1. fetch current protected `main` and record exact SHA/tree;
+2. branch from that exact main;
+3. re-audit GitHub activity/Capture/Decision path for drift;
+4. implement only the GitHub pre-Capture ephemeral augmentation;
+5. preserve existing provider Capture exact re-read code;
+6. preserve existing Builder Decision approval code;
+7. no DB migration unless a demonstrated schema need appears;
+8. no background polling/webhook/sync;
+9. run deterministic tests, lint, typecheck, build;
+10. open PR and verify exact PR-head CI;
+11. self-review changed files and mergeability;
+12. squash merge with expected head SHA;
+13. verify merged implementation tree equals the exact tested implementation tree;
+14. verify Vercel Git production deployment and smoke response;
+15. update this handoff with Phase 53A closeout evidence.
+
+---
+
+# Terminal classification
+
+```text
+PHASE_52_CONTROLLED_LIVE_E2E = CLOSED
+PHASE_53A_IMPLEMENTATION_GATE = OPEN
+PHASE_53A_PROVIDER_SCOPE = GITHUB_ONLY
+PHASE_53A_SCHEMA_CHANGE = NOT_REQUIRED_BY_CURRENT_DESIGN
 MAIN_BRANCH_PROTECTION = ACTIVE
-MAIN_PR_GATE = ACTIVE
 MAIN_REQUIRED_STATUS_CHECK = Lint, typecheck, build
 VERCEL_GIT_PRODUCTION_CD = ACTIVE
-FIRST_PROTECTED_MAIN_CD = PASS
-CURRENT_MAIN_PRODUCTION_DEPLOYMENT = READY
 
-NEXT_BOUNDED_WORK = PHASE_52_LIVE_QUOTA_FOLLOWUP
+NEXT_BOUNDED_WORK = PHASE_53A_GITHUB_EPHEMERAL_DECISION_WORTHINESS_TRIAGE
 ```
