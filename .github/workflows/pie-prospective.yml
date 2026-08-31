@@ -28,8 +28,8 @@ jobs:
       operational_policy: .review/operational/policy.yml
 
   historical-backfill-smoke:
-    uses: gycha0109-beep/Project_Intelligence_Engine/.github/workflows/calibration-backfill.yml@8be8ff0de205482919f40e1262c3551aaac85e55
+    uses: gycha0109-beep/Project_Intelligence_Engine/.github/workflows/calibration-backfill.yml@ebe258e0c1ca262eebc85795f7d4d283d6f75b73
     with:
       repository: ${{ github.repository }}
       source_pie_revision: 96f9061d7538e92dbb8fdc8567147b3d6c01744e
-      backfill_revision: 8be8ff0de205482919f40e1262c3551aaac85e55
+      backfill_revision: ebe258e0c1ca262eebc85795f7d4d283d6f75b73
