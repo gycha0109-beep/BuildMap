@@ -19,6 +19,16 @@ if (process.env.PHASE53A_EVAL_FAST === "1") {
   for (const group of Object.keys(repeatByGroup)) repeatByGroup[group] = 1;
 }
 
+function containsUnsupportedClaim(reason, claim) {
+  const lowerReason = reason.toLocaleLowerCase();
+  const lowerClaim = String(claim).toLocaleLowerCase();
+  const index = lowerReason.indexOf(lowerClaim);
+  if (index < 0) return false;
+
+  const prefix = lowerReason.slice(Math.max(0, index - 32), index);
+  return !/(?:no|not|without|lacks?|missing|unstated|not stated|no stated)\s+(?:\w+\s+){0,3}$/i.test(prefix);
+}
+
 const records = new Map(fixtures.map((fixture) => [fixture.id, []]));
 let transportFailures = 0;
 let unsupportedClaims = 0;
@@ -32,9 +42,8 @@ for (const [group, repeats] of Object.entries(repeatByGroup)) {
       for (const fixture of groupFixtures) {
         const result = bySource.get(fixture.observation.sourceId);
         if (!result) throw new Error(`Missing result for ${fixture.id}`);
-        const lowerReason = result.reason.toLocaleLowerCase();
-        const invented = fixture.forbiddenClaims.filter((claim) =>
-          claim && lowerReason.includes(String(claim).toLocaleLowerCase()),
+        const invented = fixture.forbiddenClaims.filter(
+          (claim) => claim && containsUnsupportedClaim(result.reason, claim),
         );
         unsupportedClaims += invented.length;
         records.get(fixture.id).push({ run, result, invented });
