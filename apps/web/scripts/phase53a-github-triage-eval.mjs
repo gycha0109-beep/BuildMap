@@ -92,14 +92,15 @@ for (let run = 1; run <= maxRuns; run += 1) {
 
 let semanticFailures = 0;
 
+function entryPasses(fixture, entry) {
+  if (entry.invented.length > 0) return false;
+  if (!fixture.expectedClassification.includes(entry.result.classification)) return false;
+  if (fixture.expectedPromote === "must") return entry.result.shouldPromote;
+  return !entry.result.shouldPromote;
+}
+
 function countSuccess(fixture, entries) {
-  return entries.filter(({ result, invented }) => {
-    if (invented.length > 0) return false;
-    const classificationOk = fixture.expectedClassification.includes(result.classification);
-    if (!classificationOk) return false;
-    if (fixture.expectedPromote === "must") return result.shouldPromote;
-    return !result.shouldPromote;
-  }).length;
+  return entries.filter((entry) => entryPasses(fixture, entry)).length;
 }
 
 for (const fixture of fixtures) {
@@ -122,8 +123,10 @@ for (const fixture of fixtures) {
     `${fixture.id} ${passed ? "PASS" : "FAIL"} success=${success}/${repeats} required=${required}`,
   );
   for (const entry of entries) {
-    if (entry.invented.length > 0) {
-      console.log(`  forbidden-claim run=${entry.run}: ${entry.invented.join(", ")}`);
+    if (!entryPasses(fixture, entry)) {
+      console.log(
+        `  run=${entry.run} classification=${entry.result.classification} promote=${entry.result.shouldPromote} reason=${JSON.stringify(entry.result.reason)} forbidden=${entry.invented.join("|")}`,
+      );
     }
   }
 }
