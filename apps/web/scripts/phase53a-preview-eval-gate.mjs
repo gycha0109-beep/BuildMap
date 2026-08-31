@@ -12,7 +12,7 @@ const result = spawnSync(
     cwd: process.cwd(),
     env: {
       ...process.env,
-      PHASE53A_EVAL_FAST: "1",
+      PHASE53A_EVAL_FAST: "0",
       PHASE53A_EVAL_INITIAL_DELAY_MS: "120000",
       PHASE53A_EVAL_DELAY_MS: "60000",
     },
