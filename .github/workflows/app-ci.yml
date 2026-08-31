@@ -38,6 +38,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:phase52
 
+      - name: Phase 53A GitHub triage authority contract
+        working-directory: apps/web
+        run: npm run test:phase53a
+
       - name: Lint
         working-directory: apps/web
         run: npm run lint
