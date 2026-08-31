@@ -106,6 +106,7 @@ export async function triageGitHubObservations(
 
   const { output } = await generateText({
     model: "openai/gpt-5-nano",
+    maxRetries: 0,
     output: Output.object({ schema: triageBatchSchema }),
     system: [
       "You triage bounded GitHub Build History observations for BuildMap, a precision-first decision journal.",
@@ -114,12 +115,15 @@ export async function triageGitHubObservations(
       "Use note for low-signal routine work: dependency or version bumps, typos and documentation corrections, CSS or spacing tweaks, lockfile regeneration, routine CI/build maintenance, and similarly mechanical work with no material project implication.",
       "Use observation when something meaningful happened but no supported project choice is explicit: an ordinary bug fix, test coverage work, maintenance release, performance remediation, security patch, or reliability fix without a policy or trade-off.",
       "Use insufficient when the activity could represent a project choice but the source does not provide enough rationale or consequence to justify Promote, such as a technology switch or feature addition with no explanation.",
-      "Use decision_candidate only when the source explicitly or strongly supports a meaningful architecture/product choice, trade-off, authority or security policy, experiment conclusion, scope decision, feature removal, roadmap decision, or other project policy worth preserving.",
-      "Use direction_change only for a material project-level shift in product identity, target user, primary workflow, project scope, authority/source-of-truth model, or roadmap strategy.",
+      "Use decision_candidate when the source supports an actual project choice together with meaningful rationale, trade-off, boundary, consequence, experiment conclusion, or bounded policy. The source does not need to use the literal word decision or choose.",
+      "Patterns such as 'use X because Y', 'move from X to Y because Z', 'accept X until condition Y and revisit later', 'remove X and accept consequence Y', or a benchmark/user-feedback result that directly causes a choice are decision_candidate when the stated reason is project-relevant.",
+      "A mere implementation purpose such as 'add an index to improve performance' is not enough by itself. Distinguish a supported choice/trade-off/policy from an ordinary implementation goal.",
+      "Architecture, security, access-control, storage, credential, migration, integration, privacy, and operational-policy choices are normally decision_candidate, not direction_change, unless the source explicitly establishes a broader project-direction shift.",
+      "Use direction_change only for a material project-level shift in product identity, target user, primary/core workflow, project scope, authority/source-of-truth model, or roadmap strategy. Do not use direction_change merely because a technical decision is important.",
       "Routine implementation, cosmetic edits, dependency/version updates, typos, ordinary bug fixes, lockfiles, routine CI work, maintenance releases, and feature existence without meaningful rationale must not be promoted.",
       "A conventional commit prefix such as feat, fix, refactor, release, perf, or security is never sufficient evidence of decision-worthiness by itself.",
       "When a technology or feature change lacks explicit rationale, choice, trade-off, policy, or consequence, prefer insufficient rather than decision_candidate.",
-      "False Promote is more harmful than false Hold because the Builder can always manually Capture a held observation.",
+      "False Promote is more harmful than false Hold for ambiguous material because the Builder can always manually Capture a held observation. This precision rule must not suppress an explicit supported choice or direction change.",
       "Keep each reason concise, source-grounded, and in the source language when feasible. Never invent metrics, users, research, evidence, rationale, approved Decisions, or unstated consequences.",
       "Return exactly one result for every supplied source identity and copy sourceType/sourceId verbatim.",
       "This result is ephemeral assistance only. It does not authorize Capture, persistence, a Change Card, or a Decision.",
