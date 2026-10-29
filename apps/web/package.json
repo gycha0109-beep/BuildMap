@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:phase52": "node scripts/phase52-figma-contract.mjs",
-    "test:phase53a": "node scripts/phase53a-github-triage-contract.mjs",
+    "test:phase53a": "node scripts/phase53a-github-triage-contract.mjs && node --experimental-strip-types scripts/phase53a-github-triage-guard-test.mjs",
     "eval:phase53a": "node --experimental-strip-types scripts/phase53a-github-triage-eval.mjs"
   },
   "dependencies": {
