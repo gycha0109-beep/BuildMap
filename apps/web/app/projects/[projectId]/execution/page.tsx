@@ -365,7 +365,7 @@ export default async function ExecutionMapPage({
                                 </label>
                                 <label className="field">
                                   <span>순서</span>
-                                  <input name="position" type="number" min={0} defaultValue={linked.length} required />
+                                  <input name="position" type="number" min={0} defaultValue={Math.max(-1, ...linked.map((criterion) => criterion.position)) + 1} required />
                                 </label>
                               </div>
                               <label className="field">
@@ -391,7 +391,7 @@ export default async function ExecutionMapPage({
                         </label>
                         <label className="field">
                           <span>순서</span>
-                          <input name="position" type="number" min={0} defaultValue={items.length} required />
+                          <input name="position" type="number" min={0} defaultValue={Math.max(-1, ...items.map((milestone) => milestone.position)) + 1} required />
                         </label>
                         <label className="field">
                           <span>가중치</span>
