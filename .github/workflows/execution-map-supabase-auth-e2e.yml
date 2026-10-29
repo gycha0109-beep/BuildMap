@@ -39,7 +39,7 @@ jobs:
 
       - name: Install web dependencies
         working-directory: apps/web
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
 
       - name: Initialize disposable Supabase local config
         run: npx --yes supabase@2.120.0 init
