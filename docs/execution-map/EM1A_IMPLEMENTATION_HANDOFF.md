@@ -1,9 +1,11 @@
 # EM-1A — Revisioned Roadmap Storage Implementation Handoff
 
 - **Baseline main:** 010aaeb454bc01e959dd8a9e0f6f50998116f674 (EM-0 audit #95)
-- **Status:** SOURCE_IMPLEMENTED / SQL_RUNTIME_NOT_VERIFIED / NOT_DEPLOYED
+- **Status:** SOURCE_IMPLEMENTED / ISOLATED_POSTGRES_RLS_AND_CONCURRENCY_PASS / HOSTED_NOT_DEPLOYED
 - **Migration:** supabase/migrations/20261029053000_buildmap_22_execution_roadmap_foundation.sql
-- **Static contract test:** apps/web/scripts/phase-em1-schema-contract.mjs, invoked by Web App CI
+- **Static contract test:** apps/web/scripts/phase-em1-schema-contract.mjs (Web App CI)
+- **Isolated SQL contract:** .github/workflows/execution-map-sql-contract.yml, running a disposable PostgreSQL 17 service with owner/tenant/anon/approval/concurrency scenarios
+- **UI/actions:** apps/web/app/projects/[projectId]/execution/{page.tsx,actions.ts}, plus project navigation tab
 - **Related design:** TECHNICAL_ROADMAP.md; EM0_BOUNDARY_AUDIT.md
 
 ## Scope implemented in source
@@ -21,10 +23,10 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 
 ## Important limits
 
-- No UI, server action, importer or approval form has been connected yet. **EM-1 is not complete.**
+- Project-owner scoped create Track, create draft Revision, create Milestone, create Criterion and approve Revision actions, plus a private editor page, are committed but **not deployed**. Editing/deleting draft items and importer workflows are still missing; **EM-1 is not complete.**
 - EM-2 source ingestion, evidence hashes, linked checks/deployments and EM-3 evaluator are absent.
 - No progress percentage or publication is authorized; the source schema is not live product functionality.
-- Static contract tests detect accidental contract drift but **do not prove PostgreSQL execution, RLS isolation, transaction concurrency or production safety**.
+- Static checks alone are insufficient. Disposable PostgreSQL 17 tests do exercise SQL execution, owner/tenant/anon RLS, approved-revision immutability and concurrent approval serialization, but **do not prove compatibility with the full hosted Supabase schema or live browser behavior**.
 - The repository has Git-linked migration auto-apply. **Do not merge the migration PR solely because lint/typecheck/build and static checks passed.**
 
 ## Safe required verification before merge
@@ -42,7 +44,7 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 
 ## Next bounded slices
 
-- **EM-1B:** typed server-side validation and project owner-scoped draft creation/revision editing/approval API, import/edit UI, end-to-end isolated RLS tests.
+- **EM-1B remainder:** draft item edit/remove or replacement workflow, roadmap import path, full production-schema migration rehearsal, hosted/real-browser end-to-end validation.
 - **EM-2:** GitHub evidence adapter with separately reviewed and appropriately scoped permission expansion for Issues, Checks and Deployments.
 - **EM-3:** deterministic evaluator/progress engine using approved immutable revision definitions and verified evidence.
 
@@ -50,5 +52,5 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 
 - Historical 00–21 migration list was observed read-only against the connected BuildMap Supabase project on 2026-10-29.
 - EM-0 source audit #95 is merged.
-- EM-1A schema and static test are committed on a feature branch.
-- SQL migration apply, adversarial RLS test, production deployment and usable UI: **NOT VERIFIED / NOT CLAIMED**.
+- EM-1A schema, private Builder editor/actions and CI fixtures are committed in PR #96. Disposable PostgreSQL/tenant/concurrency runs are passing at tested commits; final PR-head verification must be repeated after later changes.
+- Isolated SQL/RLS/concurrency checks: **PASS in disposable PostgreSQL CI**. Hosted migration deployment and real authenticated browser behavior: **NOT VERIFIED / NOT CLAIMED**.
