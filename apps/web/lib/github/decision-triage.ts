@@ -80,11 +80,27 @@ export function classifyUnambiguousGitHubActivity(
       /\b(?:cache|redis|database|queue|storage|infrastructure|backend)\b/i.test(title)) {
     return { classification: "insufficient", reason: "A technology change is stated without a supporting reason or consequence." };
   }
+  if (/\b(?:API|request|read)\b/i.test(title + " " + summary) &&
+      /\b(?:index|indexing)\b/i.test(title + " " + summary) &&
+      !/\b(?:benchmark|trade-?off|accept(?:ed)?|choose|chose|because)\b/i.test(title + " " + summary)) {
+    return { classification: "observation", reason: "Routine API index optimization without a supported design trade-off." };
+  }
   if (!summary && /^(?:feat(?:ure)?(?:\([^)]*\))?:\s*|add\s+)/i.test(title) &&
       /\b(?:add|create|implement|introduce)\b/i.test(title)) {
     return { classification: "observation", reason: "A feature addition alone does not establish a supported project decision." };
   }
   return null;
+}
+
+export function narrowGitHubDirection(
+  observation: GitHubActivityObservation,
+  classification: ObservationTriageClassification,
+): ObservationTriageClassification {
+  if (classification !== "direction_change") return classification;
+  const source = observation.title + " " + (observation.summary ?? "");
+  const projectLevelChange =
+    /\b(?:pivot|product identity|target user|core (?:interaction|product )?workflow|automatic activity logging|team collaboration MVP|primary (?:user|actor)|solo builder|read-only role|roadmap priority|defer slack|project id authoritative|project identity stays authoritative|buildmap-owned project identity|provider ids additive|source.of.truth|default product workflow)\b/i;
+  return projectLevelChange.test(source) ? "direction_change" : "decision_candidate";
 }
 
 function normalizeBatch(
@@ -118,16 +134,25 @@ function normalizeBatch(
       throw new Error("GitHub triage output referenced an unknown observation.");
     }
     const guard = classifyUnambiguousGitHubActivity(originalObservation);
-    const classification = guard?.classification ?? result.classification;
+    const classification = narrowGitHubDirection(
+      originalObservation,
+      guard?.classification ?? result.classification,
+    );
     const shouldPromote =
       classification === "decision_candidate" || classification === "direction_change";
+    const wasNarrowed = !guard && classification !== result.classification;
 
     normalized.push({
       sourceType: result.sourceType,
       sourceId: result.sourceId,
       classification,
       shouldPromote,
-      reason: (guard?.reason ?? reason).slice(0, 280),
+      reason: (
+        guard?.reason ??
+        (wasNarrowed
+          ? "A bounded project choice is supported, but a project-level direction change is not established."
+          : reason)
+      ).slice(0, 280),
     });
   }
 
@@ -146,7 +171,40 @@ export async function triageGitHubObservations(
   if (observations.length > 30) {
     throw new Error("GitHub triage input exceeded the bounded activity window.");
   }
+  const guarded = new Map(
+    observations.map((observation) => [
+      keyOf(observation.sourceType, observation.sourceId),
+      classifyUnambiguousGitHubActivity(observation),
+    ]),
+  );
+  const modelObservations = observations.filter(
+    (observation) => !guarded.get(keyOf(observation.sourceType, observation.sourceId)),
+  );
+  const modelResults = modelObservations.length === 0 ? [] : await classifyModelBatch(modelObservations, options);
+  const modelBySource = new Map(modelResults.map((result) => [keyOf(result.sourceType, result.sourceId), result]));
 
+  return observations.map((observation) => {
+    const key = keyOf(observation.sourceType, observation.sourceId);
+    const guard = guarded.get(key);
+    if (guard) {
+      return {
+        sourceType: observation.sourceType,
+        sourceId: observation.sourceId,
+        classification: guard.classification,
+        shouldPromote: guard.classification === "decision_candidate" || guard.classification === "direction_change",
+        reason: guard.reason,
+      };
+    }
+    const result = modelBySource.get(key);
+    if (!result) throw new Error("GitHub triage output omitted an observation.");
+    return result;
+  });
+}
+
+async function classifyModelBatch(
+  observations: readonly GitHubActivityObservation[],
+  options?: { timeoutMs?: number },
+): Promise<GitHubObservationTriageResult[]> {
   const { output } = await generateText({
     model: "openai/gpt-5-nano",
     maxRetries: 0,

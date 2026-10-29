@@ -21,7 +21,7 @@ if (process.env.PHASE53A_EVAL_FAST === "1") {
 
 const initialDelayMs = Math.max(0, Number(process.env.PHASE53A_EVAL_INITIAL_DELAY_MS || 0));
 const interCallDelayMs = Math.max(0, Number(process.env.PHASE53A_EVAL_DELAY_MS || 0));
-const batchSize = 26;
+const batchSize = 17;
 
 function containsUnsupportedClaim(reason, claim, observation) {
   const lowerReason = reason.toLocaleLowerCase();
@@ -94,7 +94,7 @@ for (let run = 1; run <= maxRuns; run += 1) {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/GitHub triage output|Missing result for|NoObjectGenerated/i.test(message)) {
+      if (/GitHub triage output|Missing result for|NoObjectGenerated|No output generated/i.test(message)) {
         malformedModelOutputFailures += 1;
         console.error(`MODEL_OUTPUT_FAILURE run=${run} batch=${batchIndex + 1}/${batches.length}`, message);
       } else {
