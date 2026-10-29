@@ -1,0 +1,72 @@
+name: Execution Map SQL Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/execution-map-sql-contract.yml"
+      - "supabase/migrations/*execution_roadmap*.sql"
+      - "scripts/execution-contract/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/execution-map-sql-contract.yml"
+      - "supabase/migrations/*execution_roadmap*.sql"
+      - "scripts/execution-contract/**"
+
+permissions:
+  contents: read
+
+jobs:
+  em1-isolated-postgres:
+    name: EM-1A isolated PostgreSQL/RLS scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: buildmap_em1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d buildmap_em1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: buildmap_em1
+
+    steps:
+      - name: Checkout exact PR head SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Ensure PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+
+      - name: Isolated BuildMap fixture
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-bootstrap.sql
+
+      - name: Apply proposed EM-1A migration in disposable database
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261029053000_buildmap_22_execution_roadmap_foundation.sql
+
+      - name: Test owner policies, cross-project isolation and revision immutability
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-scenarios.sql
+
+      - name: Confirm isolation
+        run: |
+          echo "Target: ephemeral PostgreSQL service container"
+          echo "Hosted Supabase mutation: NONE"
+          echo "Full production-schema compatibility: NOT VERIFIED by this isolated fixture"
