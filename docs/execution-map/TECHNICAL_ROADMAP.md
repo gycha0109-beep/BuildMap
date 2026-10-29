@@ -1,6 +1,7 @@
 # Execution Map — Technical Implementation Roadmap (EM v0.1)
 
-- **Status:** TRACK_REGISTERED / IMPLEMENTATION_NOT_STARTED
+- **Status:** TRACK_REGISTERED / EM-0_REPOSITORY_AUDITED / EM-1_NOT_STARTED
+- **EM-0 audit:** [EM0_BOUNDARY_AUDIT.md](EM0_BOUNDARY_AUDIT.md) (repository/source audit; schema migration not yet implemented)
 - **Date:** 2026-10-29
 - **Repository:** gycha0109-beep/BuildMap
 - **Development mode:** parallel, additive extension inside the existing BuildMap repository
