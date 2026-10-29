@@ -417,3 +417,33 @@ export async function archiveCompletionCriterionAction(projectId: string, form: 
   if (archived.error || !archived.data) finish(projectId, "criterion-error");
   finish(projectId, "criterion-archived");
 }
+
+
+export async function updateRoadmapRevisionAction(projectId: string, form: FormData) {
+  const data = z.object({
+    trackId: idSchema,
+    revisionId: idSchema,
+    title: titleSchema,
+    changeReason: z.string().trim().max(2000),
+  }).safeParse({
+    trackId: textField(form, "trackId"),
+    revisionId: textField(form, "revisionId"),
+    title: textField(form, "title"),
+    changeReason: textField(form, "changeReason"),
+  });
+  if (!data.success) redirect(executionPath(projectId, "invalid-revision"));
+  const { supabase } = await ownerContext(projectId);
+  const updated = await supabase.from("roadmap_revisions")
+    .update({
+      title: data.data.title,
+      change_reason: data.data.changeReason || null,
+    })
+    .eq("id", data.data.revisionId)
+    .eq("project_id", projectId)
+    .eq("track_id", data.data.trackId)
+    .eq("status", "draft")
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) finish(projectId, "revision-error");
+  finish(projectId, "revision-updated");
+}
