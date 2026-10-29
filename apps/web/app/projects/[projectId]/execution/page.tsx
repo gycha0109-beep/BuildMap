@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -5,6 +6,11 @@ import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { createClient } from "@/lib/supabase/server";
 import {
   approveRoadmapRevisionAction,
+  archiveCompletionCriterionAction,
+  archiveExecutionMilestoneAction,
+  importRoadmapDraftAction,
+  updateCompletionCriterionAction,
+  updateExecutionMilestoneAction,
   createCompletionCriterionAction,
   createExecutionMilestoneAction,
   createExecutionTrackAction,
@@ -16,6 +22,13 @@ const notices: Record<string, string> = {
   "revision-created": "로드맵 초안 버전이 생성되었습니다.",
   "milestone-created": "마일스톤이 추가되었습니다.",
   "criterion-created": "완료 조건이 추가되었습니다.",
+  "milestone-updated": "마일스톤을 수정했습니다.",
+  "milestone-archived": "마일스톤을 초안에서 제외했습니다.",
+  "criterion-updated": "완료 조건을 수정했습니다.",
+  "criterion-archived": "완료 조건을 초안에서 제외했습니다.",
+  "import-created": "로드맵을 새 초안으로 가져왔습니다.",
+  "import-error": "로드맵을 가져오지 못했습니다. 초안 중복과 입력 구조를 확인해 주세요.",
+  "invalid-import": "가져오기 JSON 구조, 필수 조건 또는 크기를 확인해 주세요.",
   "revision-approved": "로드맵 버전이 승인되었습니다. 정의는 변경할 수 없습니다.",
   "track-error": "트랙 등록 실패: 입력 또는 중복된 이름을 확인해 주세요.",
   "revision-error": "로드맵 버전 생성에 실패했습니다.",
@@ -73,13 +86,15 @@ export default async function ExecutionMapPage({
       .order("version", { ascending: false })
       .limit(200),
     supabase.from("execution_milestones")
-      .select("id, track_id, roadmap_revision_id, title, weight, position")
+      .select("id, track_id, roadmap_revision_id, title, description, weight, position")
       .eq("project_id", projectId)
+      .is("archived_at", null)
       .order("position")
       .limit(500),
     supabase.from("completion_criteria")
       .select("id, milestone_id, title, rule_type, is_required, position")
       .eq("project_id", projectId)
+      .is("archived_at", null)
       .order("position")
       .limit(1000),
   ]);
@@ -87,11 +102,17 @@ export default async function ExecutionMapPage({
   const loadError = tracks.error || revisions.error || milestones.error || criteria.error;
   const query = await searchParams;
   const notice = typeof query.notice === "string" ? notices[query.notice] : undefined;
+  const selectedRevision = typeof query.revision === "string" ? query.revision : null;
   const createTrack = createExecutionTrackAction.bind(null, projectId);
   const createRevision = createRoadmapRevisionAction.bind(null, projectId);
   const createMilestone = createExecutionMilestoneAction.bind(null, projectId);
   const createCriterion = createCompletionCriterionAction.bind(null, projectId);
   const approveRevision = approveRoadmapRevisionAction.bind(null, projectId);
+  const importRoadmap = importRoadmapDraftAction.bind(null, projectId);
+  const updateMilestone = updateExecutionMilestoneAction.bind(null, projectId);
+  const archiveMilestone = archiveExecutionMilestoneAction.bind(null, projectId);
+  const updateCriterion = updateCompletionCriterionAction.bind(null, projectId);
+  const archiveCriterion = archiveCompletionCriterionAction.bind(null, projectId);
 
   return (
     <div className="page-stack">
@@ -151,7 +172,7 @@ export default async function ExecutionMapPage({
         const trackRevisions = (revisions.data ?? []).filter((revision) => revision.track_id === track.id);
         const latest = trackRevisions[0] ?? null;
         const draft = trackRevisions.find((revision) => revision.status === "draft") ?? null;
-        const active = draft ?? latest;
+        const active = trackRevisions.find((revision) => revision.id === selectedRevision) ?? draft ?? latest;
         const items = (milestones.data ?? []).filter(
           (milestone) => milestone.roadmap_revision_id === active?.id,
         );
@@ -170,9 +191,11 @@ export default async function ExecutionMapPage({
             {trackRevisions.length > 0 ? (
               <div className="row">
                 {trackRevisions.map((revision) => (
-                  <Badge key={revision.id}>
-                    v{revision.version} · {revision.status === "approved" ? "승인" : "초안"}
-                  </Badge>
+                  <Link key={revision.id} href={`/projects/${projectId}/execution?revision=${revision.id}`}>
+                    <Badge tone={active?.id === revision.id ? "primary" : "neutral"}>
+                      v{revision.version} · {revision.status === "approved" ? "승인" : "초안"}
+                    </Badge>
+                  </Link>
                 ))}
               </div>
             ) : null}
@@ -193,6 +216,31 @@ export default async function ExecutionMapPage({
                 <SubmitButton label="새 초안 생성" pendingLabel="생성 중…" />
               </form>
             ) : null}
+
+              <details className="stack">
+                <summary>구조화 로드맵 JSON 가져오기</summary>
+                <p className="section-help">
+                  새 버전을 원자적으로 생성합니다. 기존 초안이 있으면 가져오기를 차단합니다.
+                  각 마일스톤에는 필수 완료 조건이 하나 이상 있어야 합니다.
+                </p>
+                <form className="stack" action={importRoadmap}>
+                  <input type="hidden" name="trackId" value={track.id} />
+                  <label className="field">
+                    <span>로드맵 제목</span>
+                    <input name="title" maxLength={200} required />
+                  </label>
+                  <label className="field">
+                    <span>변경 사유 (선택)</span>
+                    <input name="changeReason" maxLength={2000} />
+                  </label>
+                  <label className="field">
+                    <span>마일스톤 JSON 배열</span>
+                    <textarea name="roadmapJson" maxLength={65536} rows={9} required
+                      placeholder={'[{"title":"인증 기능","weight":1,"criteria":[{"title":"필수 CI 통과","ruleType":"CHECK_PASSED","required":true}]}]'} />
+                  </label>
+                  <SubmitButton label="새 로드맵 가져오기" pendingLabel="검증하고 저장 중…" />
+                </form>
+              </details>
 
             {active ? (
               <div className="stack">
@@ -218,19 +266,86 @@ export default async function ExecutionMapPage({
                             <strong>{milestone.title}</strong>
                             <Badge>가중치 {milestone.weight}</Badge>
                           </div>
+                          {draft && active?.id === draft.id ? (
+                            <div className="stack">
+                              <form className="stack" action={updateMilestone}>
+                                <input type="hidden" name="trackId" value={track.id} />
+                                <input type="hidden" name="revisionId" value={draft.id} />
+                                <input type="hidden" name="milestoneId" value={milestone.id} />
+                                <div className="form-grid-3">
+                                  <label className="field">
+                                    <span>마일스톤명</span>
+                                    <input name="title" defaultValue={milestone.title} maxLength={200} required />
+                                  </label>
+                                  <label className="field">
+                                    <span>가중치</span>
+                                    <input name="weight" type="number" min="0.0001" max="100000" step="0.0001" defaultValue={milestone.weight} required />
+                                  </label>
+                                  <label className="field">
+                                    <span>설명</span>
+                                    <input name="description" defaultValue={milestone.description || ""} maxLength={2000} />
+                                  </label>
+                                </div>
+                                <SubmitButton label="마일스톤 수정" pendingLabel="저장 중…" />
+                              </form>
+                              <form action={archiveMilestone}>
+                                <input type="hidden" name="trackId" value={track.id} />
+                                <input type="hidden" name="revisionId" value={draft.id} />
+                                <input type="hidden" name="milestoneId" value={milestone.id} />
+                                <SubmitButton label="마일스톤 제외" pendingLabel="제외 중…" className="button secondary" />
+                              </form>
+                            </div>
+                          ) : null}
+
                           {linked.length === 0 ? (
                             <p className="section-help">완료 조건이 아직 없습니다.</p>
                           ) : (
                             <ul className="compact-list">
                               {linked.map((criterion) => (
-                                <li key={criterion.id}>
-                                  {criterion.title} · {criterion.rule_type}
-                                  {criterion.is_required ? " · 필수" : " · 선택"}
+                                <li key={criterion.id} className="stack">
+                                  {draft && active?.id === draft.id ? (
+                                    <>
+                                      <form className="stack" action={updateCriterion}>
+                                        <input type="hidden" name="trackId" value={track.id} />
+                                        <input type="hidden" name="revisionId" value={draft.id} />
+                                        <input type="hidden" name="milestoneId" value={milestone.id} />
+                                        <input type="hidden" name="criterionId" value={criterion.id} />
+                                        <div className="form-grid-3">
+                                          <label className="field">
+                                            <span>완료 조건</span>
+                                            <input name="title" defaultValue={criterion.title} maxLength={300} required />
+                                          </label>
+                                          <label className="field">
+                                            <span>검증 유형</span>
+                                            <select name="ruleType" defaultValue={criterion.rule_type}>
+                                              {ruleTypes.map((rule) => (
+                                                <option key={rule.value} value={rule.value}>{rule.name}</option>
+                                              ))}
+                                            </select>
+                                          </label>
+                                          <label className="field">
+                                            <span>조건 구분</span>
+                                            <span><input name="isRequired" type="checkbox" defaultChecked={criterion.is_required} /> 필수 조건</span>
+                                          </label>
+                                        </div>
+                                        <SubmitButton label="조건 수정" pendingLabel="저장 중…" />
+                                      </form>
+                                      <form action={archiveCriterion}>
+                                        <input type="hidden" name="trackId" value={track.id} />
+                                        <input type="hidden" name="revisionId" value={draft.id} />
+                                        <input type="hidden" name="milestoneId" value={milestone.id} />
+                                        <input type="hidden" name="criterionId" value={criterion.id} />
+                                        <SubmitButton label="이 조건 제외" pendingLabel="처리 중…" className="button secondary" />
+                                      </form>
+                                    </>
+                                  ) : (
+                                    <span>{criterion.title} · {criterion.rule_type} · {criterion.is_required ? "필수" : "선택"}</span>
+                                  )}
                                 </li>
                               ))}
                             </ul>
                           )}
-                          {draft ? (
+                          {draft && active?.id === draft.id ? (
                             <form className="stack" action={createCriterion}>
                               <input type="hidden" name="trackId" value={track.id} />
                               <input type="hidden" name="revisionId" value={draft.id} />
@@ -264,7 +379,7 @@ export default async function ExecutionMapPage({
                     })}
                   </ul>
                 )}
-                {draft ? (
+                {draft && active?.id === draft.id ? (
                   <>
                     <form className="stack" action={createMilestone}>
                       <input type="hidden" name="trackId" value={track.id} />
