@@ -11,6 +11,7 @@ import {
   importRoadmapDraftAction,
   updateCompletionCriterionAction,
   updateExecutionMilestoneAction,
+  updateRoadmapRevisionAction,
   createCompletionCriterionAction,
   createExecutionMilestoneAction,
   createExecutionTrackAction,
@@ -20,6 +21,7 @@ import {
 const notices: Record<string, string> = {
   "track-created": "개발 트랙이 등록되었습니다.",
   "revision-created": "로드맵 초안 버전이 생성되었습니다.",
+  "revision-updated": "로드맵 초안 정보를 수정했습니다.",
   "milestone-created": "마일스톤이 추가되었습니다.",
   "criterion-created": "완료 조건이 추가되었습니다.",
   "milestone-updated": "마일스톤을 수정했습니다.",
@@ -81,7 +83,7 @@ export default async function ExecutionMapPage({
       .order("created_at")
       .limit(100),
     supabase.from("roadmap_revisions")
-      .select("id, track_id, version, title, status, approved_at")
+      .select("id, track_id, version, title, change_reason, status, approved_at")
       .eq("project_id", projectId)
       .order("version", { ascending: false })
       .limit(200),
@@ -108,6 +110,7 @@ export default async function ExecutionMapPage({
   const createMilestone = createExecutionMilestoneAction.bind(null, projectId);
   const createCriterion = createCompletionCriterionAction.bind(null, projectId);
   const approveRevision = approveRoadmapRevisionAction.bind(null, projectId);
+  const updateRevision = updateRoadmapRevisionAction.bind(null, projectId);
   const importRoadmap = importRoadmapDraftAction.bind(null, projectId);
   const updateMilestone = updateExecutionMilestoneAction.bind(null, projectId);
   const archiveMilestone = archiveExecutionMilestoneAction.bind(null, projectId);
@@ -250,6 +253,23 @@ export default async function ExecutionMapPage({
                     {active.status === "approved" ? "승인 완료" : "편집 가능"}
                   </Badge>
                 </div>
+                {draft && active?.id === draft.id ? (
+                  <form className="stack" action={updateRevision}>
+                    <input type="hidden" name="trackId" value={track.id} />
+                    <input type="hidden" name="revisionId" value={draft.id} />
+                    <div className="form-grid-3">
+                      <label className="field">
+                        <span>로드맵 제목</span>
+                        <input name="title" defaultValue={draft.title} maxLength={200} required />
+                      </label>
+                      <label className="field">
+                        <span>변경 사유</span>
+                        <input name="changeReason" defaultValue={draft.change_reason || ""} maxLength={2000} />
+                      </label>
+                    </div>
+                    <SubmitButton label="초안 정보 수정" pendingLabel="저장 중…" />
+                  </form>
+                ) : null}
                 {items.length === 0 ? (
                   <div className="empty-state">
                     <span>마일스톤이 없습니다. 승인하려면 필수 완료 조건이 있는 마일스톤이 필요합니다.</span>
