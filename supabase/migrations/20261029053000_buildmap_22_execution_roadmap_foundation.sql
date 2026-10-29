@@ -69,7 +69,7 @@ create table public.execution_milestones (
     foreign key (project_id, track_id, roadmap_revision_id)
     references public.roadmap_revisions(project_id, track_id, id) on delete restrict,
   constraint execution_milestones_project_track_revision_id_unique
-    unique (project_id, track_id, roadmap_revision_id, id),
+    unique (project_id, track_id, roadmap_revision_id, id)
 );
 
 create unique index execution_milestones_active_revision_position_idx
@@ -97,7 +97,7 @@ create table public.completion_criteria (
   updated_at timestamptz not null default now(),
   constraint completion_criteria_milestone_fk
     foreign key (project_id, track_id, roadmap_revision_id, milestone_id)
-    references public.execution_milestones(project_id, track_id, roadmap_revision_id, id) on delete restrict,
+    references public.execution_milestones(project_id, track_id, roadmap_revision_id, id) on delete restrict
 );
 
 create unique index completion_criteria_active_milestone_position_idx
