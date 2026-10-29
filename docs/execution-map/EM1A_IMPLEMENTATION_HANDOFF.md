@@ -7,6 +7,7 @@
 - **Isolated SQL contract:** .github/workflows/execution-map-sql-contract.yml, running a disposable PostgreSQL 17 service with owner/tenant/anon/approval/concurrency scenarios
 - **UI/actions:** apps/web/app/projects/[projectId]/execution/{page.tsx,actions.ts}, plus project navigation tab
 - **Related design:** TECHNICAL_ROADMAP.md; EM0_BOUNDARY_AUDIT.md
+- **EM-1B continuation:** [EM1B_IMPLEMENTATION_HANDOFF.md](EM1B_IMPLEMENTATION_HANDOFF.md) — draft editing, soft exclusion, atomic JSON import and their SQL/CI proof
 
 ## Scope implemented in source
 
@@ -23,7 +24,7 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 
 ## Important limits
 
-- Project-owner scoped create Track, create draft Revision, create Milestone, create Criterion and approve Revision actions, plus a private editor page, are committed but **not deployed**. Editing/deleting draft items and importer workflows are still missing; **EM-1 is not complete.**
+- Project-owner scoped editor, draft edit/archive actions and atomic JSON import are committed in PR #96 but **not deployed**. See EM-1B handoff for the later continuation. **EM-1 is not complete** until realistic schema/browser verification and hosted release.
 - EM-2 source ingestion, evidence hashes, linked checks/deployments and EM-3 evaluator are absent.
 - No progress percentage or publication is authorized; the source schema is not live product functionality.
 - Static checks alone are insufficient. Disposable PostgreSQL 17 tests do exercise SQL execution, owner/tenant/anon RLS, approved-revision immutability and concurrent approval serialization, but **do not prove compatibility with the full hosted Supabase schema or live browser behavior**.
@@ -44,7 +45,7 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 
 ## Next bounded slices
 
-- **EM-1B remainder:** draft item edit/remove or replacement workflow, roadmap import path, full production-schema migration rehearsal, hosted/real-browser end-to-end validation.
+- **EM-1 remaining:** full production-schema migration rehearsal, authenticated real-browser E2E, controlled migration/release and post-deploy verification. Editing and import source work is in [EM-1B handoff](EM1B_IMPLEMENTATION_HANDOFF.md).
 - **EM-2:** GitHub evidence adapter with separately reviewed and appropriately scoped permission expansion for Issues, Checks and Deployments.
 - **EM-3:** deterministic evaluator/progress engine using approved immutable revision definitions and verified evidence.
 
