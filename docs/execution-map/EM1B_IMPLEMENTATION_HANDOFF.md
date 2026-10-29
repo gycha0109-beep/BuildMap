@@ -4,7 +4,7 @@
 - Parent: [EM-1A handoff](EM1A_IMPLEMENTATION_HANDOFF.md)
 - Roadmap: [Execution Map Technical Roadmap](TECHNICAL_ROADMAP.md)
 - PR: [#96](https://github.com/gycha0109-beep/BuildMap/pull/96)
-- State: **SOURCE_IMPLEMENTED / ISOLATED_POSTGRES_CI_PASS / HOSTED_NOT_APPLIED**
+- State: **SOURCE_IMPLEMENTED / FULL_REPOSITORY_SQL_LINEAGE_REPLAY_PASS / HOSTED_NOT_APPLIED**
 - Completion classification: **EM-1 NOT CLOSED**, because hosted-schema parity, browser E2E and controlled release evidence remain outstanding.
 
 ## Source implementation
@@ -39,21 +39,21 @@ The following CI groups have passed on the implementation branch; check the **ex
 | --- | --- |
 | Web App CI | Static schema contract, lint, typecheck, Next build |
 | Database Contract Gate | Historical migration integrity and additive-migration policy |
-| Execution Map SQL Contract | PostgreSQL 17 fresh isolated database migration application; owner vs non-owner/anon matrix; cross-project FK; revision immutability; concurrent approval locking; imported JSON nested round-trip, rollback, draft uniqueness and archived-definition semantics |
+| Execution Map SQL Contract | PostgreSQL 17 fresh isolated database migration application; owner vs non-owner/anon matrix; cross-project FK; revision immutability; concurrent approval locking; imported JSON nested round-trip, rollback, draft uniqueness and archived-definition semantics; **secondary disposable DB replays all repository migrations 00–22 in order and repeats EM-1 owner/tenant/import scenarios** |
 | PIE Prospective Shadow | Existing optional provider-side decision observation integration remains unaffected |
 
 A passing **disposable PostgreSQL** test is not proof of full hosted Supabase schema compatibility or browser authentication behavior.
 
 ## Release / security gates still outstanding
 
-1. Recheck migration 21 as current hosted head and verify no unexpected migration drift since this PR was created.
-2. Rehearse migration 22 against an isolated database carrying the **complete actual BuildMap schema**, not merely the custom parental fixture.
-3. Exercise authenticated browser workflows including new/previous approved revisions, invalid import, cross-project access, archive and approval.
+1. Recheck migration 21 as current hosted head and verify no unexpected migration drift since this PR was created. Last read-only audit: 2026-10-29.
+2. **PASS in disposable PostgreSQL:** the complete repository migration lineage 00–22 is applied in order and the owner/tenant/import scenarios pass. This is a repository-SQL compatibility rehearsal with a minimal Supabase auth shim, **not** a hosted Supabase platform or auth/browser E2E.
+3. **Outstanding:** exercise authenticated browser workflows including new/previous approved revisions, invalid import, cross-project access, archive and approval in a realistic isolated Supabase environment.
 4. Review owner-only ACL/RLS, new invoker RPC EXECUTE grants, advisor findings and app error handling in the realistic test environment.
 5. Approve PR promotion only after all preceding safety gates; then verify exact-head CI, squash merge, Git-linked hosted migration history and Vercel production application.
 6. Only then mark EM-1 `DONE`; EM-2 must not claim provider evidence without an independently verified GitHub installation permission grant.
 
-**Release blocker:** no approved isolated full-schema rehearsal/live-browser test evidence yet. The connected hosted BuildMap Supabase project was read-only observed with no `execution_*`/`roadmap_*`/`completion_*` tables at the time of review. Existing schema was not modified by this implementation work.
+**Release blocker:** repository migration SQL lineage rehearsal is now passing; realistic Supabase authentication/browser E2E and controlled release evidence remain outstanding. The connected hosted BuildMap Supabase project was read-only observed with no `execution_*`/`roadmap_*`/`completion_*` tables at the time of review. Existing schema was not modified by this implementation work.
 
 ## Non-goals preserved
 
