@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import fixturesJson from "@/scripts/phase53a-github-triage-fixtures.json";
 import { triageGitHubObservations } from "@/lib/github/decision-triage";
 import type { GitHubActivityObservation } from "@/lib/github/api";
@@ -6,7 +7,15 @@ import type { GitHubActivityObservation } from "@/lib/github/api";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const evalToken = "phase53a-eval-8d41f27bcb6c4a19";
+function authorizedEvalRequest(request: NextRequest) {
+  const expected = process.env.PHASE53A_EVAL_TOKEN;
+  if (!expected || expected.length < 32) return false;
+  const authorization = request.headers.get("authorization");
+  if (!authorization?.startsWith("Bearer ")) return false;
+  const supplied = authorization.slice(7);
+  if (supplied.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+}
 const allowedGroups = new Set([
   "critical_hold",
   "critical_promote",
@@ -48,7 +57,7 @@ export async function GET(request: NextRequest) {
   if (process.env.VERCEL_ENV !== "preview") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (request.nextUrl.searchParams.get("token") !== evalToken) {
+  if (!authorizedEvalRequest(request)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
