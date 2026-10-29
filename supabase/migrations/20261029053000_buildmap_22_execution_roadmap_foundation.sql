@@ -372,7 +372,7 @@ returns uuid
 language plpgsql
 security invoker
 set search_path = pg_catalog, pg_temp
-as $
+as $$
 declare
   v_revision_id uuid;
   v_milestone_id uuid;
@@ -482,7 +482,7 @@ begin
 
   return v_revision_id;
 end;
-$;
+$$;
 
 revoke execute on function public.execution_import_draft(uuid,uuid,text,text,jsonb)
   from public, anon, authenticated;
