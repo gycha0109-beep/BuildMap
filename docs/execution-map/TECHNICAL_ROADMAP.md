@@ -1,6 +1,6 @@
 # Execution Map — Technical Implementation Roadmap (EM v0.1)
 
-- **Status:** TRACK_REGISTERED / EM-0_REPOSITORY_AUDITED / EM-1_NOT_STARTED
+- **Status:** TRACK_REGISTERED / EM-0_REPOSITORY_CLOSED / EM-1_SOURCE_IMPLEMENTED_IN_PR_96 (HOSTED_NOT_DEPLOYED)
 - **EM-0 audit:** [EM0_BOUNDARY_AUDIT.md](EM0_BOUNDARY_AUDIT.md) (repository/source audit; schema migration not yet implemented)
 - **Date:** 2026-10-29
 - **Repository:** gycha0109-beep/BuildMap
@@ -211,8 +211,8 @@ Track state at registration:
 
 | Phase | Status | Verified implementation progress |
 | --- | --- | --- |
-| EM-0 | NOT_STARTED | Not measured |
-| EM-1 | NOT_STARTED | Not measured |
+| EM-0 | REPOSITORY_AUDIT_CLOSED (#95) | Not measured |
+| EM-1 | SOURCE_IN_REVIEW (#96), NOT_DEPLOYED | Not measured |
 | EM-2 | NOT_STARTED | Not measured |
 | EM-3 | NOT_STARTED | Not measured |
 | EM-4 | NOT_STARTED | Not measured |
