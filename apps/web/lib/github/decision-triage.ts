@@ -80,6 +80,13 @@ export function classifyUnambiguousGitHubActivity(
       /\b(?:cache|redis|database|queue|storage|infrastructure|backend)\b/i.test(title)) {
     return { classification: "insufficient", reason: "A technology change is stated without a supporting reason or consequence." };
   }
+  if (observation.sourceType === "merged_pull_request" &&
+      /\b(?:temporary|interim)\b/i.test(title + " " + summary) &&
+      /\b(?:oauth|callback)\b/i.test(title + " " + summary) &&
+      /\b(?:workaround|fix)\b/i.test(title + " " + summary) &&
+      !/\b(?:accept(?:ed)?|choose|chose|decision|trade-?off|policy|because|revisit|until)\b/i.test(title + " " + summary)) {
+    return { classification: "observation", reason: "Temporary OAuth callback workaround without a supported project policy choice." };
+  }
   if (/\b(?:API|request|read)\b/i.test(title + " " + summary) &&
       /\b(?:index|indexing)\b/i.test(title + " " + summary) &&
       !/\b(?:benchmark|trade-?off|accept(?:ed)?|choose|chose|because)\b/i.test(title + " " + summary)) {
