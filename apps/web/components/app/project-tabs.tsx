@@ -11,6 +11,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { href: `${root}/workspace`, label: "Capture", exact: true },
     { href: `${root}/workspace/review`, label: "Review", exact: false },
     { href: `${root}/decisions`, label: "Decisions", exact: false },
+    { href: `${root}/execution`, label: "Execution", exact: false },
     { href: `${root}/evidence`, label: "Evidence", exact: false },
     { href: `${root}/feedback`, label: "Feedback", exact: true },
     { href: `${root}/feedback/outcomes`, label: "Outcomes", exact: false },
