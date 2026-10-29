@@ -29,10 +29,13 @@ assert.doesNotMatch(evaluator, /suggestedTitle|structuredSummary|changeContent|n
 assert.doesNotMatch(evaluator, /rough_notes|capture_source_refs|ai_structured_drafts|change_cards/);
 
 const readIndex = route.indexOf("readGitHubActivity(");
-const triageIndex = route.indexOf("triageGitHubObservations(observations)");
+const triageIndex = route.indexOf("triageGitHubObservations(observations, { timeoutMs: 12_000 })");
 const responseIndex = route.indexOf("return NextResponse.json(", triageIndex);
 assert.ok(readIndex >= 0 && triageIndex > readIndex && responseIndex > triageIndex);
 assert.match(route, /triageStatus = "unavailable"/);
+assert.match(evaluator, /classifyUnambiguousGitHubActivity/);
+assert.match(evaluator, /timeout: options\?\.timeoutMs/);
+assert.match(route, /timeoutMs: 12_000/);
 assert.match(route, /\.\.\.observation,/);
 assert.doesNotMatch(route, /\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
 assert.doesNotMatch(route, /provider\", \"notion\"|provider\", \"figma\"/);

@@ -120,7 +120,7 @@ export async function GET(
     >();
 
     try {
-      const triageResults = await triageGitHubObservations(observations);
+      const triageResults = await triageGitHubObservations(observations, { timeoutMs: 12_000 });
       for (const result of triageResults) {
         triageBySource.set(triageKey(result.sourceType, result.sourceId), result);
       }

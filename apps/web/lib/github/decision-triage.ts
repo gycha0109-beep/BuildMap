@@ -50,6 +50,43 @@ function boundedObservation(observation: GitHubActivityObservation) {
   };
 }
 
+
+/**
+ * Precision-first guard for source-grounded, unambiguous GitHub activity.
+ * This does not authorize Capture. Ambiguous cases remain with the model.
+ */
+export function classifyUnambiguousGitHubActivity(
+  observation: GitHubActivityObservation,
+): { classification: ObservationTriageClassification; reason: string } | null {
+  const title = observation.title.trim();
+  const summary = observation.summary?.trim() ?? "";
+  if (observation.sourceType === "release" && !summary && /^v?\d+(?:\.\d+){0,3}(?:[-+][\w.-]+)?$/i.test(title)) {
+    return { classification: "observation", reason: "Release version alone does not explain a project decision." };
+  }
+  if (/^(?:ci|build|chore)(?:\([^)]*\))?:\s*/i.test(title) &&
+      /\b(?:cache|caching)\b/i.test(title) &&
+      /\b(?:dependenc|npm|pnpm|yarn|install|ci)\w*/i.test(title + " " + summary) &&
+      !/\b(?:accept|trade-?off|policy|choose|chose|instead)\b/i.test(summary)) {
+    return { classification: "note", reason: "Routine CI dependency caching without a stated project choice." };
+  }
+  if (/^(?:docs?)(?:\([^)]*\))?:\s*/i.test(title) &&
+      /\b(?:typo|spelling|misspell)\b/i.test(title)) {
+    return { classification: "note", reason: "Documentation spelling correction only." };
+  }
+  if (/\b(?:considered\s+(?:several|multiple|other)\s+options\s+and\s+)?(?:chose|choose|selected)\s*(?:\.\.\.|…)\s*$/i.test(summary)) {
+    return { classification: "insufficient", reason: "The source ends before identifying a selected option or its justification." };
+  }
+  if (!summary && /\b(?:migrate|switch|replace|move)\b.*\b(?:to|with)\b/i.test(title) &&
+      /\b(?:cache|redis|database|queue|storage|infrastructure|backend)\b/i.test(title)) {
+    return { classification: "insufficient", reason: "A technology change is stated without a supporting reason or consequence." };
+  }
+  if (!summary && /^(?:feat(?:ure)?(?:\([^)]*\))?:\s*|add\s+)/i.test(title) &&
+      /\b(?:add|create|implement|introduce)\b/i.test(title)) {
+    return { classification: "observation", reason: "A feature addition alone does not establish a supported project decision." };
+  }
+  return null;
+}
+
 function normalizeBatch(
   observations: readonly GitHubActivityObservation[],
   payload: z.infer<typeof triageBatchSchema>,
@@ -76,16 +113,21 @@ function normalizeBatch(
       throw new Error("GitHub triage output returned an empty reason.");
     }
 
+    const originalObservation = expected.get(key);
+    if (!originalObservation) {
+      throw new Error("GitHub triage output referenced an unknown observation.");
+    }
+    const guard = classifyUnambiguousGitHubActivity(originalObservation);
+    const classification = guard?.classification ?? result.classification;
     const shouldPromote =
-      result.classification === "decision_candidate" ||
-      result.classification === "direction_change";
+      classification === "decision_candidate" || classification === "direction_change";
 
     normalized.push({
       sourceType: result.sourceType,
       sourceId: result.sourceId,
-      classification: result.classification,
+      classification,
       shouldPromote,
-      reason: reason.slice(0, 280),
+      reason: (guard?.reason ?? reason).slice(0, 280),
     });
   }
 
@@ -98,6 +140,7 @@ function normalizeBatch(
 
 export async function triageGitHubObservations(
   observations: readonly GitHubActivityObservation[],
+  options?: { timeoutMs?: number },
 ): Promise<GitHubObservationTriageResult[]> {
   if (observations.length === 0) return [];
   if (observations.length > 30) {
@@ -107,6 +150,7 @@ export async function triageGitHubObservations(
   const { output } = await generateText({
     model: "openai/gpt-5-nano",
     maxRetries: 0,
+    timeout: options?.timeoutMs,
     maxOutputTokens: 8192,
     output: Output.object({ schema: triageBatchSchema }),
     system: [
