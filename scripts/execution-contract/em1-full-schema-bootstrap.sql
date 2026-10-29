@@ -1,8 +1,7 @@
 -- Disposable full BuildMap migration rehearsal bootstrap.
 -- Models the minimal Supabase auth.uid() / role / pgcrypto environment.
 -- Never run against the connected hosted BuildMap Supabase project.
-create role anon nologin;
-create role authenticated nologin;
+-- Roles already created cluster-wide by em1-bootstrap.sql in the first CI database.
 create schema auth;
 create schema extensions;
 create extension if not exists pgcrypto with schema extensions;
