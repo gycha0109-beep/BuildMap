@@ -11,6 +11,13 @@ const preview = read("components/buildmap/github-activity-preview.tsx");
 const capture = read("app/projects/[projectId]/github-capture-actions.ts");
 const decision = read("app/projects/[projectId]/decision-actions.ts");
 const fixtures = JSON.parse(read("scripts/phase53a-github-triage-fixtures.json"));
+const evalRoute = read("app/api/internal/phase53a-eval/route.ts");
+assert.match(evalRoute, /process\.env\.VERCEL_ENV !== "preview"/);
+assert.match(evalRoute, /process\.env\.PHASE53A_EVAL_TOKEN/);
+assert.match(evalRoute, /request\.headers\.get\("authorization"\)/);
+assert.match(evalRoute, /timingSafeEqual/);
+assert.doesNotMatch(evalRoute, /searchParams\.get\("token"\)/);
+assert.doesNotMatch(evalRoute, /const evalToken =/);
 
 assert.match(evaluator, /UNTRUSTED PROVIDER CONTENT/);
 assert.match(evaluator, /False Promote is more harmful than false Hold/);
