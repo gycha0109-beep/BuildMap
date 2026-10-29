@@ -92,6 +92,45 @@ update public.execution_milestones set archived_at=now()
 where track_id='00000000-0000-4000-8000-000000000603'
   and title='Optional phase';
 
+-- Archiving the last required criterion of an active milestone must block approval.
+update public.completion_criteria c
+set archived_at = now()
+from public.execution_milestones m
+where c.milestone_id = m.id
+  and m.track_id = '00000000-0000-4000-8000-000000000603'
+  and m.title = 'Updated core'
+  and c.archived_at is null;
+
+do $$
+declare
+  denied boolean := false;
+  v_rev uuid;
+begin
+  select id into v_rev from public.roadmap_revisions
+  where track_id = '00000000-0000-4000-8000-000000000603'
+    and status = 'draft';
+  begin
+    update public.roadmap_revisions
+    set status = 'approved',
+        approved_by_builder_profile_id = '00000000-0000-4000-8000-000000000411'
+    where id = v_rev;
+  exception when raise_exception then denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: archived required criterion still counted toward approval';
+  end if;
+end
+$$;
+
+insert into public.completion_criteria
+  (project_id, track_id, roadmap_revision_id, milestone_id, title, position, rule_type, is_required)
+select m.project_id, m.track_id, m.roadmap_revision_id, m.id,
+       'Replacement mandatory criterion', 0, 'PR_MERGED', true
+from public.execution_milestones m
+where m.track_id = '00000000-0000-4000-8000-000000000603'
+  and m.title = 'Updated core'
+  and m.archived_at is null;
+
 do $$
 declare
   v_rev uuid;
