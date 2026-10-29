@@ -29,8 +29,13 @@ function containsUnsupportedClaim(reason, claim) {
   const index = lowerReason.indexOf(lowerClaim);
   if (index < 0) return false;
 
-  const prefix = lowerReason.slice(Math.max(0, index - 32), index);
-  return !/(?:no|not|without|lacks?|missing|unstated|not stated|no stated)\s+(?:\w+\s+){0,3}$/i.test(prefix);
+  const prefix = lowerReason.slice(Math.max(0, index - 140), index);
+  const clause = prefix.split(/[.;!?]/).at(-1) ?? prefix;
+  const negation = /(?:\bno\b|\bwithout\b|\black(?:s|ing)?\b|\bmissing\b|\bunstated\b|\bnot\s+(?:given|provided|specified|stated)\b)(?:[\s,/:(\-]*[\w-]+){0,12}[\s,/:(\-]*$/i;
+  const quotedInjection = /(?:\bmention(?:ed|ing|s)?\b|\bquot(?:ed|ing)\b|\binject(?:ed|ion)\b|\bdespite\b)(?:[\s,/:(\-]*[\w-]+){0,10}[\s,/:(\-]*$/i;
+  if (negation.test(clause)) return false;
+  if (lowerClaim === "major decision" && quotedInjection.test(clause)) return false;
+  return true;
 }
 
 function sleep(ms) {
