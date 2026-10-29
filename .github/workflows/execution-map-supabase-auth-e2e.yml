@@ -1,0 +1,71 @@
+name: Execution Map Supabase Auth E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/execution-map-supabase-auth-e2e.yml"
+      - "supabase/migrations/**"
+      - "apps/web/app/projects/**/execution/**"
+      - "apps/web/scripts/em1-local-auth-e2e.mjs"
+      - "docs/execution-map/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/execution-map-supabase-auth-e2e.yml"
+      - "supabase/migrations/**"
+      - "apps/web/app/projects/**/execution/**"
+      - "apps/web/scripts/em1-local-auth-e2e.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  auth-postgrest:
+    name: EM-1 Local Supabase GoTrue + PostgREST
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci --no-audit --no-fund
+
+      - name: Initialize disposable Supabase local config
+        run: npx --yes supabase@2.120.0 init
+
+      - name: Start local Supabase Auth, REST and DB services
+        run: |
+          npx --yes supabase@2.120.0 start -x studio,imgproxy,edge-runtime,vector,logflare,inbucket,realtime,storage-api
+
+      - name: Exercise real GoTrue sessions and PostgREST row policies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.120.0 status -o env > /tmp/em1-supabase-status.env
+          set -a
+          source /tmp/em1-supabase-status.env
+          set +a
+          test -n "$API_URL" && test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
+          node apps/web/scripts/em1-local-auth-e2e.mjs
+
+      - name: Shut down local Supabase
+        if: always()
+        run: npx --yes supabase@2.120.0 stop --no-backup || true
+
+      - name: Scope assurance
+        if: always()
+        run: |
+          echo "Local Supabase services in GitHub Actions only."
+          echo "Hosted Supabase project not linked or modified."
+          echo "Browser UI E2E is a separate acceptance gate."
