@@ -1,7 +1,8 @@
 # Execution Map — Technical Implementation Roadmap (EM v0.1)
 
-- **Status:** TRACK_REGISTERED / EM-0_REPOSITORY_CLOSED / EM-1_SOURCE_IMPLEMENTED_IN_PR_96 (HOSTED_NOT_DEPLOYED)
-- **EM-0 audit:** [EM0_BOUNDARY_AUDIT.md](EM0_BOUNDARY_AUDIT.md) (repository/source audit; schema migration not yet implemented)
+- **Status:** TRACK_REGISTERED / EM-0_CLOSED / EM-1A_1B_SOURCE_IMPLEMENTED_IN_PR_96 (ISOLATED_CI_PASS, HOSTED_NOT_DEPLOYED)
+- **EM-0 audit:** [EM0_BOUNDARY_AUDIT.md](EM0_BOUNDARY_AUDIT.md) (repository/source audit closed)
+- **EM-1 source/verification:** [EM1A_IMPLEMENTATION_HANDOFF.md](EM1A_IMPLEMENTATION_HANDOFF.md), [EM1B_IMPLEMENTATION_HANDOFF.md](EM1B_IMPLEMENTATION_HANDOFF.md)
 - **Date:** 2026-10-29
 - **Repository:** gycha0109-beep/BuildMap
 - **Development mode:** parallel, additive extension inside the existing BuildMap repository
@@ -9,7 +10,7 @@
 - **Pilot:** gycha0109-beep/MyeongHa, using real roadmap and GitHub evidence
 - **Milestone IDs:** EM-0 through EM-7 (not replacements for existing BuildMap Phase IDs)
 
-> This document registers a new technical roadmap. Registration does not mean its implementation, CI verification, deployment, or progress calculation has occurred. No execution progress percentage is asserted.
+> This roadmap is an implementation contract, not proof of deployment. EM-0 is closed; EM-1 source and isolated SQL CI exist in PR #96 but hosted release and browser E2E are not proven. No Execution Map implementation progress percentage is asserted.
 
 ## 1. Purpose and product boundary
 
@@ -212,7 +213,7 @@ Track state at registration:
 | Phase | Status | Verified implementation progress |
 | --- | --- | --- |
 | EM-0 | REPOSITORY_AUDIT_CLOSED (#95) | Not measured |
-| EM-1 | SOURCE_IN_REVIEW (#96), NOT_DEPLOYED | Not measured |
+| EM-1 | EM-1A/B SOURCE_IN_REVIEW (#96); ISOLATED_SQL_CI_PASS; NOT_DEPLOYED | Not measured |
 | EM-2 | NOT_STARTED | Not measured |
 | EM-3 | NOT_STARTED | Not measured |
 | EM-4 | NOT_STARTED | Not measured |
