@@ -237,3 +237,183 @@ export async function approveRoadmapRevisionAction(projectId: string, form: Form
   if (result.error || !result.data) finish(projectId, "approve-error");
   finish(projectId, "revision-approved");
 }
+
+
+const importedCriterionSchema = z.object({
+  title: criterionTitleSchema,
+  ruleType: ruleSchema,
+  required: z.boolean(),
+}).strict();
+
+const importedMilestoneSchema = z.object({
+  title: titleSchema,
+  description: z.string().trim().max(2000).optional(),
+  weight: weightSchema.refine((v) => Math.abs(v * 10000 - Math.round(v * 10000)) < 0.000001),
+  criteria: z.array(importedCriterionSchema).min(1).max(30)
+    .refine((items) => items.some((item) => item.required), "Each milestone requires a required criterion."),
+}).strict();
+
+const importedRoadmapSchema = z.array(importedMilestoneSchema).min(1).max(50);
+
+export async function importRoadmapDraftAction(projectId: string, form: FormData) {
+  const basics = z.object({
+    trackId: idSchema,
+    title: titleSchema,
+    changeReason: z.string().trim().max(2000),
+  }).safeParse({
+    trackId: textField(form, "trackId"),
+    title: textField(form, "title"),
+    changeReason: textField(form, "changeReason"),
+  });
+  const source = textField(form, "roadmapJson");
+  if (!basics.success || source.length > 65536 || !source.trim()) {
+    redirect(executionPath(projectId, "invalid-import"));
+  }
+
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(source);
+  } catch {
+    redirect(executionPath(projectId, "invalid-import"));
+  }
+  const payload = importedRoadmapSchema.safeParse(decoded);
+  if (!payload.success) redirect(executionPath(projectId, "invalid-import"));
+
+  const { supabase } = await ownerContext(projectId);
+  const result = await supabase.rpc("execution_import_draft", {
+    p_project_id: projectId,
+    p_track_id: basics.data.trackId,
+    p_title: basics.data.title,
+    p_change_reason: basics.data.changeReason || null,
+    p_milestones: payload.data,
+  });
+
+  if (result.error || !result.data) finish(projectId, "import-error");
+  finish(projectId, "import-created");
+}
+
+export async function updateExecutionMilestoneAction(projectId: string, form: FormData) {
+  const data = z.object({
+    trackId: idSchema,
+    revisionId: idSchema,
+    milestoneId: idSchema,
+    title: titleSchema,
+    description: z.string().trim().max(2000),
+    weight: weightSchema,
+  }).safeParse({
+    trackId: textField(form, "trackId"),
+    revisionId: textField(form, "revisionId"),
+    milestoneId: textField(form, "milestoneId"),
+    title: textField(form, "title"),
+    description: textField(form, "description"),
+    weight: textField(form, "weight"),
+  });
+  if (!data.success || Math.abs(data.data.weight * 10000 - Math.round(data.data.weight * 10000)) > 0.000001) {
+    redirect(executionPath(projectId, "invalid-milestone"));
+  }
+  const { supabase } = await ownerContext(projectId);
+  const updated = await supabase.from("execution_milestones")
+    .update({
+      title: data.data.title,
+      description: data.data.description || null,
+      weight: data.data.weight,
+    })
+    .eq("id", data.data.milestoneId)
+    .eq("project_id", projectId)
+    .eq("track_id", data.data.trackId)
+    .eq("roadmap_revision_id", data.data.revisionId)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) finish(projectId, "milestone-error");
+  finish(projectId, "milestone-updated");
+}
+
+export async function archiveExecutionMilestoneAction(projectId: string, form: FormData) {
+  const ids = z.object({
+    trackId: idSchema,
+    revisionId: idSchema,
+    milestoneId: idSchema,
+  }).safeParse({
+    trackId: textField(form, "trackId"),
+    revisionId: textField(form, "revisionId"),
+    milestoneId: textField(form, "milestoneId"),
+  });
+  if (!ids.success) redirect(executionPath(projectId, "invalid-milestone"));
+  const { supabase } = await ownerContext(projectId);
+  const archived = await supabase.from("execution_milestones")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", ids.data.milestoneId)
+    .eq("project_id", projectId)
+    .eq("track_id", ids.data.trackId)
+    .eq("roadmap_revision_id", ids.data.revisionId)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (archived.error || !archived.data) finish(projectId, "milestone-error");
+  finish(projectId, "milestone-archived");
+}
+
+export async function updateCompletionCriterionAction(projectId: string, form: FormData) {
+  const ids = z.object({
+    trackId: idSchema,
+    revisionId: idSchema,
+    milestoneId: idSchema,
+    criterionId: idSchema,
+    title: criterionTitleSchema,
+    ruleType: ruleSchema,
+  }).safeParse({
+    trackId: textField(form, "trackId"),
+    revisionId: textField(form, "revisionId"),
+    milestoneId: textField(form, "milestoneId"),
+    criterionId: textField(form, "criterionId"),
+    title: textField(form, "title"),
+    ruleType: textField(form, "ruleType"),
+  });
+  if (!ids.success) redirect(executionPath(projectId, "invalid-criterion"));
+  const { supabase } = await ownerContext(projectId);
+  const updated = await supabase.from("completion_criteria")
+    .update({
+      title: ids.data.title,
+      rule_type: ids.data.ruleType,
+      is_required: form.get("isRequired") === "on",
+    })
+    .eq("id", ids.data.criterionId)
+    .eq("project_id", projectId)
+    .eq("track_id", ids.data.trackId)
+    .eq("roadmap_revision_id", ids.data.revisionId)
+    .eq("milestone_id", ids.data.milestoneId)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) finish(projectId, "criterion-error");
+  finish(projectId, "criterion-updated");
+}
+
+export async function archiveCompletionCriterionAction(projectId: string, form: FormData) {
+  const ids = z.object({
+    trackId: idSchema,
+    revisionId: idSchema,
+    milestoneId: idSchema,
+    criterionId: idSchema,
+  }).safeParse({
+    trackId: textField(form, "trackId"),
+    revisionId: textField(form, "revisionId"),
+    milestoneId: textField(form, "milestoneId"),
+    criterionId: textField(form, "criterionId"),
+  });
+  if (!ids.success) redirect(executionPath(projectId, "invalid-criterion"));
+  const { supabase } = await ownerContext(projectId);
+  const archived = await supabase.from("completion_criteria")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", ids.data.criterionId)
+    .eq("project_id", projectId)
+    .eq("track_id", ids.data.trackId)
+    .eq("roadmap_revision_id", ids.data.revisionId)
+    .eq("milestone_id", ids.data.milestoneId)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (archived.error || !archived.data) finish(projectId, "criterion-error");
+  finish(projectId, "criterion-archived");
+}
