@@ -93,6 +93,9 @@ jobs:
           wait "$approval_pid"
           cat /tmp/em1-approve.log
 
+      - name: Rehearse historical migrations 00–21 and EM-1 migration 22
+        run: bash scripts/execution-contract/run-full-lineage-rehearsal.sh
+
       - name: Confirm isolation
         run: |
           echo "Target: ephemeral PostgreSQL service container"
