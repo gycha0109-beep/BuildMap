@@ -68,6 +68,9 @@ jobs:
       - name: Adversarial tenant RLS matrix
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-tenant-matrix.sql
 
+      - name: Verify atomic import and archived draft semantics
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-import-scenarios.sql
+
       - name: Verify concurrent approval blocks late criterion mutations
         shell: bash
         run: |
