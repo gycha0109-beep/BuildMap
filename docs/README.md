@@ -9,6 +9,14 @@
 3. `docs/screens/screen-priorities.md`
 4. `docs/data-model/initial-data-scope.md`
 
+## Parallel extension: Execution Map
+
+- **Registered technical roadmap:** [Execution Map — Technical Implementation Roadmap (EM v0.1)](execution-map/TECHNICAL_ROADMAP.md)
+- **Development mode:** same BuildMap repository, independent parallel EM-0~EM-7 track; EM-0~EM-5 are the MVP scope.
+- **Purpose:** roadmap completion criteria → verified GitHub evidence → deterministic, explainable progress. AI suggestions do not authorize completion.
+- **Status:** roadmap documented, implementation **NOT_STARTED**. No verified Execution Map progress percentage exists yet.
+- **Authority boundary:** existing Capture/Review/Change Card/Decision flow and Phase 53A remain authoritative and proceed independently. No PIE/WatchTower runtime dependency is introduced.
+
 `docs/handoff/CURRENT-HANDOFF.md`는 이름과 달리 Phase31 closure 당시 hash-protected historical snapshot이다. Phase별 설계·검증 문서 역시 해당 시점의 historical evidence이며 과거 README의 `PENDING`, `HOLD`, `DRAFT` 문자열만으로 현재 상태를 판정하지 않는다.
 
 ## Current implementation status
