@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:phase52": "node scripts/phase52-figma-contract.mjs"
+    "test:phase52": "node scripts/phase52-figma-contract.mjs",
+    "test:em1": "node scripts/phase-em1-schema-contract.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
