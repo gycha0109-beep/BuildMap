@@ -12,6 +12,10 @@ Phase 53A 평가/구현 계약은 다음 문서가 authoritative하다.
 
 `docs/decisions/phase53a-github-ephemeral-decision-worthiness-triage-evaluation-design.md`
 
+## Parallel roadmap registration (documentation only)
+
+Execution Map is registered as an independent parallel BuildMap extension track in [docs/execution-map/TECHNICAL_ROADMAP.md](../execution-map/TECHNICAL_ROADMAP.md). EM-0~EM-5 define its proposed MVP implementation sequence; EM-6/EM-7 are post-MVP. **Implementation has not started; no progress percentages or completed CI are claimed.** This registration does not supersede the existing Phase 53A immediate implementation authority or modify the Capture/Review/Decision boundary, provider authority, database schema, or runtime.
+
 ---
 
 # Current repository / deployment authority

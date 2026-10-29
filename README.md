@@ -91,6 +91,10 @@ Current product/runtime status:
 4. `docs/screens/screen-priorities.md`
 5. `docs/data-model/initial-data-scope.md`
 
+### Parallel extension roadmap — Execution Map
+
+The separate, additive **Execution Map** development track is registered in [docs/execution-map/TECHNICAL_ROADMAP.md](docs/execution-map/TECHNICAL_ROADMAP.md). It connects approved roadmap milestones and completion criteria to verified GitHub PR/CI/deployment evidence and deterministic, explainable progress. MVP scope is EM-0 through EM-5; EM-6/7 are post-MVP. **Documentation registered; implementation not started.** This does not replace the existing Phase 53A roadmap or alter Builder-controlled Change Card/Decision approval.
+
 `docs/handoff/CURRENT-HANDOFF.md` is a Phase31 hash-protected historical closure snapshot and is intentionally no longer the live handoff.
 
 ## Repository layout
