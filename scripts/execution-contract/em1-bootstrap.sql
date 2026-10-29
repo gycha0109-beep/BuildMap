@@ -61,6 +61,7 @@ as $$
 $$;
 
 revoke execute on function public.is_project_owner(uuid) from public, anon, authenticated;
+grant execute on function public.is_project_owner(uuid) to authenticated;
 grant select on public.user_profiles, public.builder_profiles, public.projects to authenticated;
 
 insert into auth.users (id) values
