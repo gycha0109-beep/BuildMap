@@ -34,7 +34,7 @@ for (const table of tables) {
     );
   }
 }
-assert.equal((sql.match(/public\.is_project_owner\(project_id\)/g) ?? []).length, 12);
+assert.equal((sql.match(/public\.is_project_owner\(project_id\)/g) ?? []).length, 16, "4 tables each require SELECT/INSERT/UPDATE USING+WITH CHECK ownership");
 
 for (const [label, pattern] of [
   ["track scoped FK", /foreign key \(project_id, track_id\)[\s\S]*?references public\.execution_tracks\(project_id, id\)/i],
