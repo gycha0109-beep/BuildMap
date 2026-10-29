@@ -45,7 +45,7 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 
 ## Next bounded slices
 
-- **EM-1 remaining:** full production-schema migration rehearsal, authenticated real-browser E2E, controlled migration/release and post-deploy verification. Editing and import source work is in [EM-1B handoff](EM1B_IMPLEMENTATION_HANDOFF.md).
+- **EM-1 remaining:** realistic Supabase authentication/browser E2E, controlled migration/release and post-deploy verification. The complete repository SQL lineage replay is now PASS on disposable PostgreSQL; see EM-1B handoff. Editing and import source work is in [EM-1B handoff](EM1B_IMPLEMENTATION_HANDOFF.md).
 - **EM-2:** GitHub evidence adapter with separately reviewed and appropriately scoped permission expansion for Issues, Checks and Deployments.
 - **EM-3:** deterministic evaluator/progress engine using approved immutable revision definitions and verified evidence.
 
@@ -54,4 +54,4 @@ Existing schema and migrations 00–21 remain untouched. No direct updates to Ch
 - Historical 00–21 migration list was observed read-only against the connected BuildMap Supabase project on 2026-10-29.
 - EM-0 source audit #95 is merged.
 - EM-1A schema, private Builder editor/actions and CI fixtures are committed in PR #96. Disposable PostgreSQL/tenant/concurrency runs are passing at tested commits; final PR-head verification must be repeated after later changes.
-- Isolated SQL/RLS/concurrency checks: **PASS in disposable PostgreSQL CI**. Hosted migration deployment and real authenticated browser behavior: **NOT VERIFIED / NOT CLAIMED**.
+- Isolated SQL/RLS/concurrency and entire 00–22 repository migration replay: **PASS in disposable PostgreSQL CI**. Hosted migration deployment and real authenticated browser behavior: **NOT VERIFIED / NOT CLAIMED**.
