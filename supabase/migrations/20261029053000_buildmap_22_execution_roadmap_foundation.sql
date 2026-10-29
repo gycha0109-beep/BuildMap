@@ -414,7 +414,7 @@ begin
     raise exception using errcode='23505', message='draft_exists';
   end if;
 
-  select pg_catalog.coalesce(max(version), 0) + 1 into v_version
+  select coalesce(max(version), 0) + 1 into v_version
   from public.roadmap_revisions r
   where r.track_id = p_track_id;
 
