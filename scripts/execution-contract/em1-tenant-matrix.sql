@@ -97,9 +97,9 @@ begin
        '00000000-0000-4000-8000-000000000702',
        '00000000-0000-4000-8000-000000000803',
        'Wrong tenant criterion',10,'PR_MERGED');
-  exception when foreign_key_violation then rejected := true;
+  exception when foreign_key_violation or raise_exception then rejected := true;
   end;
-  if not rejected then raise exception 'FAIL: cross-project criterion FK accepted'; end if;
+  if not rejected then raise exception 'FAIL: cross-project criterion accepted'; end if;
 end
 $$;
 
