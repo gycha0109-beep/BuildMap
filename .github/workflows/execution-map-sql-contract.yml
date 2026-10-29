@@ -65,6 +65,28 @@ jobs:
       - name: Test owner policies, cross-project isolation and revision immutability
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-scenarios.sql
 
+      - name: Verify concurrent approval blocks late criterion mutations
+        shell: bash
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-concurrent-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-concurrent-approve.sql > /tmp/em1-approve.log 2>&1 &
+          approval_pid=$!
+          ready=0
+          for i in $(seq 1 50); do
+            active=$(psql -X -At -v ON_ERROR_STOP=1 -c "select count(*) from pg_stat_activity where state = 'active' and query like 'select pg_sleep(3)%';")
+            if [ "$active" = "1" ]; then ready=1; break; fi
+            sleep 0.1
+          done
+          if [ "$ready" != "1" ]; then
+            cat /tmp/em1-approve.log
+            wait "$approval_pid" || true
+            echo "Approval lock never reached" >&2
+            exit 1
+          fi
+          psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-concurrent-attempt.sql
+          wait "$approval_pid"
+          cat /tmp/em1-approve.log
+
       - name: Confirm isolation
         run: |
           echo "Target: ephemeral PostgreSQL service container"
