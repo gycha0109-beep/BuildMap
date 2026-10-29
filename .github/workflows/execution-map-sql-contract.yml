@@ -65,6 +65,9 @@ jobs:
       - name: Test owner policies, cross-project isolation and revision immutability
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-scenarios.sql
 
+      - name: Adversarial tenant RLS matrix
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-tenant-matrix.sql
+
       - name: Verify concurrent approval blocks late criterion mutations
         shell: bash
         run: |
