@@ -232,6 +232,16 @@ export async function computeTrustedExecutionReadiness(input: {
         if(status.sourceState==="CURRENT_SOURCE_MATCH" &&
           status.currentSha===snapshot.data.source_sha &&
           status.currentSha!==null) {
+          // The owner can append an observation while the provider request is
+          // in flight. Re-read latest sequence before constructing any proof.
+          const latest=await supabase.from("execution_evidence_observations")
+            .select("source_sha,source_state,version_sequence")
+            .eq("project_id",input.projectId).eq("evidence_id",link.evidenceId)
+            .order("version_sequence",{ascending:false}).limit(1).maybeSingle();
+          if(latest.error||!latest.data||
+            latest.data.version_sequence!==snapshot.data.version_sequence ||
+            latest.data.source_sha!==snapshot.data.source_sha ||
+            latest.data.source_state!=="SOURCE_CONFIRMED") continue;
           rechecks.push({
             kind:"GITHUB_PR_MERGE_RECHECK",
             evidenceId:link.evidenceId,sourceId:link.sourceId,
