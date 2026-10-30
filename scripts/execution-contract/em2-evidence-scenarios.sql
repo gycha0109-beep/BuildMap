@@ -85,6 +85,25 @@ begin
     raise exception 'FAIL: old merge SHA snapshot was overwritten';
   end if;
 
+  -- A -> B -> A must preserve the third transition, not dedupe against
+  -- an old non-current snapshot.
+  v_result := public.execution_record_evidence_batch(
+    '00000000-0000-4000-8000-000000000511',12345,'Example/project',
+    '[{"sourceType":"merged_pull_request","sourceId":"pr:42",
+       "sourceState":"SOURCE_CONFIRMED","sourceSha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "sourceUrl":"https://github.com/Example/project/pull/42",
+       "title":"PR merged","reason":null,"occurredAt":"2026-10-29T22:30:00Z"}]'::jsonb
+  );
+  if v_result->>'newSnapshots' is distinct from '1' then
+    raise exception 'FAIL: reappearing old SHA transition discarded';
+  end if;
+  if (select count(*) from public.execution_evidence_observations where evidence_id=v_evidence) <> 3
+    or (select source_sha from public.execution_evidence_observations
+      where evidence_id=v_evidence order by version_sequence desc limit 1)
+      is distinct from 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' then
+    raise exception 'FAIL: A to B to A history/current version incorrect';
+  end if;
+
   v_rejected := false;
   begin
     perform public.execution_record_evidence_batch(
