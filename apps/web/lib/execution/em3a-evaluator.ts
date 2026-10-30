@@ -8,6 +8,8 @@
  * This module does not implement that adapter or persist any evaluation.
  */
 
+export const EM3A_RULE_VERSION = "em3a-criterion-v1" as const;
+
 export type CriterionState = "PASS" | "FAIL" | "PENDING" | "UNKNOWN";
 export type RuleType =
   | "PR_MERGED"
@@ -100,6 +102,7 @@ export type ExactSourceAttestation = {
 };
 
 export type CriterionEvaluation = {
+  ruleVersion: typeof EM3A_RULE_VERSION;
   projectId: string;
   revisionId: string;
   criterionId: string;
@@ -155,6 +158,7 @@ function instant(value: unknown): number | null {
 
 function result(criterion: CompletionCriterion, state: CriterionState, reason: string, verifiedAt: string | null = null): CriterionEvaluation {
   return {
+    ruleVersion: EM3A_RULE_VERSION,
     projectId: criterion.projectId,
     revisionId: criterion.revisionId,
     criterionId: criterion.id,

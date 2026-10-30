@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { evaluateCriterion, evaluateRoadmapProgress } from "../lib/execution/em3a-evaluator.ts";
+import { EM3A_RULE_VERSION, evaluateCriterion, evaluateRoadmapProgress } from "../lib/execution/em3a-evaluator.ts";
 
 const NOW = "2026-10-30T02:00:00.000Z";
 const VERIFIED_AT = "2026-10-30T01:00:00.000Z";
@@ -37,6 +37,7 @@ const expected = (criterion, fact, state, overrides = {}) => {
 
 for (const [criterion, fact] of all) {
   expected(criterion, fact, "PASS");
+  assert.equal(evaluateCriterion(criterion, evidence(criterion, fact), NOW).ruleVersion, EM3A_RULE_VERSION);
   assert.equal(evaluateCriterion(criterion, null, NOW).state, "UNKNOWN");
   expected(criterion, fact, "UNKNOWN", { status: "UNKNOWN" });
   expected(criterion, fact, "PENDING", { status: "PENDING" });

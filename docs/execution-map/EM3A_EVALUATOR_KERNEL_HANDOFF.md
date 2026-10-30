@@ -7,7 +7,7 @@
 
 ## Deliverables
 
-- `apps/web/lib/execution/em3a-evaluator.ts`: deterministic criterion rules and revision-weighted progress.
+- `apps/web/lib/execution/em3a-evaluator.ts`: deterministic criterion rules, explicit `em3a-criterion-v1` rule version on each evaluation, and revision-weighted progress.
 - `apps/web/scripts/em3a-kernel-contract.mjs`: exact-SHA, project/revision isolation, stale/unknown, conflicting observations, five-rule matrix, manual approval and frozen denominator tests.
 - `.github/workflows/em3a-kernel.yml`: read-only source contract job on an exact PR SHA; no hosted SQL, secrets, provider API or application deployment.
 
