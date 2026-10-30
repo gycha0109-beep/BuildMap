@@ -43,7 +43,7 @@ create table public.execution_evidence_observations (
   project_id uuid not null,
   evidence_id uuid not null,
   version_sequence integer not null check (version_sequence > 0),
-  snapshot_fingerprint text not null check (snapshot_fingerprint ~ '^[0-9a-f]{32}
+  snapshot_fingerprint text not null check (snapshot_fingerprint ~ '^[0-9a-f]{32}$'),
   source_state text not null check (source_state in ('SOURCE_CONFIRMED', 'UNKNOWN')),
   source_sha text check (source_sha is null or source_sha ~ '^[0-9a-f]{40}$'),
   reason text check (reason is null or char_length(reason) between 1 and 128),
