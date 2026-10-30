@@ -1,0 +1,100 @@
+name: EM-3B PR Verification Contract
+on:
+  pull_request:
+    paths:
+      - "apps/web/lib/execution/**"
+      - "apps/web/scripts/em3b-authorized-pr-contract.mjs"
+      - "apps/web/scripts/em3b-server-authority-contract.mjs"
+      - "apps/web/scripts/em3b-local-auth-e2e.mjs"
+      - ".github/workflows/em3b-authorized-pr-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  em3b-preflight:
+    name: EM-3B authorized PR recheck contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: node --experimental-strip-types apps/web/scripts/em3b-authorized-pr-contract.mjs
+
+  web-validation:
+    name: EM-3B web lint, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+      - name: EM-3B runtime authority and failure-path contract
+        working-directory: apps/web
+        run: node --experimental-strip-types scripts/em3b-server-authority-contract.mjs
+      - name: Lint
+        working-directory: apps/web
+        run: npm run lint
+      - name: Typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+      - name: Production-equivalent build (preview only)
+        working-directory: apps/web
+        run: npm run build
+
+  local-auth-postgrest:
+    name: EM-3B local Auth, PostgREST and verified-source path E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+      - name: Initialize disposable local Supabase
+        run: npx --yes supabase@2.120.0 init
+      - name: Start local Auth and PostgREST, replay migrations 00-23
+        run: npx --yes supabase@2.120.0 start -x studio,imgproxy,edge-runtime,vector,logflare,inbucket,realtime,storage-api
+      - name: Exercise real local JWTs, RLS and EM-3B server adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.120.0 status -o env > /tmp/em3b-supabase-status.env
+          set -a
+          source /tmp/em3b-supabase-status.env
+          set +a
+          test -n "$API_URL" && test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
+          node apps/web/scripts/em1-local-auth-e2e.mjs
+          node apps/web/scripts/em2-local-auth-e2e.mjs
+          node --experimental-strip-types apps/web/scripts/em3b-local-auth-e2e.mjs
+      - name: Destroy disposable local Supabase
+        if: always()
+        run: npx --yes supabase@2.120.0 stop --no-backup || true
+      - name: Hosted provider isolation statement
+        if: always()
+        run: |
+          echo "This job does not link to or mutate hosted BuildMap Supabase."
+          echo "GitHub App/HMAC source reads are stubbed; no live provider acceptance asserted."
