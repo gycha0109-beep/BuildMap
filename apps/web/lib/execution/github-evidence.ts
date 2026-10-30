@@ -125,13 +125,24 @@ export async function readGitHubExecutionEvidencePreview(input: {
 
   // No Issues / Checks / Actions / Deployment calls until required permissions are
   // explicitly granted and tested. Never treat missing scopes as passing evidence.
-  const [pulls, releases] = await Promise.all([
+  const [pullResult, releaseResult] = await Promise.allSettled([
     getGitHub<GitHubPullListItem[]>(
       `${path}/pulls?state=closed&sort=updated&direction=desc&per_page=30`,
       token,
     ),
     getGitHub<GitHubReleaseItem[]>(`${path}/releases?per_page=10`, token),
   ]);
+
+  if (pullResult.status === "rejected" && releaseResult.status === "rejected") {
+    throw pullResult.reason;
+  }
+
+  const pulls = pullResult.status === "fulfilled" && Array.isArray(pullResult.value)
+    ? pullResult.value
+    : [];
+  const releases = releaseResult.status === "fulfilled" && Array.isArray(releaseResult.value)
+    ? releaseResult.value
+    : [];
 
   const latestMerged = pulls
     .filter((item) =>
@@ -171,8 +182,16 @@ export async function readGitHubExecutionEvidencePreview(input: {
     snapshotWindow: "last_30_closed_prs_and_10_releases",
     evidence,
     capabilities: {
-      prMerge: CONFIRMED,
-      releaseReference: CONFIRMED,
+      prMerge: pullResult.status === "fulfilled" && Array.isArray(pullResult.value)
+        ? CONFIRMED
+        : { status: "UNKNOWN", reason: pullResult.status === "rejected"
+          ? errorReason(pullResult.reason)
+          : "github_source_list_invalid" },
+      releaseReference: releaseResult.status === "fulfilled" && Array.isArray(releaseResult.value)
+        ? CONFIRMED
+        : { status: "UNKNOWN", reason: releaseResult.status === "rejected"
+          ? errorReason(releaseResult.reason)
+          : "github_release_list_invalid" },
       issue: UNKNOWN_PERMISSION,
       commitChecks: UNKNOWN_PERMISSION,
       workflowRuns: UNKNOWN_PERMISSION,
