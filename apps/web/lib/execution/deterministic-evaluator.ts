@@ -17,6 +17,7 @@ export type RuleType =
 
 export type CriterionVerdict = "PASS" | "FAIL" | "PENDING" | "UNKNOWN";
 export type ProgressAvailability = "CALCULATED" | "NOT_CALCULABLE";
+export type EvaluationPolicyVersion = "EM3A_V1" | "EM3C_V2";
 
 export type Criterion = {
   id: string;
@@ -60,6 +61,17 @@ export type FreshProviderRecheck = {
   result: "CURRENT_SOURCE_MATCH" | "UNKNOWN";
 };
 
+export type TrustedManualAcceptance = {
+  kind: "BUILDER_MANUAL_ACCEPTANCE";
+  eventId: string;
+  criterionId: string;
+  revisionId: string;
+  action: "accepted" | "revoked";
+  actorBuilderProfileId: string;
+  reason: string;
+  recordedAt: string;
+};
+
 export type RuleAssessment = {
   criterionId: string;
   ruleType: RuleType;
@@ -92,14 +104,14 @@ export type ValidProgress = {
     pending: number;
     unknown: number;
   };
-  policyVersion: "EM3A_V1";
+  policyVersion: EvaluationPolicyVersion;
 };
 
 export type InvalidProgress = {
   status: "NOT_CALCULABLE";
   revisionId: string;
   reason: string;
-  policyVersion: "EM3A_V1";
+  policyVersion: EvaluationPolicyVersion;
 };
 export type ProgressAssessment = ValidProgress | InvalidProgress;
 
@@ -123,8 +135,11 @@ function isFreshProof(proof: FreshProviderRecheck, nowIso: string) {
 
 function assessCriterion(
   criterion: Criterion,
+  revisionId: string,
   associations: readonly SourceAssociation[],
   rechecks: readonly FreshProviderRecheck[],
+  manualAcceptances: readonly TrustedManualAcceptance[],
+  manualEnabled: boolean,
   nowIso: string,
 ): RuleAssessment {
   const response=(verdict: CriterionVerdict,reason: string,evidenceId: string | null=null): RuleAssessment=>({
@@ -132,8 +147,33 @@ function assessCriterion(
     required:criterion.isRequired,verdict,reason,supportingEvidenceId:evidenceId,
   });
 
-  if (criterion.ruleType === "MANUAL_ACCEPTANCE")
-    return response("UNKNOWN","builder_manual_acceptance_record_not_implemented");
+  if (criterion.ruleType === "MANUAL_ACCEPTANCE") {
+    if(!manualEnabled)
+      return response("UNKNOWN","builder_manual_acceptance_record_not_implemented");
+    // Only a trusted server adapter may populate these events from the
+    // immutable owner-authorized SQL audit. The helper itself cannot attest
+    // the authenticity of caller-supplied objects.
+    const matching=manualAcceptances.filter((event)=>
+      event.kind==="BUILDER_MANUAL_ACCEPTANCE" &&
+      event.criterionId===criterion.id &&
+      event.revisionId===revisionId
+    );
+    if(matching.length===0)
+      return response("UNKNOWN","builder_manual_acceptance_record_not_implemented");
+    if(matching.length!==1) return response("UNKNOWN","ambiguous_manual_event_snapshot");
+    const event=matching[0];
+    const eventTime=Date.parse(event.recordedAt);
+    const now=Date.parse(nowIso);
+    if(!event.eventId || !event.actorBuilderProfileId ||
+       event.reason.trim().length<12 || event.reason.length>2000 ||
+       !Number.isFinite(eventTime) || eventTime>now)
+      return response("UNKNOWN","invalid_builder_manual_event");
+    if(event.action==="revoked")
+      return response("PENDING","builder_manual_acceptance_revoked");
+    if(event.action==="accepted")
+      return response("PASS","explicit_builder_manual_acceptance");
+    return response("UNKNOWN","invalid_builder_manual_event_action");
+  }
   if (criterion.ruleType !== "PR_MERGED")
     return response("UNKNOWN","rule_specific_provider_verifier_not_implemented");
 
@@ -187,11 +227,15 @@ export function evaluateApprovedRoadmap(input: {
   revision: Revision;
   associations: readonly SourceAssociation[];
   providerRechecks: readonly FreshProviderRecheck[];
+  manualAcceptances?: readonly TrustedManualAcceptance[];
+  policyVersion?: "EM3C_V2";
   nowIso: string;
 }): ProgressAssessment {
   const { revision, associations, providerRechecks, nowIso }=input;
+  const policyVersion:EvaluationPolicyVersion=input.policyVersion??"EM3A_V1";
+  const manualAcceptances=policyVersion==="EM3C_V2"?input.manualAcceptances??[]:[];
   const invalid=(reason: string): InvalidProgress=>({
-    status:"NOT_CALCULABLE",revisionId:revision.id,reason,policyVersion:"EM3A_V1",
+    status:"NOT_CALCULABLE",revisionId:revision.id,reason,policyVersion,
   });
 
   if (revision.status!=="approved" || !Number.isSafeInteger(revision.version) || revision.version<=0)
@@ -219,7 +263,8 @@ export function evaluateApprovedRoadmap(input: {
     }
 
     const checked=criteria.map((criterion)=>
-      assessCriterion(criterion,associations,providerRechecks,nowIso)
+      assessCriterion(criterion,revision.id,associations,providerRechecks,manualAcceptances,
+        policyVersion==="EM3C_V2",nowIso)
     );
     const verdict=milestoneVerdict(checked);
     totalWeightUnits+=weightUnits;
@@ -244,6 +289,6 @@ export function evaluateApprovedRoadmap(input: {
     status:"CALCULATED",revisionId:revision.id,version:revision.version,
     basisPoints,percent:basisPoints/100,
     completedWeightUnits,totalWeightUnits,milestones,coverage,
-    policyVersion:"EM3A_V1",
+    policyVersion,
   };
 }

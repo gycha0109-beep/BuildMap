@@ -15,13 +15,13 @@ while IFS= read -r migration; do
   }
   count=$((count + 1))
 done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort)
-if [[ "$count" -lt 24 ]]; then
-  echo "Expected historical migrations 00-21 and new 22-23; observed $count" >&2
+if [[ "$count" -lt 25 ]]; then
+  echo "Expected historical migrations 00-21 and new 22-24; observed $count" >&2
   exit 1
 fi
 
 psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em1-full-schema-seed.sql
-for scenario in em1-scenarios.sql em1-tenant-matrix.sql em1-import-scenarios.sql em2-evidence-scenarios.sql; do
+for scenario in em1-scenarios.sql em1-tenant-matrix.sql em1-import-scenarios.sql em2-evidence-scenarios.sql em3c-manual-scenarios.sql; do
   echo "FULL_SCHEMA_SCENARIO: $scenario"
   psql -X -v ON_ERROR_STOP=1 -f "scripts/execution-contract/$scenario"
 done

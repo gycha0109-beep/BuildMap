@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { proposeCriterionEvidenceLinkAction, reviewCriterionEvidenceLinkAction } from "./actions";
+import { proposeCriterionEvidenceLinkAction, reviewCriterionEvidenceLinkAction, recordManualAcceptanceAction } from "./actions";
+import { ManualAcceptancePanel } from "@/components/execution/manual-acceptance-panel";
 import { GitHubEvidencePreviewPanel } from "@/components/execution/github-evidence-preview-panel";
 import { ExecutionGitHubHealthPanel } from "@/components/execution/github-health-panel";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
@@ -51,12 +52,24 @@ export default async function ExecutionEvidencePage({
   const approvedIds = (approvedRevisions.data ?? []).map((item) => item.id);
   const criteria = approvedIds.length
     ? await supabase.from("completion_criteria")
-      .select("id,title,roadmap_revision_id")
+      .select("id,title,roadmap_revision_id,rule_type")
       .eq("project_id", projectId)
       .is("archived_at", null)
       .in("roadmap_revision_id", approvedIds)
       .limit(200)
     : null;
+  const manualEvents = approvedIds.length
+    ? await supabase.from("execution_manual_acceptance_events")
+      .select("id,criterion_id,event_type,reason,recorded_at,actor_builder_profile_id")
+      .eq("project_id", projectId)
+      .in("roadmap_revision_id", approvedIds)
+      .order("recorded_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(501)
+    : null;
+  const manualItems = (criteria?.data ?? [])
+    .filter((item) => item.rule_type === "MANUAL_ACCEPTANCE");
+
   const associations = await supabase.from("criterion_evidence_links")
     .select("id,criterion_id,evidence_id,review_status")
     .eq("project_id", projectId)
@@ -73,9 +86,15 @@ export default async function ExecutionEvidencePage({
     "proposal-created": "검증 전 증거 연결 후보를 등록했습니다.",
     "review-failed": "연결 후보 검토에 실패했습니다.",
     "review-recorded": "연결 후보 검토 이력을 기록했습니다. 완료 판정은 별개입니다.",
+    "manual-invalid-input": "수동 승인 사유는 12~2000자로 입력하고 조건을 선택해 주세요.",
+    "manual-criterion-invalid": "승인된 수동 완료 조건을 찾지 못했습니다.",
+    "manual-event-failed": "수동 승인/철회를 기록하지 못했습니다. 현재 상태와 권한을 확인해 주세요.",
+    "manual-accepted": "Builder 수동 승인 감사 이벤트를 기록했습니다.",
+    "manual-revoked": "Builder 수동 승인 철회 감사 이벤트를 기록했습니다.",
   };
   const proposed = proposeCriterionEvidenceLinkAction.bind(null, projectId);
   const reviewed = reviewCriterionEvidenceLinkAction.bind(null, projectId);
+  const manualRecord = recordManualAcceptanceAction.bind(null, projectId);
 
   const snapshots = cachedIds.length
     ? await supabase.from("execution_evidence_observations")
@@ -144,6 +163,13 @@ export default async function ExecutionEvidencePage({
           </ul>
         )}
       </section>
+      <ManualAcceptancePanel
+        criteria={manualItems}
+        events={(manualEvents?.data ?? []).slice(0,500)}
+        unavailable={Boolean(criteria?.error || approvedRevisions.error ||
+          manualEvents?.error || (manualEvents?.data?.length ?? 0) > 500)}
+        onRecord={manualRecord}
+      />
       <section className="surface-card stack">
         <p className="section-kicker">EM-2B · source association</p>
         <h2>완료 조건과 증거 연결</h2>

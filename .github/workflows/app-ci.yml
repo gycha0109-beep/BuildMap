@@ -2,7 +2,7 @@ name: Web App CI
 
 on:
   pull_request:
-    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em2c-permission-source-health, feat/execution-map-em3a-deterministic-evaluation-core]
+    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em2c-permission-source-health, feat/execution-map-em3a-deterministic-evaluation-core, feat/execution-map-em3b-trusted-source-adapter]
   push:
     branches: [main]
 
@@ -61,6 +61,10 @@ jobs:
       - name: EM-3B trusted server-only source correlation contract
         working-directory: apps/web
         run: npm run test:em3b
+
+      - name: EM-3C explicit manual acceptance and revocation contract
+        working-directory: apps/web
+        run: npm run test:em3c
 
       - name: Lint
         working-directory: apps/web

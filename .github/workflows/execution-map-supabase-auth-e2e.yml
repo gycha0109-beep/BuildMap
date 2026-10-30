@@ -2,7 +2,7 @@ name: Execution Map Supabase Auth E2E
 
 on:
   pull_request:
-    branches: [main, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em3a-deterministic-evaluation-core]
+    branches: [main, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em3a-deterministic-evaluation-core, feat/execution-map-em3b-trusted-source-adapter]
     paths:
       - ".github/workflows/execution-map-supabase-auth-e2e.yml"
       - "supabase/migrations/**"
@@ -15,6 +15,8 @@ on:
       - "apps/web/lib/execution/trusted-evaluation-server.ts"
       - "apps/web/app/api/projects/**/execution/verification-readiness/**"
       - "apps/web/scripts/em3b-trusted-server-adapter-contract.mjs"
+      - "apps/web/scripts/em3c-manual-acceptance-contract.mjs"
+      - "apps/web/components/execution/manual-acceptance-panel.tsx"
       - "apps/web/app/api/projects/**/execution/**"
       - "docs/execution-map/**"
   push:
@@ -67,6 +69,7 @@ jobs:
           test -n "$API_URL" && test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
           node apps/web/scripts/em1-local-auth-e2e.mjs
           node apps/web/scripts/em2-local-auth-e2e.mjs
+          node apps/web/scripts/em3c-local-auth-e2e.mjs
 
       - name: Install isolated Playwright Chromium
         working-directory: apps/web
