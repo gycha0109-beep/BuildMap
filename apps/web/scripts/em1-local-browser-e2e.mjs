@@ -71,7 +71,9 @@ try {
   await page.goto(base + "/projects/" + projectId + "/execution/evidence");
   await page.getByRole("heading",{name:"저장된 GitHub 관측 기록"}).waitFor();
   await page.getByRole("heading",{name:"완료 조건과 증거 연결"}).waitFor();
-  await page.getByText("Example/project · pr:42",{exact:true}).waitFor();
+  const cacheSection=page.locator("section.surface-card")
+    .filter({has:page.getByRole("heading",{name:"저장된 GitHub 관측 기록"})});
+  await cacheSection.getByText("Example/project · pr:42",{exact:true}).waitFor();
   await page.getByText("연결 검토 완료",{exact:false}).first().waitFor();
 
   const associationForm=page.locator("form")
