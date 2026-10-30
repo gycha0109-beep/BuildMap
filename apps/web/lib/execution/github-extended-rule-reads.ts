@@ -78,9 +78,9 @@ export async function readAndVerifyExtendedGitHubRule(input:{
   ruleType:ExtendedRuleType;
   config:ExtendedRuleConfig;
   authorization:AuthorizedExtendedRead;
-  nowIso:string;
+  nowIso:string; // retained for fixture compatibility; verification uses post-read clock
 }):Promise<ExtendedRuleResult> {
-  const {authorization,ruleType,config,nowIso}=input;
+  const {authorization,ruleType,config}=input;
   if(authorization.capability!==required[ruleType])
     return invalid("capability_lease_rule_mismatch");
   if(!validIdentity(authorization) ||
@@ -109,7 +109,7 @@ export async function readAndVerifyExtendedGitHubRule(input:{
       });
       const payload=await boundedGet(authorization,
         `/commits/${config.expectedSha}/check-runs?${args}`);
-      return verifyGitHubCheckRun({config,payload,checkedAt,nowIso});
+      return verifyGitHubCheckRun({config,payload,checkedAt,nowIso:new Date().toISOString()});
     }
 
     if(ruleType==="ARTIFACT_EXISTS"){
@@ -119,7 +119,7 @@ export async function readAndVerifyExtendedGitHubRule(input:{
       const workflowRun=await boundedGet(authorization,`/actions/runs/${runId}`);
       const payload=await boundedGet(authorization,
         `/actions/runs/${runId}/artifacts?per_page=100&page=1`);
-      return verifyGitHubArtifact({config,workflowRun,payload,checkedAt,nowIso});
+      return verifyGitHubArtifact({config,workflowRun,payload,checkedAt,nowIso:new Date().toISOString()});
     }
 
     const deploymentId=id(config.deploymentId);
@@ -132,7 +132,7 @@ export async function readAndVerifyExtendedGitHubRule(input:{
     const deployments=await boundedGet(authorization,`/deployments?${params}`);
     const statuses=await boundedGet(authorization,
       `/deployments/${deploymentId}/statuses?per_page=100&page=1`);
-    return verifyGitHubDeployment({config,deployments,statuses,checkedAt,nowIso});
+    return verifyGitHubDeployment({config,deployments,statuses,checkedAt,nowIso:new Date().toISOString()});
   } catch {
     // Permission denial, rate limit, malformed API or timeout must never PASS.
     return invalid("github_extended_provider_unavailable_or_permission_denied");
