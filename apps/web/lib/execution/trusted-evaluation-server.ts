@@ -9,6 +9,7 @@ import {
   evaluateApprovedRoadmap,
   type FreshProviderRecheck,
   type ProgressAssessment,
+  type TrustedManualAcceptance,
   type Revision,
   type RuleType,
   type SourceAssociation,
@@ -117,6 +118,38 @@ export async function computeTrustedExecutionReadiness(input: {
       reviewStatus:link.review_status as SourceAssociation["reviewStatus"],
     }];
   });
+
+  const manualCriterionIds=new Set(criterionRows
+    .filter(criterion=>criterion.rule_type==="MANUAL_ACCEPTANCE")
+    .map(criterion=>criterion.id));
+  const manualAcceptances:TrustedManualAcceptance[]=[];
+  if(manualCriterionIds.size){
+    const latestEvents=await supabase.from("execution_manual_acceptance_events")
+      .select("id,project_id,track_id,roadmap_revision_id,criterion_id,event_type,reason,actor_builder_profile_id,recorded_at")
+      .eq("project_id",input.projectId)
+      .eq("track_id",revisionRow.track_id)
+      .eq("roadmap_revision_id",input.revisionId)
+      .order("recorded_at",{ascending:false})
+      .order("id",{ascending:false}).limit(501);
+    if(latestEvents.error||!latestEvents.data||latestEvents.data.length>500)
+      return unavailable("manual_audit_unavailable_or_truncated");
+
+    // One most-recent event per approved criterion. Event identity, actor and
+    // clock are assigned by the database trigger at insertion, not the browser.
+    const seen=new Set<string>();
+    for(const event of latestEvents.data){
+      if(!manualCriterionIds.has(event.criterion_id)||seen.has(event.criterion_id))
+        continue;
+      seen.add(event.criterion_id);
+      manualAcceptances.push({
+        kind:"BUILDER_MANUAL_ACCEPTANCE",eventId:event.id,
+        criterionId:event.criterion_id,revisionId:event.roadmap_revision_id,
+        action:event.event_type as "accepted"|"revoked",
+        actorBuilderProfileId:event.actor_builder_profile_id,
+        reason:event.reason,recordedAt:event.recorded_at,
+      });
+    }
+  }
 
   const revision:Revision={
     id:revisionRow.id,
@@ -259,7 +292,7 @@ export async function computeTrustedExecutionReadiness(input: {
   // Capture evaluation time AFTER all network calls. EM-3A performs the
   // 5-minute freshness and canonical SHA checks again before any PASS.
   const assessment=evaluateApprovedRoadmap({
-    revision,associations,providerRechecks:rechecks,
+    revision,associations,providerRechecks:rechecks,manualAcceptances,
     nowIso:new Date().toISOString(),
   });
   return {state:"VERIFIED_AT_REQUEST_TIME",reason:null,assessment,rechecksPerformed};
