@@ -2,7 +2,7 @@ name: Web App CI
 
 on:
   pull_request:
-    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview]
+    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence]
   push:
     branches: [main]
 
@@ -49,6 +49,10 @@ jobs:
       - name: EM-2B evidence persistence boundary contract
         working-directory: apps/web
         run: npm run test:em2b
+
+      - name: EM-2C GitHub installation and source health contract
+        working-directory: apps/web
+        run: npm run test:em2c
 
       - name: Lint
         working-directory: apps/web

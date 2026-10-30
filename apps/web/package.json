@@ -14,7 +14,8 @@
     "test:phase52": "node scripts/phase52-figma-contract.mjs",
     "test:em1": "node scripts/phase-em1-schema-contract.mjs",
     "test:em2": "node --experimental-strip-types scripts/em2-github-evidence-contract.mjs",
-    "test:em2b": "node scripts/em2-evidence-persistence-contract.mjs"
+    "test:em2b": "node scripts/em2-evidence-persistence-contract.mjs",
+    "test:em2c": "node --experimental-strip-types scripts/em2c-source-health-contract.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
