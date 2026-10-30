@@ -180,6 +180,7 @@ do $$
 declare
   v_rejected boolean := false;
   v_count integer;
+  v_other uuid;
 begin
   select count(*) into v_count from public.execution_evidence
   where project_id='00000000-0000-4000-8000-000000000511';
@@ -197,16 +198,31 @@ begin
   end;
   if not v_rejected then raise exception 'FAIL: cross-project write through RPC'; end if;
 
+  perform public.execution_record_evidence_batch(
+    '00000000-0000-4000-8000-000000000522',98765,'Other/project',
+    '[{"sourceType":"merged_pull_request","sourceId":"pr:7",
+       "sourceState":"UNKNOWN","sourceSha":null,
+       "sourceUrl":"https://github.com/Other/project/pull/7",
+       "title":"Unverified other-project source",
+       "reason":"missing_valid_merge_sha_or_timestamp","occurredAt":null}]'::jsonb
+  );
+
+  select id into v_other from public.execution_evidence
+  where project_id='00000000-0000-4000-8000-000000000522'
+    and source_id='pr:7';
+  if v_other is null then raise exception 'FAIL: other owner evidence not created'; end if;
+
   v_rejected := false;
   begin
     insert into public.criterion_evidence_links (project_id,criterion_id,evidence_id)
-    select '00000000-0000-4000-8000-000000000522'::uuid,
-           '00000000-0000-4000-8000-000000000901'::uuid,id
-    from public.execution_evidence
-    where project_id='00000000-0000-4000-8000-000000000522' limit 1;
-  exception when others then v_rejected := true;
+    values ('00000000-0000-4000-8000-000000000522',
+            '00000000-0000-4000-8000-000000000901',v_other);
+  exception when foreign_key_violation then v_rejected := true;
   end;
-  -- Cross-project links must be rejected when one is actually attempted.
+  if not v_rejected then
+    raise exception 'FAIL: cross-project criterion/evidence FK accepted';
+  end if;
+
 end
 $$;
 
