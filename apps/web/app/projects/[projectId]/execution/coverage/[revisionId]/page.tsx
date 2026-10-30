@@ -9,6 +9,11 @@ const MAX_MILESTONES = 50;
 const MAX_CRITERIA = 200;
 const MAX_LINKS = 500;
 
+function denyCoverage(reason: string): never {
+  if (process.env.NODE_ENV === "development") console.info("EM4B_LOCAL_ROUTE_DENIAL", reason);
+  notFound();
+}
+
 const linkageText = {
   NO_LINK: "연결 없음",
   AWAITING_REVIEW: "연결 검토 대기",
@@ -22,7 +27,7 @@ export default async function ExecutionRevisionCoveragePage({
   params: Promise<{ projectId: string; revisionId: string }>;
 }) {
   const { projectId, revisionId } = await params;
-  if (!UUID.test(projectId) || !UUID.test(revisionId)) notFound();
+  if (!UUID.test(projectId) || !UUID.test(revisionId)) denyCoverage("route-id");
 
   const db = await createClient();
   const authenticated = await db.auth.getUser();
@@ -31,24 +36,24 @@ export default async function ExecutionRevisionCoveragePage({
   // No auto-creation of profiles on this read-only inspection path.
   const profile = await db.from("user_profiles").select("id")
     .eq("auth_user_id", authenticated.data.user.id).maybeSingle();
-  if (profile.error || !profile.data) notFound();
+  if (profile.error || !profile.data) denyCoverage("profile");
   const builder = await db.from("builder_profiles").select("id")
     .eq("user_profile_id", profile.data.id).maybeSingle();
-  if (builder.error || !builder.data) notFound();
+  if (builder.error || !builder.data) denyCoverage("builder");
   const project = await db.from("projects").select("id")
     .eq("id", projectId).eq("owner_builder_profile_id", builder.data.id)
     .is("archived_at", null).maybeSingle();
-  if (project.error || !project.data) notFound();
+  if (project.error || !project.data) denyCoverage("project");
 
   const revision = await db.from("roadmap_revisions")
     .select("id,track_id,title,version,status,approved_at")
     .eq("project_id", projectId).eq("id", revisionId)
     .eq("status", "approved").maybeSingle();
-  if (revision.error || !revision.data) notFound();
+  if (revision.error || !revision.data) denyCoverage("approved-revision");
   const track = await db.from("execution_tracks").select("id,name")
     .eq("project_id", projectId).eq("id", revision.data.track_id)
     .is("archived_at", null).maybeSingle();
-  if (track.error || !track.data) notFound();
+  if (track.error || !track.data) denyCoverage("active-track");
 
   const [milestones, criteria] = await Promise.all([
     db.from("execution_milestones").select("id,title,weight")
