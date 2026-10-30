@@ -89,10 +89,15 @@ export function verifyGitHubCheckRun(input:{
     return output("UNKNOWN","unbound_check_identity_or_app");
   const checks=entries(input.payload,"check_runs","total_count");
   if(!checks)return output("UNKNOWN","check_results_unavailable_truncated_or_invalid");
-  const matching=checks.filter(check=>check.name===name &&
+  const sameNamedSha=checks.filter(check=>check.name===name &&
     check.head_sha===config.expectedSha &&
-    (!runId||identifier(check.id)===runId) &&
     (!appId||identifier(object(check.app)?.id)===appId));
+  // A pinned older successful check must not prevail over a newer rerun
+  // of the same required name and SHA; ambiguous current checks are UNKNOWN.
+  if(sameNamedSha.length>1)
+    return output("UNKNOWN","ambiguous_or_rerun_required_checks");
+  const matching=sameNamedSha.filter(check=>
+    !runId||identifier(check.id)===runId);
   if(matching.length!==1)
     return output("UNKNOWN",matching.length===0
       ?"exact_check_run_not_found":"ambiguous_matching_check_runs");
