@@ -15,7 +15,7 @@ export type DiagnosticView = {
   rechecks: number;
   unavailableReason: string | null;
 };
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const rules=new Set(["PR_MERGED","CHECK_PASSED","ARTIFACT_EXISTS","DEPLOY_VERIFIED","MANUAL_ACCEPTANCE"]);
 const states=new Set(["FRESH_SOURCE_MATCHED_NOT_APPROVED_FOR_PUBLICATION","FAIL","PENDING","UNKNOWN"]);
 const record=(v:unknown):v is Record<string,unknown>=>v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -51,7 +51,7 @@ export function parsePrivateDiagnostic(
   const seen=new Set<string>();
   const rows:DiagnosticRow[]=[];
   for(const item of value.rules){
-    if(!record(item)||!record(item)||
+    if(!record(item)||
        typeof item.criterionId!=="string"||
        !expected.has(item.criterionId)||seen.has(item.criterionId)||
        typeof item.ruleType!=="string"||!rules.has(item.ruleType)||
