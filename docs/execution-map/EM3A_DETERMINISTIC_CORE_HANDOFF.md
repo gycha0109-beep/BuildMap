@@ -1,7 +1,7 @@
 # EM-3A — Versioned Deterministic Evaluation Core
 
 - Date: 2026-10-30
-- State: **PURE_CORE_IMPLEMENTED / SYNTHETIC_CONTRACT_PENDING / NOT_RUNTIME_CONNECTED / NO_PUBLIC_PERCENTAGE**
+- State: **PURE_CORE_IMPLEMENTED / DETERMINISTIC_TEST_AND_WEB_CI_PASS / NOT_RUNTIME_CONNECTED / NO_PUBLIC_PERCENTAGE**
 - Prerequisites: EM-1 #96, EM-2A #97, EM-2B #101, EM-2C #103 (stacked Draft PRs, not hosted).
 - This stage has **no database migration, provider scope change, API that accepts client-submitted proof, or production progress output**.
 
@@ -35,7 +35,7 @@ EM-3B must construct provider recheck objects **inside a trusted server-only ada
 - fixed four-place weight precision and floor-to-2dp no false 100%
 - byte-for-byte deterministic repeated calls and no runtime API exposure
 
-These tests are synthetic **calculation contracts**, not proof that BuildMap has processed a genuine GitHub deployment or check run. No real progress percentage is claimed for BuildMap or MyeongHa.
+**Verified source commit:** `7492421487da473e05af9eae1f22cfc92926adc7` — Web App CI (EM-1/2/3 contract + ESLint/TypeScript/Next.js build) PASS, PIE Prospective Shadow PASS. Check exact final PR HEAD again after documentation changes.\n\nThese tests are synthetic **calculation contracts**, not proof that BuildMap has processed a genuine GitHub deployment or check run. No real progress percentage is claimed for BuildMap or MyeongHa.
 
 ## Remaining gates
 
