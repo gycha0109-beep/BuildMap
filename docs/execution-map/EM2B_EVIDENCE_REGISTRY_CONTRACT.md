@@ -1,9 +1,9 @@
 # EM-2B — Persistent Evidence Registry and Trust Boundary (Implementation Contract)
 
 - Date: 2026-10-30
-- Status: **DESIGN_ONLY / NOT_IMPLEMENTED / NO_DB_MIGRATION**
+- Status: **SOURCE_IMPLEMENTED_IN_DRAFT_PR_101 / NOT_HOSTED_DEPLOYED / LIVE_PROVIDER_VALIDATION_PENDING**
 - Predecessors: EM-1 (PR #96) and EM-2A source preview (PR #97)
-- Next deliverable: reviewable additive migration + authenticated idempotent refresh + adversarial RLS/contract tests.
+- Implementation and test details: [EM2B_IMPLEMENTATION_HANDOFF.md](EM2B_IMPLEMENTATION_HANDOFF.md). Additive migration 23 and browser/API/test source are committed to Draft PR #101; final exact-head CI is required.
 
 ## Core security distinction
 
@@ -46,11 +46,11 @@ Under no circumstances should a browser-writable `source_state='SOURCE_CONFIRMED
 
 1. Owner, non-owner and anon table/RPC access matrix; cross-project FK and IDOR denied.
 2. Exact GitHub App repository binding proof required for refresh; token never persisted or returned.
-3. Two identical refreshes produce exactly one logical evidence entry per provider source identity; changed SHA is versioned/auditable and never silently overwrites validated historical evidence.
+3. Two identical refreshes produce exactly one logical evidence entry and one current snapshot. **A → B → A** creates three ordered immutable versions; returning to an older state must not be suppressed by global fingerprint uniqueness.
 4. A forged browser insert/UPDATE can **never** cause a Completion Criterion PASS (EM-3 prerequisite).
 5. Missing/ungranted Checks, Actions, Issues and Deployment permissions produce UNKNOWN; no unapproved new GitHub App scopes.
 6. Source re-read / SHA mismatch and stale-or-removed GitHub objects transition to UNKNOWN; no false-negative completion assertion.
 7. Independent Postgres migration/RLS contract, complete migration lineage test, local Supabase Auth/PostgREST and controlled browser E2E pass before hosted migration.
 8. Review against current hosted migration head and production auto-apply behavior before merge.
 
-This contract does not authorize migration 23, provider permission expansion or production release.
+Migration 23 exists **only on a stacked Draft PR**. This contract does not authorize applying it to hosted Supabase, granting extra GitHub permissions or production release.
