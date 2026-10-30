@@ -17,14 +17,25 @@ export type RuleType =
 
 export type CriterionVerdict = "PASS" | "FAIL" | "PENDING" | "UNKNOWN";
 export type ProgressAvailability = "CALCULATED" | "NOT_CALCULABLE";
-export type EvaluationPolicyVersion = "EM3A_V1" | "EM3C_V2";
+export type EvaluationPolicyVersion = "EM3A_V1" | "EM3C_V2" | "EM3CB_V3";
 
 export type Criterion = {
   id: string;
   ruleType: RuleType;
   isRequired: boolean;
   archived?: boolean;
-  ruleConfig?: { expectedSha?: string | null };
+  ruleConfig?: {
+    expectedSha?: string | null;
+    checkName?: string;
+    checkRunId?: string | number;
+    checkAppId?: string | number;
+    workflowRunId?: string | number;
+    artifactName?: string;
+    artifactId?: string | number;
+    artifactDigest?: string;
+    environment?: string;
+    deploymentId?: string | number;
+  };
 };
 
 export type Milestone = {
@@ -59,6 +70,24 @@ export type FreshProviderRecheck = {
   currentSha: string;
   cachedSha: string;
   result: "CURRENT_SOURCE_MATCH" | "UNKNOWN";
+};
+
+/**
+ * This is a server-only adapter output shape, NOT cryptographic evidence.
+ * It must never be populated from client JSON or owner-editable cache.
+ */
+export type TrustedExtendedRuleProof = {
+  kind: "GITHUB_EXTENDED_RULE_RECHECK";
+  criterionId: string;
+  ruleType: "CHECK_PASSED" | "ARTIFACT_EXISTS" | "DEPLOY_VERIFIED";
+  evidenceId: string;
+  sourceId: string;
+  repositoryId: string;
+  checkedAt: string;
+  expectedSha: string;
+  providerObjectId: string;
+  verdict: CriterionVerdict;
+  reason: string;
 };
 
 export type TrustedManualAcceptance = {
@@ -139,6 +168,8 @@ function assessCriterion(
   associations: readonly SourceAssociation[],
   rechecks: readonly FreshProviderRecheck[],
   manualAcceptances: readonly TrustedManualAcceptance[],
+  extendedRuleProofs: readonly TrustedExtendedRuleProof[],
+  extendedEnabled: boolean,
   manualEnabled: boolean,
   nowIso: string,
 ): RuleAssessment {
@@ -173,6 +204,66 @@ function assessCriterion(
     if(event.action==="accepted")
       return response("PASS","explicit_builder_manual_acceptance");
     return response("UNKNOWN","invalid_builder_manual_event_action");
+  }
+  if(criterion.ruleType==="CHECK_PASSED" ||
+    criterion.ruleType==="ARTIFACT_EXISTS" ||
+    criterion.ruleType==="DEPLOY_VERIFIED"){
+    if(!extendedEnabled)
+      return response("UNKNOWN","rule_specific_provider_verifier_not_implemented");
+    const config=criterion.ruleConfig;
+    const sha=config?.expectedSha;
+    if(typeof sha!=="string"||!SHA_40.test(sha))
+      return response("UNKNOWN","extended_rule_missing_approved_exact_sha");
+
+    const linked=associations.filter(a=>a.criterionId===criterion.id);
+    if(!linked.length)return response("PENDING","extended_rule_source_link_missing");
+    const reviewed=linked.filter(a=>a.reviewStatus==="reviewed"&&
+      a.sourceType==="merged_pull_request");
+    if(!reviewed.length)return response("PENDING","extended_rule_builder_review_missing");
+    let unknown=false;
+    let pending=false;
+    let failed=false;
+    for(const link of reviewed){
+      const anchored=rechecks.some(proof=>
+        proof.kind==="GITHUB_PR_MERGE_RECHECK" &&
+        proof.result==="CURRENT_SOURCE_MATCH" &&
+        proof.evidenceId===link.evidenceId &&
+        proof.sourceId===link.sourceId &&
+        proof.repositoryId===link.repositoryId &&
+        proof.currentSha===sha && proof.cachedSha===sha &&
+        isFreshProof(proof,nowIso)
+      );
+      if(!anchored){unknown=true;continue;}
+      const matching=extendedRuleProofs.filter(proof=>
+        proof.kind==="GITHUB_EXTENDED_RULE_RECHECK" &&
+        proof.criterionId===criterion.id &&
+        proof.ruleType===criterion.ruleType &&
+        proof.evidenceId===link.evidenceId &&
+        proof.sourceId===link.sourceId &&
+        proof.repositoryId===link.repositoryId &&
+        proof.expectedSha===sha &&
+        isFreshProof(proof,nowIso)
+      );
+      if(matching.length!==1){unknown=true;continue;}
+      const proof=matching[0];
+      const expectedObject=criterion.ruleType==="CHECK_PASSED"?config?.checkRunId:
+        criterion.ruleType==="ARTIFACT_EXISTS"?config?.artifactId:
+        config?.deploymentId;
+      const expectedId=expectedObject===undefined?null:String(expectedObject);
+      if(!proof.providerObjectId ||
+        (expectedId!==null&&proof.providerObjectId!==expectedId)){
+        unknown=true;continue;
+      }
+      if(proof.verdict==="PASS")
+        return response("PASS",proof.reason,link.evidenceId);
+      if(proof.verdict==="FAIL")failed=true;
+      else if(proof.verdict==="PENDING")pending=true;
+      else unknown=true;
+    }
+    if(unknown)return response("UNKNOWN","provider_recheck_missing_or_unverifiable");
+    if(failed)return response("FAIL","required_verified_extended_rule_failed");
+    if(pending)return response("PENDING","required_extended_rule_pending");
+    return response("UNKNOWN","extended_rule_provider_unknown");
   }
   if (criterion.ruleType !== "PR_MERGED")
     return response("UNKNOWN","rule_specific_provider_verifier_not_implemented");
@@ -228,12 +319,14 @@ export function evaluateApprovedRoadmap(input: {
   associations: readonly SourceAssociation[];
   providerRechecks: readonly FreshProviderRecheck[];
   manualAcceptances?: readonly TrustedManualAcceptance[];
-  policyVersion?: "EM3C_V2";
+  extendedRuleProofs?: readonly TrustedExtendedRuleProof[];
+  policyVersion?: "EM3C_V2" | "EM3CB_V3";
   nowIso: string;
 }): ProgressAssessment {
   const { revision, associations, providerRechecks, nowIso }=input;
   const policyVersion:EvaluationPolicyVersion=input.policyVersion??"EM3A_V1";
-  const manualAcceptances=policyVersion==="EM3C_V2"?input.manualAcceptances??[]:[];
+  const manualAcceptances=policyVersion!=="EM3A_V1"?input.manualAcceptances??[]:[];
+  const extendedRuleProofs=policyVersion==="EM3CB_V3"?input.extendedRuleProofs??[]:[];
   const invalid=(reason: string): InvalidProgress=>({
     status:"NOT_CALCULABLE",revisionId:revision.id,reason,policyVersion,
   });
@@ -264,7 +357,7 @@ export function evaluateApprovedRoadmap(input: {
 
     const checked=criteria.map((criterion)=>
       assessCriterion(criterion,revision.id,associations,providerRechecks,manualAcceptances,
-        policyVersion==="EM3C_V2",nowIso)
+        extendedRuleProofs,policyVersion==="EM3CB_V3",policyVersion!=="EM3A_V1",nowIso)
     );
     const verdict=milestoneVerdict(checked);
     totalWeightUnits+=weightUnits;
