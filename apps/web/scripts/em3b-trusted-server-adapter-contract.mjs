@@ -58,7 +58,7 @@ const defaultFixture=()=>({
 });
 let rows=defaultFixture();
 let actor=true, appConfigured=true, installValid=true, sourceValid=true;
-let installThrows=false, sourceThrows=false;
+let installThrows=false, sourceThrows=false, appendDuringProviderRead=false;
 let failingTable=null, installationCalls=0, sourceCalls=0, deniedProof=false;
 
 class Query {
@@ -123,6 +123,10 @@ const dependencies={
     inspectExecutionSourceHealth:async (arg)=>{
       sourceCalls++;
       if(sourceThrows)throw Error("GitHub PR read failed");
+      if(appendDuringProviderRead) rows.execution_evidence_observations.push({
+        ...rows.execution_evidence_observations[0],
+        version_sequence:2,source_sha:"b".repeat(40),observed_at:now(),
+      });
       assert.equal(arg.cachedSha,SHA);
       assert.equal(arg.sourceId,"pr:42");
       return {
@@ -151,7 +155,7 @@ const query={projectId:ids.project,revisionId:ids.revision};
 function reset(){
   rows=defaultFixture();
   actor=true;appConfigured=true;installValid=true;sourceValid=true;
-  installThrows=false;sourceThrows=false;
+  installThrows=false;sourceThrows=false;appendDuringProviderRead=false;
   failingTable=null;installationCalls=0;sourceCalls=0;deniedProof=false;
 }
 async function checked(){
@@ -167,6 +171,12 @@ assert.equal(valid.rechecksPerformed,1);
 assert.equal(sourceCalls,1);
 assert.equal(installationCalls,1);
 assert.equal(valid.assessment.milestones[0].criteria[0].supportingEvidenceId,ids.evidence);
+
+reset();appendDuringProviderRead=true;
+let changedWhileFetching=await checked();
+assert.equal(changedWhileFetching.assessment.percent,0,
+  "cached snapshot changed during GitHub read must invalidate proof");
+assert.equal(changedWhileFetching.assessment.coverage.unknown,1);
 
 reset();sourceValid=false;
 let result=await checked();
@@ -290,6 +300,7 @@ assert.match(serviceSource,/inspectGitHubExecutionInstallation/);
 assert.match(serviceSource,/inspectExecutionSourceHealth/);
 assert.match(serviceSource,/snapshot\.data\.source_state!=="SOURCE_CONFIRMED"/);
 assert.match(serviceSource,/CACHE_FRESH_MS/);
+assert.match(serviceSource,/latest\.data\.version_sequence!==snapshot\.data\.version_sequence/);
 assert.match(serviceSource,/MAX_RECHECKS/);
 assert.match(serviceSource,/evaluateApprovedRoadmap/);
 assert.doesNotMatch(serviceSource,/\.insert\(|\.update\(|\.upsert\(|service_role|SERVICE_ROLE/);
