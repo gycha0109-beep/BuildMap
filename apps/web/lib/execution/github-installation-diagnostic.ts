@@ -99,13 +99,15 @@ export async function inspectGitHubExecutionInstallation(input: {
     };
   }
 
-  const granted = installation.permissions ?? {};
+  const grants = installation.permissions;
+  const validGrantMap = grants !== null && typeof grants === "object" &&
+    !Array.isArray(grants);
   const scopes = {
-    checks: permissionStatus(granted.checks),
-    actions: permissionStatus(granted.actions),
-    deployments: permissionStatus(granted.deployments),
-    issues: permissionStatus(granted.issues),
-  };
+    checks: validGrantMap ? permissionStatus(grants.checks) : "UNKNOWN",
+    actions: validGrantMap ? permissionStatus(grants.actions) : "UNKNOWN",
+    deployments: validGrantMap ? permissionStatus(grants.deployments) : "UNKNOWN",
+    issues: validGrantMap ? permissionStatus(grants.issues) : "UNKNOWN",
+  } satisfies InstallationDiagnostic["scopes"];
 
   // Only the already-approved narrow repository token is minted.
   // Do not widen permissions based on installation metadata.
