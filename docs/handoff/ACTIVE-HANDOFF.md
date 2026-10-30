@@ -1,5 +1,24 @@
 # BuildMap Active Handoff
 
+## Phase 53A production verification — 2026-10-30
+
+The final GitHub-only ephemeral decision-worthiness triage implementation is merged; the formal CLOSED declaration remains conditional on an independently verified public HTTP 200 smoke result.
+
+- Workbench PR #81: CLOSED, **not merged**, historical secret-scanner finding retained outside the production history.
+- Model acceptance source: `62b77d0637f60399bb9b91028be45ff98dbfb67a`; controlled Vercel evaluation deployment `dpl_GQTZUtnU269poUrqbFXiNHaQdewc` = READY, **51/51 fixture thresholds PASS**, 15 calls; Critical HOLD false Promote 0; adversarial injection false Promote 0; unsupported factual invention 0; transport failure 0; malformed output 0; semantic failure 0.
+- Clean implementation PR: [#98](https://github.com/gycha0109-beep/BuildMap/pull/98), from exact pre-merge main `010aaeb454bc01e959dd8a9e0f6f50998116f674`.
+- Tested PR head: `3af39b7f8f1e41bb5b37e6bfad238eae07a959d9`; tested tree `c3808d15a744723d9121f1977bef45e44db66aad`.
+- Web App CI = PASS; PIE prospective evidence = PASS; GitGuardian Security Checks = PASS on the exact tested PR head.
+- Squash merge main: `9293ae50ce274bb8ea6cfc8a6eb3112deeb51fc2`; merged tree `c3808d15a744723d9121f1977bef45e44db66aad` = **IDENTICAL** to tested tree.
+- Git-triggered Production CD: `dpl_BXtvg7dHzhtBxxRfwphksJrrRGta` = READY; source `git`, ref `main`, target `production`, SHA `9293ae50ce274bb8ea6cfc8a6eb3112deeb51fc2`.
+- Production aliases bound to that deployment: `build-map-six.vercel.app`, `build-map-johnny-self.vercel.app`, `build-map-git-main-johnny-self.vercel.app`.
+- Release implementation: GitHub only, 12-second optional AI timeout with raw activity fallback, Builder-controlled Capture and approval unchanged, no Phase 53A DB migration, no temporary evaluator route/build gate in merged production.
+- **PRODUCTION_HTTP_SMOKE_200 = NOT VERIFIED**: HTTPS requests from this execution runtime could not resolve the production hostname, and the alternate public web fetch did not expose an HTTP response. Deployment READY and alias mapping are not substitutes for an HTTP 200 result.
+- **PHASE_53A_GITHUB_EPHEMERAL_DECISION_TRIAGE = RELEASED / CLOSEOUT PENDING HTTP SMOKE**. Do not mark CLOSED until a recorded public HTTP 200 response is verified. Next work is a GET to the production domain and evidence-backed final docs-only status correction.
+
+---
+
+
 ## Current authority
 
 이 문서는 현재 BuildMap 구현 단계의 authoritative handoff다.
