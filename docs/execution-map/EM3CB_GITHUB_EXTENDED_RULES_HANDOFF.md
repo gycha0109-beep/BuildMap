@@ -1,7 +1,7 @@
 # EM-3C-B1 — Scoped GitHub Checks, Actions Artifacts and Deployment Evidence Validators
 
 - Date: 2026-10-30
-- Status: **SOURCE_IMPLEMENTED / MOCKED_PROVIDER_AND_V3_CONTRACT_PENDING / REAL_APP_SCOPE_UNAPPROVED / HOSTED_NOT_DEPLOYED**
+- Status: **SOURCE_VERIFIED_IN_WEB_CI / MOCKED_PROVIDER_AND_V3_CONTRACT_PASS / REAL_APP_SCOPE_UNAPPROVED / HOSTED_NOT_DEPLOYED**
 - Stacked Draft branch: `feat/execution-map-em3cb-github-rule-verifiers` on EM-3C-A #109.
 - No schema migration, GitHub App permission change, new OAuth scopes, installation token expansion, hosted Supabase write or public progress output.
 
@@ -41,6 +41,8 @@ A release tag or merged PR does not by itself prove deployment or artifact exist
 - V3 deterministic tests require exact Builder-reviewed PR association and fresh merge SHA plus rule proof; test that forged/stale/wrong-source proofs cannot PASS, and that V2 is invariant when V3 proof is supplied.
 - Web App CI executes prior EM-1/2/3 tests, the EM-3C-B1 mocked provider tests, TypeScript, lint and build. Prior SQL/Auth/Playwright tests remain upstream required gates.
 - **Not verified:** actual GitHub App Checks/Actions/Deployments permissions, real controlled provider read with a newly authorized installation token, production hosting or progress calculation on real records.
+- **Verified source HEAD:** `1d8a298941de5a0b068ccf7fbd70e78ed6600eb8` — [Web App CI](https://github.com/gycha0109-beep/BuildMap/actions/runs/41003485441) **PASS** (EM-1/2/3 contracts, ESLint, TypeScript, Next.js build); [PIE Prospective Shadow](https://github.com/gycha0109-beep/BuildMap/actions/runs/41003485891) **PASS**. These are mocked GitHub provider tests; no live installation acceptance. Recheck exact PR HEAD after this documentation-only commit.
+- Check reruns: if several check runs share the same SHA/name/App, even a pinned older green run yields **UNKNOWN** instead of PASS until the current required check is unambiguous.
 - **Next EM-3C-B2:** explicit GitHub App permission approval, server-only scoped token broker and live smoke, ruleConfig validation at approval, trusted provider recheck construction, cache revision/source binding, timeout/TOCTOU handling, and end-to-end no-false-PASS tests. Only then enable EM3CB_V3 on a private deployment and proceed toward EM-4.
 
 No user request to expand the GitHub App's permissions has been assumed.
