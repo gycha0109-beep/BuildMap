@@ -2,7 +2,7 @@ name: Web App CI
 
 on:
   pull_request:
-    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em2c-permission-source-health, feat/execution-map-em3a-deterministic-evaluation-core, feat/execution-map-em3b-trusted-source-adapter]
+    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em2c-permission-source-health, feat/execution-map-em3a-deterministic-evaluation-core, feat/execution-map-em3b-trusted-source-adapter, feat/execution-map-em3c-manual-acceptance]
   push:
     branches: [main]
 
@@ -65,6 +65,10 @@ jobs:
       - name: EM-3C explicit manual acceptance and revocation contract
         working-directory: apps/web
         run: npm run test:em3c
+
+      - name: EM-3C-B1 scoped extended GitHub source rules
+        working-directory: apps/web
+        run: npm run test:em3cb
 
       - name: Lint
         working-directory: apps/web
