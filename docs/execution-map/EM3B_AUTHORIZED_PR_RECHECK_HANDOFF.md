@@ -22,6 +22,7 @@ The separate em3b-proof-guard.ts checks source ID, evidence UUID, repository ID,
 ## Test and security scope
 
 - Synthetic tests cover SHA A/B conflicts, incorrect PR ID, identity conflicts, stale/future clock, missing source and equivalence to existing EM-3A evaluation contract.
+- Additional execution-based server Auth and authorization matrix runs the actual adapter with a mocked Supabase client/GitHub verifier, testing authenticated Builder, RLS-style project/criterion/source filters, revoked binding, forged HMAC, wrong repository, source drift and provider errors. The tests assert no provider read on early denial and no database writes. These remain **synthetic**, not hosted Auth/GitHub E2E.
 - Source contract also asserts that the server adapter retains Auth/Project/RLS/revision/review/HMAC/App installation/repository gates and contains no write method or HTTP endpoint.
 - Uses existing GitHub App permissions. It neither requests Checks/Actions/Issues/Deployments scopes nor claims to implement their evaluators.
 - No schema/migration changes, server writes, new provider tokens in a table, background sync or production deployment.

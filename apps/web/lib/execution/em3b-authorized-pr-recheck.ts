@@ -29,7 +29,7 @@ export async function readAuthorizedExecutionPrRecheck(input: {
   try {
     const db = await createClient();
     const user = await db.auth.getUser();
-    if (!user.data.user) return null;
+    if (user.error || !user.data.user) return null;
 
     // Read-only identity lookup; ensureBuilderContext would insert profiles.
     const profile = await db.from("user_profiles").select("id")

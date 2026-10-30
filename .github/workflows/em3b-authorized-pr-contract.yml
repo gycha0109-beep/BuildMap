@@ -4,6 +4,7 @@ on:
     paths:
       - "apps/web/lib/execution/**"
       - "apps/web/scripts/em3b-authorized-pr-contract.mjs"
+      - "apps/web/scripts/em3b-server-authority-contract.mjs"
       - ".github/workflows/em3b-authorized-pr-contract.yml"
   workflow_dispatch:
 
@@ -42,6 +43,9 @@ jobs:
       - name: Install dependencies
         working-directory: apps/web
         run: npm install --no-audit --no-fund
+      - name: EM-3B runtime authority and failure-path contract
+        working-directory: apps/web
+        run: node --experimental-strip-types scripts/em3b-server-authority-contract.mjs
       - name: Lint
         working-directory: apps/web
         run: npm run lint
