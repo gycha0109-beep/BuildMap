@@ -93,3 +93,46 @@ export async function reviewCriterionEvidenceLinkAction(projectId: string, form:
   if (result.error || !result.data) target(projectId, "review-failed");
   target(projectId, "review-recorded");
 }
+
+export async function recordManualAcceptanceAction(projectId: string, form: FormData) {
+  const data = z.object({
+    criterionId: uuid,
+    eventType: z.enum(["accepted", "revoked"]),
+    reason: z.string().trim().min(12).max(2000),
+  }).safeParse({
+    criterionId: input(form, "criterionId"),
+    eventType: input(form, "eventType"),
+    reason: input(form, "reason"),
+  });
+  if (!data.success) target(projectId, "manual-invalid-input");
+  const { supabase } = await owner(projectId);
+  const criterion = await supabase.from("completion_criteria")
+    .select("id,track_id,roadmap_revision_id,rule_type")
+    .eq("id", data.data.criterionId)
+    .eq("project_id", projectId)
+    .eq("rule_type", "MANUAL_ACCEPTANCE")
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!criterion.data || criterion.error) target(projectId, "manual-criterion-invalid");
+  const revision = await supabase.from("roadmap_revisions")
+    .select("id")
+    .eq("id", criterion.data.roadmap_revision_id)
+    .eq("project_id", projectId)
+    .eq("track_id", criterion.data.track_id)
+    .eq("status", "approved").maybeSingle();
+  if (!revision.data || revision.error) target(projectId, "approved-revision-required");
+
+  // The database trigger supplies the actor, timestamp and event ID. These
+  // fields MUST NOT originate in the HTML form or this server action.
+  const result = await supabase.from("execution_manual_acceptance_events").insert({
+    project_id: projectId,
+    track_id: criterion.data.track_id,
+    roadmap_revision_id: criterion.data.roadmap_revision_id,
+    criterion_id: criterion.data.id,
+    event_type: data.data.eventType,
+    reason: data.data.reason,
+  });
+  if (result.error) target(projectId, "manual-event-failed");
+  target(projectId, data.data.eventType === "accepted"
+    ? "manual-accepted" : "manual-revoked");
+}
