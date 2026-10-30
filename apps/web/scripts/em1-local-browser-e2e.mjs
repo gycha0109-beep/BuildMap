@@ -78,7 +78,8 @@ try {
 
   const associationForm=page.locator("form")
     .filter({has:page.getByRole("button",{name:"증거 연결 후보 등록"})});
-  await associationForm.locator('select[name="criterionId"]').selectOption({index:1});
+  await associationForm.locator('select[name="criterionId"]')
+    .selectOption({label:"User-visible completion criterion"});
   await associationForm.getByRole("button",{name:"증거 연결 후보 등록"}).click();
   await page.getByText("검증 전 증거 연결 후보를 등록했습니다.").waitFor();
   await page.getByRole("button",{name:"연결 검토 승인"}).first().click();
