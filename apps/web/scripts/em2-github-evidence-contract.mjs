@@ -64,6 +64,7 @@ const release = normalizeReleaseReference({
 assert.equal(release?.sourceState, "UNKNOWN");
 assert.equal(release?.sourceSha, null);
 assert.equal(release?.reason, "release_tag_revision_and_deployment_not_verified");
+assert.equal(release?.sourceUrl, "https://github.com/Example/project/releases/tag/v1.0");
 assert.equal(normalizeReleaseReference({
   id: 18, tag_name: "v1.0", draft: true,
 }, "Example/project", observedAt), null);
