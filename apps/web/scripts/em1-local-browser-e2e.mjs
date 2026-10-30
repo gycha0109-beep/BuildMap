@@ -103,12 +103,24 @@ try {
   await other.goto(base + "/projects/" + projectId + "/execution");
   assert.equal(await other.getByRole("heading",{name:"로드맵과 완료 조건"}).count(),0,
     "Non-owner must not access another project's Execution Map");
+
+  const exampleLink="00000000-0000-4000-8000-000000000511";
+  const otherDiagnostics=await other.request.get(
+    base + "/api/projects/" + projectId + "/execution/evidence-health?linkId=" + exampleLink,
+  );
+  assert.equal(otherDiagnostics.status(),404,
+    "Cross-project diagnostic must deny before provider/app configuration access");
   await otherContext.close();
 
   const anonymousContext=await browser.newContext();
   const anonymous=await anonymousContext.newPage();
   await anonymous.goto(base + "/projects/" + projectId + "/execution");
   await anonymous.waitForURL(/\/login/,{timeout:20000});
+  const anonymousDiagnostics=await anonymous.request.get(
+    base + "/api/projects/" + projectId + "/execution/evidence-health?linkId=00000000-0000-4000-8000-000000000511",
+  );
+  assert.equal(anonymousDiagnostics.status(),401,
+    "Anonymous diagnostics must deny before querying GitHub connections");
   await anonymousContext.close();
 
   console.log("EM1_LOCAL_SUPABASE_BROWSER_E2E_PASS");
