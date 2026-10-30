@@ -17,7 +17,7 @@ For each eligible reviewed `PR_MERGED` source only:
 2. Require an active repository binding, valid HMAC integrity proof, and matching numeric repository ID, owner/repo name and installation ID. Reject duplicate active bindings to one numeric repository ID.
 3. Call the EM-2C GitHub App installation probe to confirm current App ID, suspension state and exact current repository identity via its **existing narrow repository token**. No extra scopes are requested.
 4. Load **the latest immutable snapshot by version sequence** and require source state `SOURCE_CONFIRMED`, canonical lowercase 40-character SHA and snapshot age no more than 24 hours.
-5. Re-read the exact merged PR via GitHub API and compare source ID and current merge SHA against that snapshot. Missing source, provider/permission failure, changed SHA or stale cache yields **no trusted recheck object**.
+5. Re-read the exact merged PR via GitHub API and compare source ID and current merge SHA against that snapshot. **Re-fetch the latest immutable snapshot sequence after the network call**: if a newer snapshot appeared during the fetch, discard the proof (TOCTOU guard). Missing source, provider/permission failure, changed SHA or stale cache yields **no trusted recheck object**.
 6. Only then construct the internal `FreshProviderRecheck` object inside the server. Feed it into the unchanged `EM3A_V1` pure policy with the evaluation clock captured **after** network reads. The policy independently rejects proofs older than five minutes.
 
 A provider read failure cannot become FAIL or PASS; supported PR source stays UNKNOWN. Other rule types (Checks, artifacts, deployment, manual acceptance) remain UNKNOWN until their own independent adapters are reviewed.
@@ -32,7 +32,7 @@ This is an instrumentation route for controlled acceptance, not EM-4's public pr
 
 ## Verification matrix
 
-- `apps/web/scripts/em3b-trusted-server-adapter-contract.mjs`: simulated session/DB/GitHub App adapter with owner-only authorization, approved-revision selection, HMAC binding, numerical repository ID, provider match, suspended/mismatch, forged/revoked token handling, 24h stale snapshot, unsupported rule UNKNOWN, and truncated data rejection. Full-rate API error cases are UNKNOWN without fabricating progress.
+- `apps/web/scripts/em3b-trusted-server-adapter-contract.mjs`: simulated session/DB/GitHub App adapter with owner-only authorization, approved-revision selection, HMAC binding, numerical repository ID, provider match, suspended/mismatch, forged/revoked token handling, 24h stale snapshot, concurrent source-version mutation during GitHub read, unsupported rule UNKNOWN, and truncated data rejection. Full-rate API error cases are UNKNOWN without fabricating progress.
 - CI: EM-1/2/3A/3B static/unit contracts, ESLint, TS check, Next.js build.
 - Local Supabase Auth/Playwright: owner sees only `NOT_PUBLISHED` diagnostic for approved revision, other user gets 404, anon 401. No provider credentials are available in this local test.
 - Real BuildMap GitHub App private repository smoke: **NOT YET VERIFIED**, and therefore no product-facing official progress percentage is authorized.
