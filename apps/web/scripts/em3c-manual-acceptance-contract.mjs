@@ -36,6 +36,14 @@ assert.equal(e.percent,0);
 assert.equal(e.coverage.unknown,2);
 e=evalRun([event]);
 assert.equal(e.status,"CALCULATED");
+assert.equal(e.policyVersion,"EM3C_V2");
+const historic=evaluateApprovedRoadmap({
+  revision,associations:[],providerRechecks:[],
+  manualAcceptances:[event],nowIso:now,
+});
+assert.equal(historic.policyVersion,"EM3A_V1");
+assert.equal(historic.percent,0,
+  "historical EM3A_V1 must not reinterpret stored manual acceptance as PASS");
 assert.equal(e.percent,40,"only accepted manual milestone counts, unsupported check stays UNKNOWN");
 assert.equal(e.milestones[0].criteria[0].verdict,"PASS");
 assert.equal(e.milestones[0].criteria[0].reason,"explicit_builder_manual_acceptance");
