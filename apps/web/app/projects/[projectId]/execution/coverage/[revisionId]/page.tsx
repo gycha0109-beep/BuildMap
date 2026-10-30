@@ -4,15 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeEvidenceLinkage } from "@/lib/execution/em4b-evidence-coverage";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_MILESTONES = 50;
 const MAX_CRITERIA = 200;
 const MAX_LINKS = 500;
 
-function denyCoverage(reason: string): never {
-  if (process.env.NODE_ENV === "development") console.info("EM4B_LOCAL_ROUTE_DENIAL", reason);
-  notFound();
-}
 
 const linkageText = {
   NO_LINK: "연결 없음",
@@ -27,18 +23,7 @@ export default async function ExecutionRevisionCoveragePage({
   params: Promise<{ projectId: string; revisionId: string }>;
 }) {
   const { projectId, revisionId } = await params;
-  if (process.env.NODE_ENV === "development") {
-    console.info("EM4B_PARAM_SHAPE", {
-      keys: Object.keys(await params),
-      projectType: typeof projectId,
-      revisionType: typeof revisionId,
-      projectLength: typeof projectId === "string" ? projectId.length : null,
-      revisionLength: typeof revisionId === "string" ? revisionId.length : null,
-      projectValid: UUID.test(projectId),
-      revisionValid: UUID.test(revisionId),
-    });
-  }
-  if (!UUID.test(projectId) || !UUID.test(revisionId)) denyCoverage("route-id");
+  if (!UUID.test(projectId) || !UUID.test(revisionId)) notFound();
 
   const db = await createClient();
   const authenticated = await db.auth.getUser();
@@ -47,24 +32,24 @@ export default async function ExecutionRevisionCoveragePage({
   // No auto-creation of profiles on this read-only inspection path.
   const profile = await db.from("user_profiles").select("id")
     .eq("auth_user_id", authenticated.data.user.id).maybeSingle();
-  if (profile.error || !profile.data) denyCoverage("profile");
+  if (profile.error || !profile.data) notFound();
   const builder = await db.from("builder_profiles").select("id")
     .eq("user_profile_id", profile.data.id).maybeSingle();
-  if (builder.error || !builder.data) denyCoverage("builder");
+  if (builder.error || !builder.data) notFound();
   const project = await db.from("projects").select("id")
     .eq("id", projectId).eq("owner_builder_profile_id", builder.data.id)
     .is("archived_at", null).maybeSingle();
-  if (project.error || !project.data) denyCoverage("project");
+  if (project.error || !project.data) notFound();
 
   const revision = await db.from("roadmap_revisions")
     .select("id,track_id,title,version,status,approved_at")
     .eq("project_id", projectId).eq("id", revisionId)
     .eq("status", "approved").maybeSingle();
-  if (revision.error || !revision.data) denyCoverage("approved-revision");
+  if (revision.error || !revision.data) notFound();
   const track = await db.from("execution_tracks").select("id,name")
     .eq("project_id", projectId).eq("id", revision.data.track_id)
     .is("archived_at", null).maybeSingle();
-  if (track.error || !track.data) denyCoverage("active-track");
+  if (track.error || !track.data) notFound();
 
   const [milestones, criteria] = await Promise.all([
     db.from("execution_milestones").select("id,title,weight")
