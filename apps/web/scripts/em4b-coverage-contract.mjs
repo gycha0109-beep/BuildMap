@@ -49,6 +49,8 @@ assert.equal(awaiting.rows[0].completion,"UNKNOWN");
 
 const route=readFileSync(new URL("../app/projects/[projectId]/execution/coverage/[revisionId]/page.tsx",import.meta.url),"utf8");
 const overview=readFileSync(new URL("../app/projects/[projectId]/execution/page.tsx",import.meta.url),"utf8");
+const expectedUuid = 'const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;';
+assert.ok(route.includes(expectedUuid),"36-character UUID path guard must have exactly three 4-digit groups");
 for(const gate of [
   "db.auth.getUser()","owner_builder_profile_id",
   'from("user_profiles")','from("builder_profiles")','from("projects")',

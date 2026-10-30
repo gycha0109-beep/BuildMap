@@ -55,8 +55,6 @@ try{
   const href = await navigation.getAttribute("href");
   assert.equal(href, path, "Approved revision must link to its own coverage route");
   const coverageResponse = await page.goto(base + path);
-  const diagnosticBody = await page.locator("body").innerText();
-  console.log("EM4B_COVERAGE_HTTP", coverageResponse?.status(), "BODY_HEAD", diagnosticBody.slice(0, 1000));
   assert.equal(coverageResponse?.status(), 200, "Owner approved revision must render successfully");
   await page.getByRole("heading",{name:/근거 현황/}).waitFor();
   await page.getByRole("heading",{name:"완료 조건별 연결 현황"}).waitFor();
