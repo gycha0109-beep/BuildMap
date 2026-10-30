@@ -140,7 +140,7 @@ assert.equal(run({nowIso:"not-a-clock"}).status,"NOT_CALCULABLE");
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const core=readFileSync(resolve(root,"lib/execution/deterministic-evaluator.ts"),"utf8");
 const api=readFileSync(resolve(root,"app/api/projects/[projectId]/execution/evidence-health/route.ts"),"utf8");
-assert.match(core,/policyVersion: "EM3A_V1"/);
+assert.match(core,/policyVersion\?\?"EM3A_V1"/);
 assert.match(core,/source_association_missing/);
 assert.match(core,/builder_manual_acceptance_record_not_implemented/);
 assert.match(core,/rule_specific_provider_verifier_not_implemented/);
