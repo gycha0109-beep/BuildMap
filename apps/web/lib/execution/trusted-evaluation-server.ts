@@ -293,6 +293,7 @@ export async function computeTrustedExecutionReadiness(input: {
   // 5-minute freshness and canonical SHA checks again before any PASS.
   const assessment=evaluateApprovedRoadmap({
     revision,associations,providerRechecks:rechecks,manualAcceptances,
+    policyVersion:"EM3C_V2",
     nowIso:new Date().toISOString(),
   });
   return {state:"VERIFIED_AT_REQUEST_TIME",reason:null,assessment,rechecksPerformed};
