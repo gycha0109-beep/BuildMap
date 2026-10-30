@@ -21,14 +21,15 @@
 
 - EM-4A contract: GitHub PR URL normalization rejects alternate domains/path injection; cache statuses never return PASS; read-only owner/approved-revision/criterion/snapshot retrieval and bounded display are asserted.
 - Dedicated GitHub Actions CI: Node 22 static/deterministic contract, eslint, TypeScript and Next.js build on the exact PR head.
-- Separate upstream EM-3B disposable GoTrue/PostgREST E2E remains the authority for the server-only PR proof adapter; this UI has not yet passed its own authenticated SSR/browser E2E.
+- **EM-4A local owner/anon/non-owner browser E2E = PASS** at tested code SHA `b521fe005c1d1b071d144a6adc8bf30625e87b4b` ([Actions run](https://github.com/gycha0109-beep/BuildMap/actions/runs/40998736954)). Disposable GoTrue/PostgREST migrations 00–23 plus local Next.js/Playwright verified owner 200, cross-owner 404, anonymous login redirect, cached SHA labeled UNKNOWN and a canonical safe GitHub PR link. No hosted provider touched.
+- EM-3B disposable GoTrue/PostgREST E2E also passed at the same code SHA; it remains the authority for the server-only PR proof adapter.
 - Hosted BuildMap Supabase remains on migration 21, no execution tables; no Production deployment or real GitHub App smoke is claimed.
 
 ## Remaining EM-4 exit gates
 
 1. Controlled hosted migration 22/23, exact app authorization and RLS.
 2. Approved EM-3B provider-verified proof adapter with actual App installation live smoke and separate check/artifact/deployment/manual rule validation as authorized.
-3. Authenticated Next.js SSR/browser E2E for this detail route, including owner, anon, non-owner, wrong project and stale source.
+3. Hosted/Production SSR browser and real linked GitHub App smoke remain pending. Local owner/anon/non-owner/missing criterion and cache-marking browser tests passed, but hosted auth and freshness have not.
 4. EM-4 revision-aware progress/coverage/blocker explanation connected only to trusted, versioned evaluation results; do not hardcode a percentage.
 5. EM-5 real project pilot and source-by-source acceptance evidence.
 

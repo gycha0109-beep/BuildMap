@@ -6,6 +6,7 @@ on:
       - "apps/web/lib/execution/provenance-view.ts"
       - "apps/web/scripts/em4a-provenance-contract.mjs"
       - "apps/web/scripts/em4a-provenance-browser-e2e.mjs"
+      - "docs/execution-map/EM4A_CRITERION_PROVENANCE_HANDOFF.md"
       - ".github/workflows/em4a-provenance-contract.yml"
   workflow_dispatch:
 
