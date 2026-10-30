@@ -204,6 +204,14 @@ export default async function ExecutionMapPage({
               </div>
             ) : null}
 
+            {trackRevisions.filter((revision) => revision.status === "approved").map((revision) => (
+              <p key={"coverage-" + revision.id} className="section-help">
+                <Link href={"/projects/" + projectId + "/execution/coverage/" + revision.id}>
+                  승인 v{revision.version} 증거 연결·UNKNOWN 현황 보기
+                </Link>
+              </p>
+            ))}
+
             {!draft ? (
               <form className="stack" action={createRevision}>
                 <input type="hidden" name="trackId" value={track.id} />
@@ -360,7 +368,9 @@ export default async function ExecutionMapPage({
                                       </form>
                                     </>
                                   ) : (
-                                    <span>{criterion.title} · {criterion.rule_type} · {criterion.is_required ? "필수" : "선택"}</span>
+                                    <Link href={"/projects/" + projectId + "/execution/provenance/" + criterion.id}>
+                                      {criterion.title} · {criterion.rule_type} · {criterion.is_required ? "필수" : "선택"} · 증거 근거 보기
+                                    </Link>
                                   )}
                                 </li>
                               ))}
