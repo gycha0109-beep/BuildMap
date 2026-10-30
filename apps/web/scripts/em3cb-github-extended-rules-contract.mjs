@@ -147,6 +147,19 @@ assert.equal(response.verdict,"PASS");
 assert.equal(requests.filter(x=>x.url.includes("/deployments?")).length,1);
 assert.equal(requests.filter(x=>x.url.includes("/statuses?")).length,1);
 assert.doesNotMatch(source,/createInstallationAccessToken|permissions:\s*\{|request\.json\(|service_role/);
+const broker=readFileSync(resolve(base,"lib/github/api.ts"),"utf8");
+const currentServer=readFileSync(resolve(base,"lib/execution/trusted-evaluation-server.ts"),"utf8");
+const currentRoute=readFileSync(resolve(base,
+  "app/api/projects/[projectId]/execution/verification-readiness/route.ts"),"utf8");
+const narrow=broker.match(/permissions:\s*\{\s*contents:\s*"read",\s*pull_requests:\s*"read",?\s*\}/);
+assert.ok(narrow,
+  "existing runtime token MUST remain contents:read + pull_requests:read only");
+assert.doesNotMatch(narrow[0],/checks|actions|deployments/);
+assert.match(currentServer,/policyVersion:"EM3C_V2"/,
+  "new extended rules must not be promoted to runtime without live scope approval");
+assert.doesNotMatch(currentServer,/readAndVerifyExtendedGitHubRule|EM3CB_V3/);
+assert.match(currentRoute,/progress:"NOT_PUBLISHED"/);
+assert.doesNotMatch(currentRoute,/assessment\.percent|assessment\.basisPoints/);
 
 const revision={id:"rev-check",status:"approved",version:1,milestones:[
   {id:"ms-check",weight:"2.0000",criteria:[{
