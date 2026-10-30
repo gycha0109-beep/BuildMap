@@ -6,7 +6,7 @@ import { evaluateApprovedRoadmap } from "../lib/execution/deterministic-evaluato
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const read=(p)=>readFileSync(resolve(root,p),"utf8");
-const sql=read("../supabase/migrations/20261030130000_buildmap_24_execution_manual_acceptance.sql");
+const sql=read("../../supabase/migrations/20261030130000_buildmap_24_execution_manual_acceptance.sql");
 const service=read("lib/execution/trusted-evaluation-server.ts");
 const actions=read("app/projects/[projectId]/execution/evidence/actions.ts");
 const page=read("app/projects/[projectId]/execution/evidence/page.tsx");
