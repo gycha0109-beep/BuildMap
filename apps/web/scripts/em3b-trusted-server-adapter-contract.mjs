@@ -60,6 +60,7 @@ let rows=defaultFixture();
 let actor=true, appConfigured=true, installValid=true, sourceValid=true;
 let installThrows=false, sourceThrows=false, appendDuringProviderRead=false;
 let failingTable=null, installationCalls=0, sourceCalls=0, deniedProof=false;
+let extendedEnabled=false,extendedCalls=0,extendedOutput="PASS";
 
 class Query {
   constructor(table){this.table=table;this.filters=[];this.sort=null;this.cap=Infinity;}
@@ -137,6 +138,27 @@ const dependencies={
       };
     },
   },
+  "@/lib/execution/github-extended-capability-broker":{
+    extendedExecutionSourceReadsEnabled:()=>extendedEnabled,
+  },
+  "@/lib/execution/trusted-extended-rule-adapter":{
+    checkApprovedExtendedRulesForVerifiedSource:async ({binding,source,criteria})=>{
+      extendedCalls++;
+      assert.equal(binding.repositoryId,"123");
+      assert.equal(source.sha,SHA);
+      assert.equal(source.sourceId,"pr:42");
+      assert.equal(criteria.length,1);
+      if(extendedOutput==="UNKNOWN")return [];
+      return [{
+        kind:"GITHUB_EXTENDED_RULE_RECHECK",
+        criterionId:criteria[0].id,ruleType:criteria[0].ruleType,
+        evidenceId:source.evidenceId,sourceId:source.sourceId,
+        repositoryId:source.repositoryId,checkedAt:now(),
+        expectedSha:SHA,providerObjectId:"91",verdict:extendedOutput,
+        reason:"exact_sha_named_check_succeeded",
+      }];
+    },
+  },
   "@/lib/execution/deterministic-evaluator":{evaluateApprovedRoadmap},
   "@/lib/supabase/server":{createClient:async()=>fakeSupabase},
 };
@@ -157,6 +179,7 @@ function reset(){
   actor=true;appConfigured=true;installValid=true;sourceValid=true;
   installThrows=false;sourceThrows=false;appendDuringProviderRead=false;
   failingTable=null;installationCalls=0;sourceCalls=0;deniedProof=false;
+  extendedEnabled=false;extendedCalls=0;extendedOutput="PASS";
 }
 async function checked(){
   const result=await run(query);
@@ -289,6 +312,62 @@ failingTable="execution_manual_acceptance_events";
 result=await run(query);
 assert.equal(result.state,"UNAVAILABLE");
 assert.equal(result.reason,"manual_audit_unavailable_or_truncated");
+
+reset();
+rows.completion_criteria[0].rule_type="CHECK_PASSED";
+rows.completion_criteria[0].rule_config={
+  expectedSha:SHA,checkName:"Web App CI",checkRunId:91,
+};
+result=await checked();
+assert.equal(result.assessment.policyVersion,"EM3C_V2");
+assert.equal(result.assessment.percent,0);
+assert.equal(sourceCalls,0,"feature disabled must not even re-read source for extended rules");
+assert.equal(extendedCalls,0,"feature disabled must never invoke extended token broker");
+
+reset();
+extendedEnabled=true;
+rows.completion_criteria[0].rule_type="CHECK_PASSED";
+rows.completion_criteria[0].rule_config={
+  expectedSha:SHA,checkName:"Web App CI",checkRunId:91,
+};
+result=await checked();
+assert.equal(result.assessment.policyVersion,"EM3CB_V3");
+assert.equal(result.assessment.percent,100);
+assert.equal(extendedCalls,1);
+assert.equal(sourceCalls,1);
+
+reset();
+extendedEnabled=true;
+extendedOutput="UNKNOWN";
+rows.completion_criteria[0].rule_type="CHECK_PASSED";
+rows.completion_criteria[0].rule_config={
+  expectedSha:SHA,checkName:"Web App CI",checkRunId:91,
+};
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(result.assessment.coverage.unknown,1);
+
+reset();
+extendedEnabled=true;
+sourceValid=false;
+rows.completion_criteria[0].rule_type="CHECK_PASSED";
+rows.completion_criteria[0].rule_config={
+  expectedSha:SHA,checkName:"Web App CI",checkRunId:91,
+};
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(extendedCalls,0,"no extended token without current matching PR source");
+
+reset();
+extendedEnabled=true;
+deniedProof=true;
+rows.completion_criteria[0].rule_type="CHECK_PASSED";
+rows.completion_criteria[0].rule_config={
+  expectedSha:SHA,checkName:"Web App CI",checkRunId:91,
+};
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(extendedCalls,0,"HMAC invalid binding cannot request extended token");
 
 reset();rows.roadmap_revisions[0].status="draft";
 result=await run(query);
