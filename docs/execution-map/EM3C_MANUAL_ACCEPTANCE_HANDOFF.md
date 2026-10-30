@@ -2,7 +2,7 @@
 
 - Date: 2026-10-30
 - Branch: `feat/execution-map-em3c-manual-acceptance` stacked onto EM-3B #107
-- Status: **SOURCE_IMPLEMENTED / CI_PENDING / HOSTED_NOT_APPLIED / PROGRESS_UNPUBLISHED**
+- Status: **SOURCE_VERIFIED / WEB_SQL_AUTH_BROWSER_PIE_CI_PASS / HOSTED_NOT_APPLIED / PROGRESS_UNPUBLISHED**
 - Additive migration: `20261030130000_buildmap_24_execution_manual_acceptance.sql` (Draft branch only)
 - Scope: the MANUAL_ACCEPTANCE rule and Builder authority. **Not** Checks/Actions/Artifacts/Deployments verification.
 
@@ -35,6 +35,16 @@ The server-authenticity guarantee lies in RLS+trigger validation and the server-
 - Next.js/Playwright: explicit Builder reason form for approved manual criterion and revocation UI; existing private scope and Decision Timeline tests unchanged.
 - Deterministic TS: accepted manual milestone counts weighted completion only when the latest trusted manual event is valid; revoked becomes PENDING; other Checks remain UNKNOWN; future, ambiguous, mismatched approval cannot yield PASS.
 - Keep downstream Rules `CHECK_PASSED`, `ARTIFACT_EXISTS`, and `DEPLOY_VERIFIED` **UNKNOWN** until explicit app permission and exact correlated source/commit/environment validators exist.
+
+## Verified source implementation
+
+Commit `a4075205e3196c1e75eb944c1d3bef2ecda70036` passed:
+- [Web App CI](https://github.com/gycha0109-beep/BuildMap/actions/runs/41001548760): EM-1/2/3 contracts, Lint, TypeScript and Next.js build **PASS**
+- [Execution Map SQL Contract](https://github.com/gycha0109-beep/BuildMap/actions/runs/41001548750): disposable PostgreSQL migration lineage 00–24, manual acceptance owner/anon/cross-tenant, fraud and parallel transition test **PASS**
+- [Local Supabase Auth + Playwright E2E](https://github.com/gycha0109-beep/BuildMap/actions/runs/41001548865): actual GoTrue/JWT, PostgREST actor/time protection, owner/other/anonymous access, Builder accept/revoke form **PASS**
+- [PIE Prospective Shadow](https://github.com/gycha0109-beep/BuildMap/actions/runs/41001549133): **PASS**
+
+The public `EM3A_V1` calculation policy remains unchanged; the explicit manual event feature is evaluated only under `EM3C_V2`. A subsequent documentation-only head commit must be rechecked before the PR is promoted. No live GitHub App token or hosted Supabase migration was exercised.
 
 ## Remaining release and EM-3C-B gates
 
