@@ -100,7 +100,7 @@ const dependencies={
     isGitHubAppConfigured:()=>appConfigured,
     verifyGitHubBindingProof:(identity,proof)=>
       !deniedProof&&proof==="valid-hmac"&&identity.repositoryId==="123"&&
-      identity.installationId==="456"&&identity.projectLinkId===ids.link,
+      identity.installationId==="456"&&[ids.link,"00000000-0000-4000-8000-000000000402"].includes(identity.projectLinkId),
   },
   "@/lib/github/repository":{
     parseCanonicalGitHubRepositoryUrl:(url)=>{
