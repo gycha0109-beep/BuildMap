@@ -58,6 +58,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:em3a
 
+      - name: EM-3B trusted server-only source correlation contract
+        working-directory: apps/web
+        run: npm run test:em3b
+
       - name: Lint
         working-directory: apps/web
         run: npm run lint
