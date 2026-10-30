@@ -8,6 +8,7 @@
 - **EM-2C GitHub App source health:** [EM2C_GITHUB_SCOPE_FRESHNESS_HANDOFF.md](EM2C_GITHUB_SCOPE_FRESHNESS_HANDOFF.md) (stacked source implementation, simulated tests, no live installation proof)
 - **EM-3A deterministic calculation:** [EM3A_DETERMINISTIC_CORE_HANDOFF.md](EM3A_DETERMINISTIC_CORE_HANDOFF.md) (pure policy implementation, synthetic tests; no live rule adapter or runtime percentage)
 - **EM-3B server-only provider recheck:** [EM3B_TRUSTED_SOURCE_ADAPTER_HANDOFF.md](EM3B_TRUSTED_SOURCE_ADAPTER_HANDOFF.md) (approved-revision projection, real-source read path, private diagnostic; no public progress, no provider live smoke)
+- **EM-3C-A Builder manual acceptance:** [EM3C_MANUAL_ACCEPTANCE_HANDOFF.md](EM3C_MANUAL_ACCEPTANCE_HANDOFF.md) (additive migration 24, immutable approval/revocation, CI pending; automated Checks/Deployment still UNKNOWN)
 - **Date:** 2026-10-29
 - **Repository:** gycha0109-beep/BuildMap
 - **Development mode:** parallel, additive extension inside the existing BuildMap repository
@@ -220,7 +221,7 @@ Track state at registration:
 | EM-0 | REPOSITORY_AUDIT_CLOSED (#95) | Not measured |
 | EM-1 | EM-1A/B SOURCE_VERIFIED (#96); SQL_REPLAY + AUTH/POSTGREST + BROWSER_E2E_PASS; HOSTED_RELEASE_PENDING | Not measured |
 | EM-2 | EM-2A (#97), EM-2B PRIVATE CACHE (#101), EM-2C LIVE DIAGNOSTIC IN_REVIEW; LIVE_GITHUB_APP_SMOKE_AND_HOSTED_RELEASE_PENDING; NO VERIFIED PROGRESS | Not measured |
-| EM-3 | EM-3A PURE EVALUATOR + EM-3B SERVER RECHECK SOURCE_IN_REVIEW; REAL GITHUB APP SMOKE/EM-3C/PRODUCTION PROGRESS PENDING | Not measured |
+| EM-3 | EM-3A/B CORE AND SERVER RECHECK VERIFIED; EM-3C-A MANUAL ACCEPTANCE SOURCE_IN_REVIEW; CHECKS/DEPLOYMENT/LIVE_APP_AND_RELEASE_PENDING | Not measured |
 | EM-4 | NOT_STARTED | Not measured |
 | EM-5 | NOT_STARTED | Not measured |
 | EM-6 | POST_MVP | Not measured |
