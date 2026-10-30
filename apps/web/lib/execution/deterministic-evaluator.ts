@@ -17,6 +17,7 @@ export type RuleType =
 
 export type CriterionVerdict = "PASS" | "FAIL" | "PENDING" | "UNKNOWN";
 export type ProgressAvailability = "CALCULATED" | "NOT_CALCULABLE";
+export type EvaluationPolicyVersion = "EM3A_V1" | "EM3C_V2";
 
 export type Criterion = {
   id: string;
@@ -103,14 +104,14 @@ export type ValidProgress = {
     pending: number;
     unknown: number;
   };
-  policyVersion: "EM3A_V1";
+  policyVersion: EvaluationPolicyVersion;
 };
 
 export type InvalidProgress = {
   status: "NOT_CALCULABLE";
   revisionId: string;
   reason: string;
-  policyVersion: "EM3A_V1";
+  policyVersion: EvaluationPolicyVersion;
 };
 export type ProgressAssessment = ValidProgress | InvalidProgress;
 
@@ -138,6 +139,7 @@ function assessCriterion(
   associations: readonly SourceAssociation[],
   rechecks: readonly FreshProviderRecheck[],
   manualAcceptances: readonly TrustedManualAcceptance[],
+  manualEnabled: boolean,
   nowIso: string,
 ): RuleAssessment {
   const response=(verdict: CriterionVerdict,reason: string,evidenceId: string | null=null): RuleAssessment=>({
@@ -146,6 +148,8 @@ function assessCriterion(
   });
 
   if (criterion.ruleType === "MANUAL_ACCEPTANCE") {
+    if(!manualEnabled)
+      return response("UNKNOWN","builder_manual_acceptance_record_not_implemented");
     // Only a trusted server adapter may populate these events from the
     // immutable owner-authorized SQL audit. The helper itself cannot attest
     // the authenticity of caller-supplied objects.
@@ -224,12 +228,14 @@ export function evaluateApprovedRoadmap(input: {
   associations: readonly SourceAssociation[];
   providerRechecks: readonly FreshProviderRecheck[];
   manualAcceptances?: readonly TrustedManualAcceptance[];
+  policyVersion?: "EM3C_V2";
   nowIso: string;
 }): ProgressAssessment {
   const { revision, associations, providerRechecks, nowIso }=input;
-  const manualAcceptances=input.manualAcceptances??[];
+  const policyVersion:EvaluationPolicyVersion=input.policyVersion??"EM3A_V1";
+  const manualAcceptances=policyVersion==="EM3C_V2"?input.manualAcceptances??[]:[];
   const invalid=(reason: string): InvalidProgress=>({
-    status:"NOT_CALCULABLE",revisionId:revision.id,reason,policyVersion:"EM3A_V1",
+    status:"NOT_CALCULABLE",revisionId:revision.id,reason,policyVersion,
   });
 
   if (revision.status!=="approved" || !Number.isSafeInteger(revision.version) || revision.version<=0)
@@ -257,7 +263,8 @@ export function evaluateApprovedRoadmap(input: {
     }
 
     const checked=criteria.map((criterion)=>
-      assessCriterion(criterion,revision.id,associations,providerRechecks,manualAcceptances,nowIso)
+      assessCriterion(criterion,revision.id,associations,providerRechecks,manualAcceptances,
+        policyVersion==="EM3C_V2",nowIso)
     );
     const verdict=milestoneVerdict(checked);
     totalWeightUnits+=weightUnits;
@@ -282,6 +289,6 @@ export function evaluateApprovedRoadmap(input: {
     status:"CALCULATED",revisionId:revision.id,version:revision.version,
     basisPoints,percent:basisPoints/100,
     completedWeightUnits,totalWeightUnits,milestones,coverage,
-    policyVersion:"EM3A_V1",
+    policyVersion,
   };
 }
