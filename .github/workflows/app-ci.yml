@@ -70,6 +70,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:em3cb
 
+      - name: EM-3C-B2 broker and live adapter trust boundary contract
+        working-directory: apps/web
+        run: npm run test:em3cb2
+
       - name: Lint
         working-directory: apps/web
         run: npm run lint
