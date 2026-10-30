@@ -1,4 +1,4 @@
-import { createInstallationAccessToken, GitHubProviderError } from "@/lib/github/api";
+import { createInstallationAccessToken } from "@/lib/github/api";
 import { githubRequestHeaders } from "@/lib/github/app";
 import { normalizeMergedPullRequestEvidence } from "./github-evidence-normalize";
 
