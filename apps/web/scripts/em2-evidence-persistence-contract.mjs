@@ -17,7 +17,9 @@ for(const name of ["execution_evidence","execution_evidence_observations","crite
   assert.match(migration,new RegExp("create policy "+name+".*? on public\\."+name+"[\\s\\S]*?public\\.is_project_owner\\(project_id\\)","i"));
 }
 assert.match(migration,/unique \(project_id, provider, repository_id, source_type, source_id\)/);
-assert.match(migration,/unique \(evidence_id, snapshot_fingerprint\)/);
+assert.match(migration,/unique \(evidence_id, version_sequence\)/);
+assert.match(migration,/v_previous_fingerprint is distinct from v_fingerprint/);
+assert.match(migration,/order by version_sequence desc limit 1/);
 assert.match(migration,/foreign key \(project_id, criterion_id\)[\s\S]*?public\.completion_criteria\(project_id, id\)/);
 assert.match(migration,/foreign key \(project_id, evidence_id\)[\s\S]*?public\.execution_evidence\(project_id, id\)/);
 assert.match(migration,/create trigger execution_evidence_snapshot_guard[\s\S]*?before update or delete/);
