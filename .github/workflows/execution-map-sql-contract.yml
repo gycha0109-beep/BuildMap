@@ -2,10 +2,11 @@ name: Execution Map SQL Contract
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/execution-map-em2-github-evidence-preview]
     paths:
       - ".github/workflows/execution-map-sql-contract.yml"
       - "supabase/migrations/*execution_roadmap*.sql"
+      - "supabase/migrations/*execution_evidence*.sql"
       - "scripts/execution-contract/**"
   push:
     branches: [main]
@@ -93,11 +94,17 @@ jobs:
           wait "$approval_pid"
           cat /tmp/em1-approve.log
 
-      - name: Rehearse historical migrations 00–21 and EM-1 migration 22
+      - name: Apply EM-2B evidence registry migration in disposable database
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261030100000_buildmap_23_execution_evidence_registry.sql
+
+      - name: Verify evidence cache idempotency, audit versions and RLS
+        run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em2-evidence-scenarios.sql
+
+      - name: Rehearse complete BuildMap migration lineage including EM-2B
         run: bash scripts/execution-contract/run-full-lineage-rehearsal.sh
 
       - name: Confirm isolation
         run: |
           echo "Target: ephemeral PostgreSQL service container"
           echo "Hosted Supabase mutation: NONE"
-          echo "Full production-schema compatibility: NOT VERIFIED by this isolated fixture"
+          echo "Hosted Supabase schema not modified. Local full-repository SQL replay remains separate from hosted acceptance."
