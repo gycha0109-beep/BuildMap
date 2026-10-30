@@ -1,7 +1,7 @@
 # EM-3C-B2 — Default-off Scoped GitHub App Broker and Trusted Extended Rule Runtime
 
 - Date: 2026-10-30
-- State: **SOURCE_IMPLEMENTED / CONTRACT_AND_WEB_CI_PENDING / LIVE_GITHUB_APP_SCOPE_NOT_APPROVED / HOSTED_NOT_DEPLOYED**
+- State: **SOURCE_VERIFIED_IN_CI / WEB_SQL_AUTH_BROWSER_PIE_PASS / LIVE_GITHUB_APP_SCOPE_NOT_APPROVED / HOSTED_NOT_DEPLOYED**
 - Parent: EM-3C-B1 #111 (all upstream Execution Map PRs remain Draft).
 - No new SQL migration, no GitHub App configuration mutation, no production environment change, no token persistence, no official progress publication.
 
@@ -42,6 +42,16 @@ The token response is checked for exact permissions/repository identity. If GitH
 - Web CI: all EM1/2/3 legacy contracts, extended B1/B2 contracts, ESLint, TypeScript, Next.js build; PIE shadow.
 - Local real Supabase/Playwright upstream gate: owner/other/anonymous denial, private unpublished diagnostics and Builder manual approvals; no live GitHub App scope in disposable local auth.
 - **Not verified:** real GitHub App installation's authorized scope expansion, real Checks/Actions/Deployments read from a BuildMap-bound repository, production/Vercel runtime smoke, hosted migrations 22–24.
+
+## Verification completed for source implementation
+
+Verified exact source commit `df7c04bef8e33385fa945f005f4986ecc0ae3670`:
+- [Web App CI](https://github.com/gycha0109-beep/BuildMap/actions/runs/41010424058): PASS (legacy EM contracts, B2 broker/config/source, lint, typecheck, build)
+- [Local Supabase GoTrue/PostgREST + Playwright](https://github.com/gycha0109-beep/BuildMap/actions/runs/41010424074): PASS (real owner/non-owner/anonymous JWT, RLS, private NOT_PUBLISHED route, Builder accept/revoke UI; feature disabled)
+- [PIE Prospective Shadow](https://github.com/gycha0109-beep/BuildMap/actions/runs/41010424355): PASS
+- Production Supabase read-only migration inventory confirms head `buildmap_21_figma_oauth_credentials` (22–24 **not** applied).
+
+The GitHub evidence/provider and capability-token tests are **mocked**. No live BuildMap GitHub App installation with new Checks/Actions/Deployments permissions was available to the local test. This documentation-only commit requires rechecking the final PR HEAD.
 
 ## Next authorized release gates
 
