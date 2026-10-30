@@ -2,7 +2,7 @@ name: Web App CI
 
 on:
   pull_request:
-    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview]
+    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence]
   push:
     branches: [main]
 
