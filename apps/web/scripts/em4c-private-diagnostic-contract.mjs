@@ -71,6 +71,8 @@ const unknown = parse({
 assert.equal(unknown?.kind,"NOT_CALCULABLE");
 assert.equal(unknown?.unavailableReason,"missing_source");
 assert.deepEqual(unknown?.rows,[]);
+const helper=readFileSync(new URL("../lib/execution/em4c-diagnostic-view.ts",import.meta.url),"utf8");
+assert.ok(helper.includes("const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;"),"UUID guard regression");
 const client=readFileSync(new URL("../components/execution/private-verification-diagnostic.tsx",import.meta.url),"utf8");
 const view=readFileSync(new URL("../app/projects/[projectId]/execution/coverage/[revisionId]/page.tsx",import.meta.url),"utf8");
 const endpoint=readFileSync(new URL("../app/api/projects/[projectId]/execution/verification-readiness/route.ts",import.meta.url),"utf8");
