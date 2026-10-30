@@ -88,6 +88,26 @@ try {
   await page.getByText("연결된 GitHub 프로젝트 링크가 없어 실시간 진단을 실행할 수 없습니다.").waitFor();
   await page.getByRole("heading",{name:"저장된 GitHub 관측 기록"}).waitFor();
   await page.getByRole("heading",{name:"완료 조건과 증거 연결"}).waitFor();
+
+  const manualPanel=page.locator("section.surface-card")
+    .filter({has:page.getByRole("heading",{name:"수동 완료 조건 승인·철회"})});
+  const manualCriterion=manualPanel.locator("strong")
+    .filter({hasText:"User-visible completion criterion"}).first().locator("..");
+  await manualCriterion.locator('textarea[name="reason"]')
+    .fill("Browser manually inspected and accepted the integration gate.");
+  await manualCriterion.getByRole("button",{name:"수동 완료 조건 승인 기록"}).click();
+  await page.getByText("Builder 수동 승인 감사 이벤트를 기록했습니다.").waitFor();
+  const acceptedCriterion=page.locator("section.surface-card")
+    .filter({has:page.getByRole("heading",{name:"수동 완료 조건 승인·철회"})})
+    .locator("strong")
+    .filter({hasText:"User-visible completion criterion"}).first().locator("..");
+  await acceptedCriterion.getByRole("button",{name:"이 수동 승인을 철회하고 기록"}).waitFor();
+  await acceptedCriterion.locator('textarea[name="reason"]')
+    .fill("Browser detected a reason to revoke earlier acceptance.");
+  await acceptedCriterion.getByRole("button",{name:"이 수동 승인을 철회하고 기록"}).click();
+  await page.getByText("Builder 수동 승인 철회 감사 이벤트를 기록했습니다.").waitFor();
+  await page.getByText("철회됨",{exact:false}).first().waitFor();
+
   const cacheSection=page.locator("section.surface-card")
     .filter({has:page.getByRole("heading",{name:"저장된 GitHub 관측 기록"})});
   await cacheSection.getByText("Example/project · pr:42",{exact:true}).waitFor();
