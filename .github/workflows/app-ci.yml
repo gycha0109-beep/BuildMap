@@ -66,6 +66,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:em3c
 
+      - name: EM-3C-B1 scoped extended GitHub source rules
+        working-directory: apps/web
+        run: npm run test:em3cb
+
       - name: Lint
         working-directory: apps/web
         run: npm run lint
