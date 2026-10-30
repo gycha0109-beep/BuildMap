@@ -360,7 +360,9 @@ export default async function ExecutionMapPage({
                                       </form>
                                     </>
                                   ) : (
-                                    <span>{criterion.title} · {criterion.rule_type} · {criterion.is_required ? "필수" : "선택"}</span>
+                                    <Link href={"/projects/" + projectId + "/execution/provenance/" + criterion.id}>
+                                      {criterion.title} · {criterion.rule_type} · {criterion.is_required ? "필수" : "선택"} · 증거 근거 보기
+                                    </Link>
                                   )}
                                 </li>
                               ))}
