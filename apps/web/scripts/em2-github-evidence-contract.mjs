@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
+import ts from "typescript";
 import { dirname, resolve } from "node:path";
 import {
   normalizeMergedPullRequestEvidence,
@@ -95,6 +97,78 @@ assert.doesNotMatch(route, /\.insert\(|\.update\(|\.upsert\(|service_role/i);
 assert.match(page, /owner_builder_profile_id/);
 assert.match(panel, /UNKNOWN/);
 assert.match(panel, /이 자료만으로 마일스톤이 완료되었다고 판정하지 않습니다/);
+
+
+const requests = [];
+const providerExports = {};
+const compilation = ts.transpileModule(provider, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+});
+const fakeError = class extends Error {
+  constructor(message, status) { super(message); this.status = status; }
+};
+const githubFetch = async (url, options) => {
+  requests.push({ url, options });
+  if (url.includes("/pulls?")) {
+    return new Response(JSON.stringify([
+      {number:15,merged_at:"2026-10-29T22:30:00Z"},
+      {number:12,merged_at:null},
+    ]),{status:200});
+  }
+  if (url.endsWith("/pulls/15")) {
+    return new Response(JSON.stringify({
+      number:15,merged:true,merged_at:"2026-10-29T22:30:00Z",
+      merge_commit_sha:sha,title:"Mocked verified PR",
+    }),{status:200});
+  }
+  if (url.includes("/releases?")) {
+    return new Response(JSON.stringify([
+      {id:18,draft:false,tag_name:"v1",published_at:"2026-10-29T22:40:00Z"},
+    ]),{status:200});
+  }
+  return new Response("Not found", {status:404});
+};
+vm.runInNewContext(compilation.outputText, {
+  exports:providerExports,
+  require(name) {
+    if (name === "@/lib/github/api") {
+      return {
+        createInstallationAccessToken: async ({ installationId, repositoryId }) => {
+          assert.equal(installationId, "987");
+          assert.equal(repositoryId, "123");
+          return "mock-repo-scoped-token";
+        },
+        GitHubProviderError:fakeError,
+      };
+    }
+    if (name === "@/lib/github/app") return { githubRequestHeaders:{Accept:"application/vnd.github+json"} };
+    if (name === "./github-evidence-normalize") {
+      return {normalizeMergedPullRequestEvidence,normalizeReleaseReference};
+    }
+    throw Error("unexpected module " + name);
+  },
+  fetch: githubFetch,
+  Response, AbortSignal, Date,
+});
+const catalog = await providerExports.readGitHubExecutionEvidencePreview({
+  installationId:"987",repositoryId:"123",owner:"Example",repository:"project"
+});
+assert.equal(catalog.repository,"Example/project");
+assert.equal(catalog.snapshotWindow,"last_30_closed_prs_and_10_releases");
+assert.equal(catalog.evidence.length,2);
+assert.equal(catalog.evidence[0].sourceState,"SOURCE_CONFIRMED");
+assert.equal(catalog.evidence[0].sourceSha,sha);
+assert.equal(catalog.evidence[1].sourceState,"UNKNOWN");
+assert.equal(catalog.evidence[1].sourceType,"release");
+assert.equal(catalog.capabilities.commitChecks.status,"UNKNOWN");
+assert.equal(catalog.capabilities.workflowRuns.status,"UNKNOWN");
+assert.equal(catalog.capabilities.deployment.status,"UNKNOWN");
+assert.equal(catalog.capabilities.issue.status,"UNKNOWN");
+assert.equal(requests.length,3,"must only read PR list/detail and releases");
+assert.ok(requests.every(x=>x.url.startsWith("https://api.github.com/repos/Example/project/")));
+assert.ok(requests.every(x=>x.options.headers.Authorization === "Bearer mock-repo-scoped-token"));
+assert.ok(requests.every(x=>!/(?:\/issues|\/check-runs|\/actions\/runs|\/deployments)/.test(x.url)));
+assert.ok(!JSON.stringify(catalog).includes("mock-repo-scoped-token"),"tokens must never reach response");
 
 console.log("EM-2A PASS: exact SHA source normalization, unmerged/invalid fail-closed, release unknown, authenticated bound read-only route.");
 console.log("No GitHub App permission expansion, persisted evidence, or criterion progress is claimed.");
