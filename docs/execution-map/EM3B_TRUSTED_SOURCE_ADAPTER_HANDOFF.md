@@ -2,7 +2,7 @@
 
 - Date: 2026-10-30
 - Parent: EM-3A PR #104. Stacked Draft branch `feat/execution-map-em3b-trusted-source-adapter`.
-- State: **SOURCE_IMPLEMENTED / CI_AND_LOCAL_AUTH_PENDING / HOSTED_NOT_DEPLOYED / PUBLIC_PROGRESS_NOT_PUBLISHED**
+- State: **SOURCE_VERIFIED / WEB_CI_AND_LOCAL_AUTH_BROWSER_E2E_PASS / HOSTED_NOT_DEPLOYED / PUBLIC_PROGRESS_NOT_PUBLISHED**
 - No new migration, provider permission expansion, scheduled job, hosted writes or Change Card authority change.
 
 ## Server-only implementation
@@ -46,7 +46,7 @@ This is an instrumentation route for controlled acceptance, not EM-4's public pr
 
 ## Next milestones
 
-1. Confirm the **exact final PR HEAD** Web App CI and local Supabase Auth/Playwright results; fix any regression in this branch.
+1. Source implementation commit `7b42b2241de920c8618aba2cf6935ba019d9d95f` verified: [Web App CI](https://github.com/gycha0109-beep/BuildMap/actions/runs/40998924860) PASS, [local Supabase Auth + Playwright E2E](https://github.com/gycha0109-beep/BuildMap/actions/runs/40998924853) PASS, [PIE Prospective Shadow](https://github.com/gycha0109-beep/BuildMap/actions/runs/40998925292) PASS. Recheck exact PR HEAD after documentation commits.
 2. Keep staged PRs Draft until EM-1/2 hosted migrations 22/23 are approved, deployed and checked.
 3. Run a real BuildMap-linked GitHub App installation smoke in a controlled environment, validating a known merged PR SHA and unknown/permission paths.
 4. EM-3C: rule-specific Checks, artifact, deployment and manual acceptance adapters with explicit Builder authority, installation scopes and source correlation.
