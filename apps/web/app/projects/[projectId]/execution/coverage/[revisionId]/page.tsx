@@ -27,6 +27,17 @@ export default async function ExecutionRevisionCoveragePage({
   params: Promise<{ projectId: string; revisionId: string }>;
 }) {
   const { projectId, revisionId } = await params;
+  if (process.env.NODE_ENV === "development") {
+    console.info("EM4B_PARAM_SHAPE", {
+      keys: Object.keys(await params),
+      projectType: typeof projectId,
+      revisionType: typeof revisionId,
+      projectLength: typeof projectId === "string" ? projectId.length : null,
+      revisionLength: typeof revisionId === "string" ? revisionId.length : null,
+      projectValid: UUID.test(projectId),
+      revisionValid: UUID.test(revisionId),
+    });
+  }
   if (!UUID.test(projectId) || !UUID.test(revisionId)) denyCoverage("route-id");
 
   const db = await createClient();
