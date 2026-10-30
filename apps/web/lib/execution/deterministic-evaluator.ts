@@ -60,6 +60,17 @@ export type FreshProviderRecheck = {
   result: "CURRENT_SOURCE_MATCH" | "UNKNOWN";
 };
 
+export type TrustedManualAcceptance = {
+  kind: "BUILDER_MANUAL_ACCEPTANCE";
+  eventId: string;
+  criterionId: string;
+  revisionId: string;
+  action: "accepted" | "revoked";
+  actorBuilderProfileId: string;
+  reason: string;
+  recordedAt: string;
+};
+
 export type RuleAssessment = {
   criterionId: string;
   ruleType: RuleType;
@@ -123,8 +134,10 @@ function isFreshProof(proof: FreshProviderRecheck, nowIso: string) {
 
 function assessCriterion(
   criterion: Criterion,
+  revisionId: string,
   associations: readonly SourceAssociation[],
   rechecks: readonly FreshProviderRecheck[],
+  manualAcceptances: readonly TrustedManualAcceptance[],
   nowIso: string,
 ): RuleAssessment {
   const response=(verdict: CriterionVerdict,reason: string,evidenceId: string | null=null): RuleAssessment=>({
@@ -132,8 +145,31 @@ function assessCriterion(
     required:criterion.isRequired,verdict,reason,supportingEvidenceId:evidenceId,
   });
 
-  if (criterion.ruleType === "MANUAL_ACCEPTANCE")
-    return response("UNKNOWN","builder_manual_acceptance_record_not_implemented");
+  if (criterion.ruleType === "MANUAL_ACCEPTANCE") {
+    // Only a trusted server adapter may populate these events from the
+    // immutable owner-authorized SQL audit. The helper itself cannot attest
+    // the authenticity of caller-supplied objects.
+    const matching=manualAcceptances.filter((event)=>
+      event.kind==="BUILDER_MANUAL_ACCEPTANCE" &&
+      event.criterionId===criterion.id &&
+      event.revisionId===revisionId
+    );
+    if(matching.length===0)
+      return response("UNKNOWN","builder_manual_acceptance_record_not_implemented");
+    if(matching.length!==1) return response("UNKNOWN","ambiguous_manual_event_snapshot");
+    const event=matching[0];
+    const eventTime=Date.parse(event.recordedAt);
+    const now=Date.parse(nowIso);
+    if(!event.eventId || !event.actorBuilderProfileId ||
+       event.reason.trim().length<12 || event.reason.length>2000 ||
+       !Number.isFinite(eventTime) || eventTime>now)
+      return response("UNKNOWN","invalid_builder_manual_event");
+    if(event.action==="revoked")
+      return response("PENDING","builder_manual_acceptance_revoked");
+    if(event.action==="accepted")
+      return response("PASS","explicit_builder_manual_acceptance");
+    return response("UNKNOWN","invalid_builder_manual_event_action");
+  }
   if (criterion.ruleType !== "PR_MERGED")
     return response("UNKNOWN","rule_specific_provider_verifier_not_implemented");
 
@@ -187,9 +223,11 @@ export function evaluateApprovedRoadmap(input: {
   revision: Revision;
   associations: readonly SourceAssociation[];
   providerRechecks: readonly FreshProviderRecheck[];
+  manualAcceptances?: readonly TrustedManualAcceptance[];
   nowIso: string;
 }): ProgressAssessment {
   const { revision, associations, providerRechecks, nowIso }=input;
+  const manualAcceptances=input.manualAcceptances??[];
   const invalid=(reason: string): InvalidProgress=>({
     status:"NOT_CALCULABLE",revisionId:revision.id,reason,policyVersion:"EM3A_V1",
   });
@@ -219,7 +257,7 @@ export function evaluateApprovedRoadmap(input: {
     }
 
     const checked=criteria.map((criterion)=>
-      assessCriterion(criterion,associations,providerRechecks,nowIso)
+      assessCriterion(criterion,revision.id,associations,providerRechecks,manualAcceptances,nowIso)
     );
     const verdict=milestoneVerdict(checked);
     totalWeightUnits+=weightUnits;
