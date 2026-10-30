@@ -39,10 +39,10 @@ export default async function ExecutionEvidencePage({
   const cachedIds = (cached.data ?? []).map((item) => item.id);
   const snapshots = cachedIds.length
     ? await supabase.from("execution_evidence_observations")
-      .select("evidence_id, source_state, source_sha, reason, title, source_url, observed_at")
+      .select("evidence_id, version_sequence, source_state, source_sha, reason, title, source_url, observed_at")
       .eq("project_id", projectId)
       .in("evidence_id", cachedIds)
-      .order("observed_at", { ascending: false })
+      .order("version_sequence", { ascending: false })
       .limit(200)
     : null;
 
