@@ -1,0 +1,254 @@
+import "server-only";
+
+import { ensureBuilderContext } from "@/lib/buildmap/account";
+import { isGitHubAppConfigured, verifyGitHubBindingProof } from "@/lib/github/app";
+import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
+import { inspectGitHubExecutionInstallation } from "@/lib/execution/github-installation-diagnostic";
+import { inspectExecutionSourceHealth } from "@/lib/execution/github-source-health";
+import {
+  evaluateApprovedRoadmap,
+  type FreshProviderRecheck,
+  type ProgressAssessment,
+  type Revision,
+  type RuleType,
+  type SourceAssociation,
+} from "@/lib/execution/deterministic-evaluator";
+import { createClient } from "@/lib/supabase/server";
+
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REPOSITORY_ID=/^[1-9][0-9]{0,15}$/;
+const SHA=/^[0-9a-f]{40}$/;
+const MAX_MILESTONES=50;
+const MAX_CRITERIA=200;
+const MAX_LINKS=200;
+const MAX_EVIDENCE=100;
+const MAX_RECHECKS=12;
+const MAX_GITHUB_LINKS=25;
+const CACHE_FRESH_MS=24*60*60*1000;
+
+export type TrustedReadiness =
+  | { state:"UNAVAILABLE"; reason:string; assessment:null; rechecksPerformed:0 }
+  | { state:"VERIFIED_AT_REQUEST_TIME"; reason:null; assessment:ProgressAssessment; rechecksPerformed:number };
+
+// Server-only source of truth. A client cannot submit provider rechecks,
+// expected SHAs, evidence mappings or roadmap definitions to this function.
+export async function computeTrustedExecutionReadiness(input: {
+  projectId: string;
+  revisionId: string;
+}): Promise<TrustedReadiness> {
+  const unavailable=(reason:string):TrustedReadiness=>({
+    state:"UNAVAILABLE",reason,assessment:null,rechecksPerformed:0,
+  });
+  if(!UUID.test(input.projectId)||!UUID.test(input.revisionId))
+    return unavailable("invalid_identifiers");
+
+  const supabase=await createClient();
+  const user=await supabase.auth.getUser();
+  if(!user.data.user) return unavailable("unauthenticated");
+  const builder=await ensureBuilderContext(supabase,user.data.user);
+  const project=await supabase.from("projects").select("id")
+    .eq("id",input.projectId).eq("owner_builder_profile_id",builder.builderProfileId)
+    .is("archived_at",null).maybeSingle();
+  if(project.error||!project.data) return unavailable("project_access_denied");
+
+  const selected=await supabase.from("roadmap_revisions")
+    .select("id,project_id,track_id,status,version")
+    .eq("project_id",input.projectId).eq("id",input.revisionId)
+    .eq("status","approved").maybeSingle();
+  if(selected.error||!selected.data) return unavailable("approved_revision_unavailable");
+  const revisionRow=selected.data;
+
+  const [milestonesResult,criteriaResult,linksResult]=await Promise.all([
+    supabase.from("execution_milestones")
+      .select("id,project_id,track_id,roadmap_revision_id,weight,archived_at,position")
+      .eq("project_id",input.projectId).eq("track_id",revisionRow.track_id)
+      .eq("roadmap_revision_id",input.revisionId)
+      .is("archived_at",null)
+      .order("position",{ascending:true}).limit(MAX_MILESTONES+1),
+    supabase.from("completion_criteria")
+      .select("id,project_id,track_id,roadmap_revision_id,milestone_id,rule_type,rule_config,is_required,archived_at,position")
+      .eq("project_id",input.projectId).eq("track_id",revisionRow.track_id)
+      .eq("roadmap_revision_id",input.revisionId)
+      .is("archived_at",null)
+      .order("position",{ascending:true}).limit(MAX_CRITERIA+1),
+    supabase.from("criterion_evidence_links")
+      .select("id,project_id,criterion_id,evidence_id,review_status")
+      .eq("project_id",input.projectId).limit(MAX_LINKS+1),
+  ]);
+  if(milestonesResult.error||criteriaResult.error||linksResult.error)
+    return unavailable("roadmap_or_association_query_failed");
+  const milestoneRows=milestonesResult.data??[];
+  const criterionRows=criteriaResult.data??[];
+  const linkRows=linksResult.data??[];
+  if(milestoneRows.length>MAX_MILESTONES||criterionRows.length>MAX_CRITERIA||
+     linkRows.length>MAX_LINKS)
+    return unavailable("roadmap_or_link_snapshot_truncated");
+
+  const milestoneIds=new Set(milestoneRows.map(row=>row.id));
+  if(criterionRows.some(row=>!milestoneIds.has(row.milestone_id)))
+    return unavailable("orphan_or_mismatched_criterion");
+
+  const criterionIds=new Set(criterionRows.map(row=>row.id));
+  const relevantLinks=linkRows.filter(row=>criterionIds.has(row.criterion_id));
+  const evidenceIds=[...new Set(relevantLinks.map(row=>row.evidence_id))];
+  if(evidenceIds.length>MAX_EVIDENCE) return unavailable("too_many_evidence_sources");
+  const evidenceResult=evidenceIds.length
+    ? await supabase.from("execution_evidence")
+      .select("id,project_id,provider,repository_id,repository_name,source_type,source_id")
+      .eq("project_id",input.projectId).in("id",evidenceIds)
+      .limit(MAX_EVIDENCE+1)
+    : { data:[],error:null };
+  if(evidenceResult.error||!evidenceResult.data||
+     evidenceResult.data.length!==evidenceIds.length)
+    return unavailable("evidence_scope_or_read_incomplete");
+
+  const evidenceById=new Map(evidenceResult.data.map(row=>[row.id,row]));
+  const associations:SourceAssociation[]=relevantLinks.flatMap(link=>{
+    const evidence=evidenceById.get(link.evidence_id);
+    if(!evidence||evidence.provider!=="github"||
+      !["merged_pull_request","release"].includes(evidence.source_type))
+      return [];
+    return [{
+      criterionId:link.criterion_id,
+      evidenceId:link.evidence_id,
+      sourceId:evidence.source_id,
+      repositoryId:String(evidence.repository_id),
+      sourceType:evidence.source_type as "merged_pull_request" | "release",
+      reviewStatus:link.review_status as SourceAssociation["reviewStatus"],
+    }];
+  });
+
+  const revision:Revision={
+    id:revisionRow.id,
+    status:"approved",
+    version:revisionRow.version,
+    milestones:milestoneRows.map(milestone=>({
+      id:milestone.id,weight:String(milestone.weight),
+      criteria:criterionRows.filter(criterion=>criterion.milestone_id===milestone.id)
+        .map(criterion=>({
+          id:criterion.id,
+          ruleType:criterion.rule_type as RuleType,
+          isRequired:criterion.is_required,
+          ruleConfig:criterion.rule_config??{},
+        })),
+    })),
+  };
+
+  // Never query arbitrary user-supplied GitHub URLs. Only re-read reviewed
+  // source links of the immutable approved revision through active HMAC bindings.
+  const reviewed=associations.filter(link=>
+    link.reviewStatus==="reviewed"&&link.sourceType==="merged_pull_request"&&
+    criterionRows.some(criterion=>
+      criterion.id===link.criterionId&&criterion.rule_type==="PR_MERGED"
+    )
+  );
+  const uniqueReviewed=[...new Map(reviewed.map(link=>[link.evidenceId,link])).values()];
+  if(uniqueReviewed.length>MAX_RECHECKS)
+    return unavailable("fresh_verification_budget_exceeded");
+
+  const rechecks:FreshProviderRecheck[]=[];
+  let rechecksPerformed=0;
+
+  if(uniqueReviewed.length&&isGitHubAppConfigured()){
+    const links=await supabase.from("project_links")
+      .select("id,url")
+      .eq("project_id",input.projectId).eq("link_type","github")
+      .is("archived_at",null)
+      .limit(MAX_GITHUB_LINKS+1);
+    if(links.error||!links.data||links.data.length>MAX_GITHUB_LINKS)
+      return unavailable("github_link_inventory_unavailable_or_truncated");
+
+    const trustedRepositories=new Map<string,{
+      owner:string;repository:string;repositoryId:string;installationId:string;
+    }>();
+    for(const link of links.data){
+      const parsed=parseCanonicalGitHubRepositoryUrl(link.url);
+      if(!parsed) continue;
+      const binding=await supabase.from("integration_bindings")
+        .select("project_link_id,external_connection_id,external_resource_id,external_resource_label,binding_proof")
+        .eq("project_link_id",link.id).eq("provider","github")
+        .eq("status","active").is("archived_at",null)
+        .limit(2);
+      if(binding.error||!binding.data||binding.data.length!==1) continue;
+      const record=binding.data[0];
+      if(!REPOSITORY_ID.test(record.external_resource_id)||
+        !REPOSITORY_ID.test(record.external_connection_id)||
+        record.external_resource_label.toLowerCase()!==parsed.fullName.toLowerCase()) continue;
+      if(!verifyGitHubBindingProof({
+        projectLinkId:link.id,
+        installationId:record.external_connection_id,
+        repositoryId:record.external_resource_id,
+        fullName:parsed.fullName,
+      },record.binding_proof)) continue;
+      const id=record.external_resource_id;
+      // Ambiguous multiple active bindings to one numeric repository fail closed.
+      if(trustedRepositories.has(id)){
+        trustedRepositories.delete(id);
+        continue;
+      }
+      trustedRepositories.set(id,{
+        owner:parsed.owner,repository:parsed.repository,
+        repositoryId:id,installationId:record.external_connection_id,
+      });
+    }
+
+    const ready=new Map<string,boolean>();
+    for(const link of uniqueReviewed){
+      const evidence=evidenceById.get(link.evidenceId);
+      if(!evidence) continue;
+      const binding=trustedRepositories.get(link.repositoryId);
+      if(!binding) continue;
+      if(evidence.repository_name.toLowerCase()!==
+        `${binding.owner}/${binding.repository}`.toLowerCase()) continue;
+      if(!ready.has(link.repositoryId)){
+        try {
+          const check=await inspectGitHubExecutionInstallation(binding);
+          ready.set(link.repositoryId,
+            check.installationIdentity==="MATCH"&&check.repositoryIdentity==="MATCH");
+        } catch {
+          ready.set(link.repositoryId,false);
+        }
+      }
+      if(!ready.get(link.repositoryId)) continue;
+      const snapshot=await supabase.from("execution_evidence_observations")
+        .select("source_sha,source_state,observed_at,version_sequence")
+        .eq("project_id",input.projectId).eq("evidence_id",link.evidenceId)
+        .order("version_sequence",{ascending:false}).limit(1).maybeSingle();
+      if(snapshot.error||!snapshot.data||snapshot.data.source_state!=="SOURCE_CONFIRMED"||
+        !snapshot.data.source_sha||!SHA.test(snapshot.data.source_sha)) continue;
+      const observedAt=Date.parse(snapshot.data.observed_at);
+      const checkedAt=Date.now();
+      if(!Number.isFinite(observedAt)||observedAt>checkedAt||
+        checkedAt-observedAt>CACHE_FRESH_MS) continue;
+
+      rechecksPerformed++;
+      try {
+        const status=await inspectExecutionSourceHealth({
+          ...binding,sourceType:"merged_pull_request",
+          sourceId:link.sourceId,cachedSha:snapshot.data.source_sha,
+        });
+        if(status.sourceState==="CURRENT_SOURCE_MATCH" &&
+          status.currentSha===snapshot.data.source_sha &&
+          status.currentSha!==null) {
+          rechecks.push({
+            kind:"GITHUB_PR_MERGE_RECHECK",
+            evidenceId:link.evidenceId,sourceId:link.sourceId,
+            repositoryId:link.repositoryId,checkedAt:status.checkedAt,
+            currentSha:status.currentSha,cachedSha:snapshot.data.source_sha,
+            result:"CURRENT_SOURCE_MATCH",
+          });
+        }
+      } catch {
+        // Network, app suspension, permission or API errors remain UNKNOWN.
+      }
+    }
+  }
+
+  // Capture evaluation time AFTER all network calls. EM-3A performs the
+  // 5-minute freshness and canonical SHA checks again before any PASS.
+  const assessment=evaluateApprovedRoadmap({
+    revision,associations,providerRechecks:rechecks,
+    nowIso:new Date().toISOString(),
+  });
+  return {state:"VERIFIED_AT_REQUEST_TIME",reason:null,assessment,rechecksPerformed};
+}
