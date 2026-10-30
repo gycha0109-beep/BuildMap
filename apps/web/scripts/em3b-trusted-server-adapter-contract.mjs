@@ -58,6 +58,7 @@ const defaultFixture=()=>({
 });
 let rows=defaultFixture();
 let actor=true, appConfigured=true, installValid=true, sourceValid=true;
+let installThrows=false, sourceThrows=false;
 let failingTable=null, installationCalls=0, sourceCalls=0, deniedProof=false;
 
 class Query {
@@ -111,6 +112,7 @@ const dependencies={
   "@/lib/execution/github-installation-diagnostic":{
     inspectGitHubExecutionInstallation:async (binding)=>{
       installationCalls++;
+      if(installThrows)throw Error("provider installation access denied");
       assert.equal(binding.repositoryId,"123");
       assert.equal(binding.installationId,"456");
       return {installationIdentity:installValid?"MATCH":"UNKNOWN",
@@ -120,6 +122,7 @@ const dependencies={
   "@/lib/execution/github-source-health":{
     inspectExecutionSourceHealth:async (arg)=>{
       sourceCalls++;
+      if(sourceThrows)throw Error("GitHub PR read failed");
       assert.equal(arg.cachedSha,SHA);
       assert.equal(arg.sourceId,"pr:42");
       return {
@@ -148,6 +151,7 @@ const query={projectId:ids.project,revisionId:ids.revision};
 function reset(){
   rows=defaultFixture();
   actor=true;appConfigured=true;installValid=true;sourceValid=true;
+  installThrows=false;sourceThrows=false;
   failingTable=null;installationCalls=0;sourceCalls=0;deniedProof=false;
 }
 async function checked(){
@@ -176,6 +180,16 @@ assert.equal(result.assessment.percent,0);
 assert.equal(sourceCalls,0,"no source call after mismatched GitHub installation");
 assert.equal(installationCalls,1);
 
+reset();installThrows=true;
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(sourceCalls,0,"provider installation errors cannot grant proof");
+
+reset();sourceThrows=true;
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(result.assessment.coverage.unknown,1,"GitHub PR read errors remain UNKNOWN");
+
 reset();deniedProof=true;
 result=await checked();
 assert.equal(result.assessment.percent,0);
@@ -196,6 +210,11 @@ reset();rows.execution_evidence_observations[0].source_sha="b".repeat(40);
 result=await run(query);
 assert.equal(result.state,"VERIFIED_AT_REQUEST_TIME");
 assert.equal(result.assessment.percent,0);
+
+reset();rows.execution_evidence[0].repository_name="Other/project";
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(installationCalls,0,"source repository name mismatch blocks remote reads");
 
 reset();rows.integration_bindings[0].external_resource_id="999";
 result=await checked();
