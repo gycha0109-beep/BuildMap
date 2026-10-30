@@ -108,9 +108,12 @@ const compilation = ts.transpileModule(provider, {
 const fakeError = class extends Error {
   constructor(message, status) { super(message); this.status = status; }
 };
+let failPullList = false;
+let failReleaseList = false;
 const githubFetch = async (url, options) => {
   requests.push({ url, options });
   if (url.includes("/pulls?")) {
+    if (failPullList) return new Response("Permission unavailable", {status:403});
     return new Response(JSON.stringify([
       {number:15,merged_at:"2026-10-29T22:30:00Z"},
       {number:12,merged_at:null},
@@ -123,6 +126,7 @@ const githubFetch = async (url, options) => {
     }),{status:200});
   }
   if (url.includes("/releases?")) {
+    if (failReleaseList) return new Response("Permission unavailable", {status:403});
     return new Response(JSON.stringify([
       {id:18,draft:false,tag_name:"v1",published_at:"2026-10-29T22:40:00Z"},
     ]),{status:200});
@@ -170,6 +174,25 @@ assert.ok(requests.every(x=>x.url.startsWith("https://api.github.com/repos/Examp
 assert.ok(requests.every(x=>x.options.headers.Authorization === "Bearer mock-repo-scoped-token"));
 assert.ok(requests.every(x=>!/(?:\/issues|\/check-runs|\/actions\/runs|\/deployments)/.test(x.url)));
 assert.ok(!JSON.stringify(catalog).includes("mock-repo-scoped-token"),"tokens must never reach response");
+
+const query = {installationId:"987",repositoryId:"123",owner:"Example",repository:"project"};
+failReleaseList = true;
+const prOnly = await providerExports.readGitHubExecutionEvidencePreview(query);
+assert.equal(prOnly.capabilities.prMerge.status, "OBSERVED");
+assert.equal(prOnly.capabilities.releaseReference.status, "UNKNOWN");
+assert.equal(prOnly.evidence.length, 1);
+assert.equal(prOnly.evidence[0].sourceState, "SOURCE_CONFIRMED");
+failReleaseList = false;
+failPullList = true;
+const releasesOnly = await providerExports.readGitHubExecutionEvidencePreview(query);
+assert.equal(releasesOnly.capabilities.prMerge.status, "UNKNOWN");
+assert.equal(releasesOnly.capabilities.releaseReference.status, "OBSERVED");
+assert.equal(releasesOnly.evidence.length, 1);
+assert.equal(releasesOnly.evidence[0].sourceState, "UNKNOWN");
+failReleaseList = true;
+await assert.rejects(providerExports.readGitHubExecutionEvidencePreview(query));
+failReleaseList = false;
+failPullList = false;
 
 console.log("EM-2A PASS: exact SHA source normalization, unmerged/invalid fail-closed, release unknown, authenticated bound read-only route.");
 console.log("No GitHub App permission expansion, persisted evidence, or criterion progress is claimed.");
