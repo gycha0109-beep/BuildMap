@@ -252,6 +252,44 @@ assert.equal(result.assessment.percent,0);
 assert.equal(result.assessment.coverage.unknown,1);
 assert.equal(installationCalls,0);
 
+reset();rows.completion_criteria[0].rule_type="MANUAL_ACCEPTANCE";
+rows.execution_manual_acceptance_events=[{
+  id:"event-1",project_id:ids.project,track_id:ids.track,
+  roadmap_revision_id:ids.revision,criterion_id:ids.criterion,
+  event_type:"accepted",reason:"Explicitly inspected the completed deliverable",
+  actor_builder_profile_id:"owner-builder",
+  recorded_at:new Date(Date.now()-10_000).toISOString(),
+}];
+result=await checked();
+assert.equal(result.assessment.percent,100,
+  "server-only latest approved Builder event must pass manual criterion");
+assert.equal(sourceCalls,0,"manual acceptance requires no GitHub PR token");
+
+reset();rows.completion_criteria[0].rule_type="MANUAL_ACCEPTANCE";
+rows.execution_manual_acceptance_events=[{
+  id:"event-1",project_id:ids.project,track_id:ids.track,
+  roadmap_revision_id:ids.revision,criterion_id:ids.criterion,
+  event_type:"accepted",reason:"Explicitly inspected the completed deliverable",
+  actor_builder_profile_id:"owner-builder",
+  recorded_at:new Date(Date.now()-30_000).toISOString(),
+},{
+  id:"event-2",project_id:ids.project,track_id:ids.track,
+  roadmap_revision_id:ids.revision,criterion_id:ids.criterion,
+  event_type:"revoked",reason:"Original manual acceptance is no longer valid",
+  actor_builder_profile_id:"owner-builder",
+  recorded_at:new Date(Date.now()-10_000).toISOString(),
+}];
+result=await checked();
+assert.equal(result.assessment.percent,0);
+assert.equal(result.assessment.coverage.pending,1,
+  "latest revocation cancels earlier accepted event");
+
+reset();rows.completion_criteria[0].rule_type="MANUAL_ACCEPTANCE";
+failingTable="execution_manual_acceptance_events";
+result=await run(query);
+assert.equal(result.state,"UNAVAILABLE");
+assert.equal(result.reason,"manual_audit_unavailable_or_truncated");
+
 reset();rows.roadmap_revisions[0].status="draft";
 result=await run(query);
 assert.equal(result.state,"UNAVAILABLE");
