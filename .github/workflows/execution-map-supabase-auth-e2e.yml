@@ -69,6 +69,7 @@ jobs:
           test -n "$API_URL" && test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
           node apps/web/scripts/em1-local-auth-e2e.mjs
           node apps/web/scripts/em2-local-auth-e2e.mjs
+          node apps/web/scripts/em3c-local-auth-e2e.mjs
 
       - name: Install isolated Playwright Chromium
         working-directory: apps/web
