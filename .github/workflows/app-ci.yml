@@ -2,7 +2,7 @@ name: Web App CI
 
 on:
   pull_request:
-    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em2c-permission-source-health, feat/execution-map-em3a-deterministic-evaluation-core, feat/execution-map-em3b-trusted-source-adapter, feat/execution-map-em3c-manual-acceptance]
+    branches: [main, feat/execution-map-em1-schema-foundation, feat/execution-map-em2-github-evidence-preview, feat/execution-map-em2b-persistent-evidence, feat/execution-map-em2c-permission-source-health, feat/execution-map-em3a-deterministic-evaluation-core, feat/execution-map-em3b-trusted-source-adapter, feat/execution-map-em3c-manual-acceptance, feat/execution-map-em3cb-github-rule-verifiers]
   push:
     branches: [main]
 
@@ -69,6 +69,10 @@ jobs:
       - name: EM-3C-B1 scoped extended GitHub source rules
         working-directory: apps/web
         run: npm run test:em3cb
+
+      - name: EM-3C-B2 broker and live adapter trust boundary contract
+        working-directory: apps/web
+        run: npm run test:em3cb2
 
       - name: Lint
         working-directory: apps/web
