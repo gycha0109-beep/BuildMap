@@ -196,6 +196,7 @@ export async function computeTrustedExecutionReadiness(input: {
 
   const rechecks:FreshProviderRecheck[]=[];
   const extendedRuleProofs:TrustedExtendedRuleProof[]=[];
+  const sourceVersionsUsed=new Map<string,{version:number;sha:string}>();
   let rechecksPerformed=0;
 
   if(uniqueReviewed.length&&isGitHubAppConfigured()){
@@ -291,6 +292,10 @@ export async function computeTrustedExecutionReadiness(input: {
             latest.data.version_sequence!==snapshot.data.version_sequence ||
             latest.data.source_sha!==snapshot.data.source_sha ||
             latest.data.source_state!=="SOURCE_CONFIRMED") continue;
+          sourceVersionsUsed.set(link.evidenceId,{
+            version:snapshot.data.version_sequence,
+            sha:snapshot.data.source_sha,
+          });
           rechecks.push({
             kind:"GITHUB_PR_MERGE_RECHECK",
             evidenceId:link.evidenceId,sourceId:link.sourceId,
@@ -329,6 +334,21 @@ export async function computeTrustedExecutionReadiness(input: {
         // Network, app suspension, permission or API errors remain UNKNOWN.
       }
     }
+  }
+
+  // Recheck every source snapshot AFTER all extended provider calls.
+  // A user might append a new observation while an Actions/Deployment API
+  // request was in flight; never count an older successful observation.
+  for(const [evidenceId,used] of sourceVersionsUsed){
+    const finalSnapshot=await supabase.from("execution_evidence_observations")
+      .select("source_sha,source_state,version_sequence")
+      .eq("project_id",input.projectId).eq("evidence_id",evidenceId)
+      .order("version_sequence",{ascending:false}).limit(1).maybeSingle();
+    if(finalSnapshot.error||!finalSnapshot.data ||
+      finalSnapshot.data.version_sequence!==used.version ||
+      finalSnapshot.data.source_sha!==used.sha ||
+      finalSnapshot.data.source_state!=="SOURCE_CONFIRMED")
+      return unavailable("source_changed_during_evaluation");
   }
 
   // Capture evaluation time AFTER all network calls. EM-3A performs the
