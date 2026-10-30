@@ -19,8 +19,8 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const rules=new Set(["PR_MERGED","CHECK_PASSED","ARTIFACT_EXISTS","DEPLOY_VERIFIED","MANUAL_ACCEPTANCE"]);
 const states=new Set(["FRESH_SOURCE_MATCHED_NOT_APPROVED_FOR_PUBLICATION","FAIL","PENDING","UNKNOWN"]);
 const record=(v:unknown):v is Record<string,unknown>=>v!==null&&typeof v==="object"&&!Array.isArray(v);
-const safeReason=(v:unknown)=>typeof v==="string"&&v.length<=160&&/^[a-zA-Z0-9_.:-]*$/.test(v);
-const validPolicy=(v:unknown)=>typeof v==="string"&&v.length>0&&v.length<=60&&/^[A-Za-z0-9_:-]+$/.test(v);
+const safeReason=(v:unknown):v is string=>typeof v==="string"&&v.length<=160&&/^[a-zA-Z0-9_.:-]*$/.test(v);
+const validPolicy=(v:unknown):v is string=>typeof v==="string"&&v.length>0&&v.length<=60&&/^[A-Za-z0-9_:-]+$/.test(v);
 
 /** Parse a response only if a currently selected approved revision matches.
  * An accidental numeric progress, PASS verdict, unknown criterion or
