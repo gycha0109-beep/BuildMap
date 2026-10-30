@@ -157,9 +157,11 @@ const narrow=broker.match(/permissions:\s*\{\s*contents:\s*"read",\s*pull_reques
 assert.ok(narrow,
   "existing runtime token MUST remain contents:read + pull_requests:read only");
 assert.doesNotMatch(narrow[0],/checks|actions|deployments/);
-assert.match(currentServer,/policyVersion:"EM3C_V2"/,
-  "new extended rules must not be promoted to runtime without live scope approval");
-assert.doesNotMatch(currentServer,/readAndVerifyExtendedGitHubRule|EM3CB_V3/);
+assert.match(currentServer,/policyVersion:extendedEnabled\?"EM3CB_V3":"EM3C_V2"/,
+  "extended rule runtime must require explicit server-side gated opt-in");
+const brokerSource=readFileSync(resolve(base,"lib/execution/github-extended-capability-broker.ts"),"utf8");
+assert.match(brokerSource,/EXECUTION_EXTENDED_GITHUB_VERIFICATION_ENABLED/);
+assert.match(brokerSource,/EXECUTION_EXTENDED_GITHUB_APPROVED_APP_ID/);
 assert.match(currentRoute,/progress:"NOT_PUBLISHED"/);
 assert.doesNotMatch(currentRoute,/assessment\.percent|assessment\.basisPoints/);
 
