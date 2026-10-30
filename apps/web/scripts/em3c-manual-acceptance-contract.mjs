@@ -27,7 +27,8 @@ const event={
   recordedAt:"2026-10-30T05:59:00Z",
 };
 const evalRun=(manualAcceptances=[])=>evaluateApprovedRoadmap({
-  revision,associations:[],providerRechecks:[],manualAcceptances,nowIso:now,
+  revision,associations:[],providerRechecks:[],manualAcceptances,
+  policyVersion:"EM3C_V2",nowIso:now,
 });
 let e=evalRun();
 assert.equal(e.status,"CALCULATED");
