@@ -156,7 +156,7 @@ function parseWeightUnits(weight: number | string): number | null {
     ? units : null;
 }
 
-function isFreshProof(proof: FreshProviderRecheck, nowIso: string) {
+function isFreshProof(proof: { checkedAt: string }, nowIso: string) {
   const now=Date.parse(nowIso), checked=Date.parse(proof.checkedAt);
   return Number.isFinite(now) && Number.isFinite(checked) &&
     checked <= now && now-checked <= maxProofAgeMs;
