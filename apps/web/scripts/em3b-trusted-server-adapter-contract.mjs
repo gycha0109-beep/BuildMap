@@ -61,6 +61,7 @@ let actor=true, appConfigured=true, installValid=true, sourceValid=true;
 let installThrows=false, sourceThrows=false, appendDuringProviderRead=false;
 let failingTable=null, installationCalls=0, sourceCalls=0, deniedProof=false;
 let extendedEnabled=false,extendedCalls=0,extendedOutput="PASS";
+let mutateDuringExtendedRead=false;
 
 class Query {
   constructor(table){this.table=table;this.filters=[];this.sort=null;this.cap=Infinity;}
@@ -148,6 +149,12 @@ const dependencies={
       assert.equal(source.sha,SHA);
       assert.equal(source.sourceId,"pr:42");
       assert.equal(criteria.length,1);
+      if(mutateDuringExtendedRead){
+        rows.execution_evidence_observations.push({
+          ...rows.execution_evidence_observations[0],
+          version_sequence:2,source_sha:"b".repeat(40),observed_at:now(),
+        });
+      }
       if(extendedOutput==="UNKNOWN")return [];
       return [{
         kind:"GITHUB_EXTENDED_RULE_RECHECK",
@@ -180,6 +187,7 @@ function reset(){
   installThrows=false;sourceThrows=false;appendDuringProviderRead=false;
   failingTable=null;installationCalls=0;sourceCalls=0;deniedProof=false;
   extendedEnabled=false;extendedCalls=0;extendedOutput="PASS";
+  mutateDuringExtendedRead=false;
 }
 async function checked(){
   const result=await run(query);
@@ -335,6 +343,19 @@ assert.equal(result.assessment.policyVersion,"EM3CB_V3");
 assert.equal(result.assessment.percent,100);
 assert.equal(extendedCalls,1);
 assert.equal(sourceCalls,1);
+
+reset();
+extendedEnabled=true;
+mutateDuringExtendedRead=true;
+rows.completion_criteria[0].rule_type="CHECK_PASSED";
+rows.completion_criteria[0].rule_config={
+  expectedSha:SHA,checkName:"Web App CI",checkRunId:91,
+};
+result=await run(query);
+assert.equal(result.state,"UNAVAILABLE");
+assert.equal(result.reason,"source_changed_during_evaluation");
+assert.equal(extendedCalls,1,
+  "mutating source after provider fetch must invalidate entire evaluation");
 
 reset();
 extendedEnabled=true;
