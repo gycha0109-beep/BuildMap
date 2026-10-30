@@ -5,6 +5,7 @@ on:
       - "apps/web/app/projects/**/execution/**"
       - "apps/web/lib/execution/provenance-view.ts"
       - "apps/web/scripts/em4a-provenance-contract.mjs"
+      - "apps/web/scripts/em4a-provenance-browser-e2e.mjs"
       - ".github/workflows/em4a-provenance-contract.yml"
   workflow_dispatch:
 
@@ -43,3 +44,67 @@ jobs:
       - name: Build
         working-directory: apps/web
         run: npm run build
+
+  em4a-browser:
+    name: EM-4A local owner, non-owner and anon browser E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install web dependencies and isolated Playwright
+        working-directory: apps/web
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Initialize disposable Supabase local
+        run: npx --yes supabase@2.120.0 init
+      - name: Start disposable GoTrue, PostgREST and DB (migrations 00-23)
+        run: npx --yes supabase@2.120.0 start -x studio,imgproxy,edge-runtime,vector,logflare,inbucket,realtime,storage-api
+      - name: Exercise owner/non-owner/anon Next SSR provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.120.0 status -o env > /tmp/em4a-supabase-status.env
+          set -a
+          source /tmp/em4a-supabase-status.env
+          set +a
+          test -n "$API_URL" && test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
+          node apps/web/scripts/em1-local-auth-e2e.mjs
+          node apps/web/scripts/em2-local-auth-e2e.mjs
+          export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
+          export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY"
+          export NEXT_PUBLIC_SITE_URL="http://127.0.0.1:3000"
+          export APP_URL="http://127.0.0.1:3000"
+          (cd apps/web && npm run dev -- --hostname 127.0.0.1 --port 3000) > /tmp/em4a-next.log 2>&1 &
+          next_pid=$!
+          trap 'kill "$next_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 120); do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/login; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then
+            tail -120 /tmp/em4a-next.log
+            exit 1
+          fi
+          if ! node apps/web/scripts/em4a-provenance-browser-e2e.mjs; then
+            tail -120 /tmp/em4a-next.log
+            exit 1
+          fi
+      - name: Destroy disposable local Supabase
+        if: always()
+        run: npx --yes supabase@2.120.0 stop --no-backup || true
+      - name: Scope assurance
+        if: always()
+        run: |
+          echo "This browser E2E uses only disposable Supabase and local Next."
+          echo "No hosted BuildMap migration or live GitHub App call was made."

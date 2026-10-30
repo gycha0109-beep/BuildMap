@@ -18,10 +18,10 @@ assert.equal(canonicalObservedPullUrl({ ...pr, sourceId: "pr:0" }), null);
 assert.equal(canonicalObservedPullUrl({ ...pr, sourceId: "pr:42?redirect=bad" }), null);
 assert.equal(canonicalObservedPullUrl({ ...pr, sourceType: "release", sourceId: "release:42" }), null);
 assert.equal(sourceDisplayState(null), "NO_SNAPSHOT");
-assert.equal(sourceDisplayState({ sourceState: "UNKNOWN", sourceSha: "a".repeat(40) }), "UNKNOWN");
-assert.equal(sourceDisplayState({ sourceState: "SOURCE_CONFIRMED", sourceSha: null }), "UNKNOWN");
-assert.equal(sourceDisplayState({ sourceState: "SOURCE_CONFIRMED", sourceSha: "not-sha" }), "UNKNOWN");
-assert.equal(sourceDisplayState({ sourceState: "SOURCE_CONFIRMED", sourceSha: "a".repeat(40) }), "CACHE_ONLY");
+assert.equal(sourceDisplayState({ source_state: "UNKNOWN", source_sha: "a".repeat(40) }), "UNKNOWN");
+assert.equal(sourceDisplayState({ source_state: "SOURCE_CONFIRMED", source_sha: null }), "UNKNOWN");
+assert.equal(sourceDisplayState({ source_state: "SOURCE_CONFIRMED", source_sha: "not-sha" }), "UNKNOWN");
+assert.equal(sourceDisplayState({ source_state: "SOURCE_CONFIRMED", source_sha: "a".repeat(40) }), "CACHE_ONLY");
 
 const route = readFileSync(new URL("../app/projects/[projectId]/execution/provenance/[criterionId]/page.tsx", import.meta.url), "utf8");
 const overview = readFileSync(new URL("../app/projects/[projectId]/execution/page.tsx", import.meta.url), "utf8");

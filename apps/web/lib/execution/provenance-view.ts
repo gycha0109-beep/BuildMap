@@ -17,11 +17,11 @@ export function canonicalObservedPullUrl(input: {
 export type SourceDisplayState = "UNKNOWN" | "NO_SNAPSHOT" | "CACHE_ONLY";
 
 export function sourceDisplayState(input: {
-  sourceState: string | null;
-  sourceSha: string | null;
+  source_state: string | null;
+  source_sha: string | null;
 } | null): SourceDisplayState {
   if (!input) return "NO_SNAPSHOT";
-  if (input.sourceState !== "SOURCE_CONFIRMED" ||
-      !input.sourceSha || !/^[0-9a-f]{40}$/.test(input.sourceSha)) return "UNKNOWN";
+  if (input.source_state !== "SOURCE_CONFIRMED" ||
+      !input.source_sha || !/^[0-9a-f]{40}$/.test(input.source_sha)) return "UNKNOWN";
   return "CACHE_ONLY";
 }
