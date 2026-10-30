@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { proposeCriterionEvidenceLinkAction, reviewCriterionEvidenceLinkAction } from "./actions";
 import { GitHubEvidencePreviewPanel } from "@/components/execution/github-evidence-preview-panel";
+import { ExecutionGitHubHealthPanel } from "@/components/execution/github-health-panel";
 import { ensureBuilderContext } from "@/lib/buildmap/account";
 import { createClient } from "@/lib/supabase/server";
 
@@ -96,6 +97,15 @@ export default async function ExecutionEvidencePage({
       ) : (
         <GitHubEvidencePreviewPanel projectId={projectId} links={links.data ?? []} />
       )}
+      <ExecutionGitHubHealthPanel
+        projectId={projectId}
+        links={links.data ?? []}
+        sources={(cached.data ?? []).map((source) => ({
+          id: source.id,
+          repository_name: source.repository_name,
+          source_id: source.source_id,
+        }))}
+      />
       <section className="surface-card stack">
         <p className="section-kicker">EM-2B · cached observations</p>
         <h2>저장된 GitHub 관측 기록</h2>
