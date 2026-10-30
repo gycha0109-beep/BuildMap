@@ -1,0 +1,37 @@
+name: EM-3A Deterministic Kernel
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/lib/execution/em3a-evaluator.ts'
+      - 'apps/web/scripts/em3a-kernel-contract.mjs'
+      - '.github/workflows/em3a-kernel.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/lib/execution/em3a-evaluator.ts'
+      - 'apps/web/scripts/em3a-kernel-contract.mjs'
+      - '.github/workflows/em3a-kernel.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  em3a:
+    name: EM-3A deterministic evaluator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact event SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run source-only deterministic contract (no credentials or network)
+        working-directory: apps/web
+        run: node --experimental-strip-types scripts/em3a-kernel-contract.mjs
