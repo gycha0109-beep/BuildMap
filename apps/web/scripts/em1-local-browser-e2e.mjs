@@ -68,6 +68,21 @@ try {
   await importedTrack.getByText("승인 완료",{exact:true}).waitFor();
   assert.equal(await importedTrack.getByRole("button",{name:"초안 정보 수정"}).count(),0);
 
+  const approvedHref=await importedTrack.getByRole("link",{name:/v1.*승인/}).getAttribute("href");
+  const approvedRevisionId=new URL(approvedHref,base).searchParams.get("revision");
+  assert.match(approvedRevisionId,/^[0-9a-f-]{36}$/i);
+  const ownerReadiness=await page.request.get(
+    base + "/api/projects/" + projectId + "/execution/verification-readiness?revisionId=" + approvedRevisionId,
+  );
+  assert.equal(ownerReadiness.status(),200,"owner preview must be accessible");
+  const preview=await ownerReadiness.json();
+  assert.equal(preview.progress,"NOT_PUBLISHED");
+  assert.equal(preview.criterionEvaluation,"NOT_PUBLISHED");
+  assert.equal(preview.mode,"EM3B_PRIVATE_SOURCE_DIAGNOSTIC");
+  assert.ok(!Object.hasOwn(preview,"percent"));
+  assert.ok(!Object.hasOwn(preview,"basisPoints"));
+  assert.ok(!JSON.stringify(preview).includes("PRIVATE_KEY"));
+
   await page.goto(base + "/projects/" + projectId + "/execution/evidence");
   await page.getByRole("heading",{name:"GitHub App 권한 및 출처 상태 진단"}).waitFor();
   await page.getByText("연결된 GitHub 프로젝트 링크가 없어 실시간 진단을 실행할 수 없습니다.").waitFor();
@@ -110,6 +125,11 @@ try {
   );
   assert.equal(otherDiagnostics.status(),404,
     "Cross-project diagnostic must deny before provider/app configuration access");
+  const otherReadiness=await other.request.get(
+    base + "/api/projects/" + projectId + "/execution/verification-readiness?revisionId=" + approvedRevisionId,
+  );
+  assert.equal(otherReadiness.status(),404,
+    "Other user cannot evaluate another project's approved revision");
   await otherContext.close();
 
   const anonymousContext=await browser.newContext();
@@ -121,6 +141,11 @@ try {
   );
   assert.equal(anonymousDiagnostics.status(),401,
     "Anonymous diagnostics must deny before querying GitHub connections");
+  const anonymousReadiness=await anonymous.request.get(
+    base + "/api/projects/" + projectId + "/execution/verification-readiness?revisionId=" + approvedRevisionId,
+  );
+  assert.equal(anonymousReadiness.status(),401,
+    "Anonymous must never receive private roadmap readiness");
   await anonymousContext.close();
 
   console.log("EM1_LOCAL_SUPABASE_BROWSER_E2E_PASS");
