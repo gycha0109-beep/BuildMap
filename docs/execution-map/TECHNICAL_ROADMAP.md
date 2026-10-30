@@ -4,7 +4,7 @@
 - **EM-0 audit:** [EM0_BOUNDARY_AUDIT.md](EM0_BOUNDARY_AUDIT.md) (repository/source audit closed)
 - **EM-1 source/verification:** [EM1A_IMPLEMENTATION_HANDOFF.md](EM1A_IMPLEMENTATION_HANDOFF.md), [EM1B_IMPLEMENTATION_HANDOFF.md](EM1B_IMPLEMENTATION_HANDOFF.md)
 - **EM-2 source preview:** [EM2A_IMPLEMENTATION_HANDOFF.md](EM2A_IMPLEMENTATION_HANDOFF.md) (PR #97, bounded read-only source metadata, no stored evidence)
-- **EM-2B contract:** [EM2B_EVIDENCE_REGISTRY_CONTRACT.md](EM2B_EVIDENCE_REGISTRY_CONTRACT.md) (design only, not implemented)
+- **EM-2B implementation:** [EM2B_IMPLEMENTATION_HANDOFF.md](EM2B_IMPLEMENTATION_HANDOFF.md) and [EM2B_EVIDENCE_REGISTRY_CONTRACT.md](EM2B_EVIDENCE_REGISTRY_CONTRACT.md) (PR #101, SQL/Web/Auth/browser CI PASS, not deployed, live GitHub App smoke pending)
 - **Date:** 2026-10-29
 - **Repository:** gycha0109-beep/BuildMap
 - **Development mode:** parallel, additive extension inside the existing BuildMap repository
@@ -12,7 +12,7 @@
 - **Pilot:** gycha0109-beep/MyeongHa, using real roadmap and GitHub evidence
 - **Milestone IDs:** EM-0 through EM-7 (not replacements for existing BuildMap Phase IDs)
 
-> This roadmap is an implementation contract, not proof of deployment. EM-0 is closed; EM-1 source and isolated SQL CI exist in PR #96 but hosted release and browser E2E are not proven. No Execution Map implementation progress percentage is asserted.
+> This roadmap is an implementation contract, not proof of deployment. EM-0 is closed; EM-1 SQL/Auth/browser E2E passed in isolated environments, but hosted release is not proven. EM-2A/B implementation remains in stacked Draft PRs without live GitHub App acceptance or hosted migrations. No Execution Map implementation progress percentage is asserted.
 
 ## 1. Purpose and product boundary
 
@@ -216,7 +216,7 @@ Track state at registration:
 | --- | --- | --- |
 | EM-0 | REPOSITORY_AUDIT_CLOSED (#95) | Not measured |
 | EM-1 | EM-1A/B SOURCE_VERIFIED (#96); SQL_REPLAY + AUTH/POSTGREST + BROWSER_E2E_PASS; HOSTED_RELEASE_PENDING | Not measured |
-| EM-2 | EM-2A PREVIEW SOURCE_IN_REVIEW (#97), NO EVIDENCE STORAGE/PROGRESS | Not measured |
+| EM-2 | EM-2A (#97) + EM-2B PRIVATE CACHE (#101) SOURCE_VERIFIED_IN_CI; LIVE_GITHUB_SMOKE_AND_HOSTED_RELEASE_PENDING; NO VERIFIED PROGRESS | Not measured |
 | EM-3 | NOT_STARTED | Not measured |
 | EM-4 | NOT_STARTED | Not measured |
 | EM-5 | NOT_STARTED | Not measured |

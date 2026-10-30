@@ -67,6 +67,32 @@ try {
   await page.getByText("로드맵 버전이 승인되었습니다. 정의는 변경할 수 없습니다.").waitFor();
   await importedTrack.getByText("승인 완료",{exact:true}).waitFor();
   assert.equal(await importedTrack.getByRole("button",{name:"초안 정보 수정"}).count(),0);
+
+  await page.goto(base + "/projects/" + projectId + "/execution/evidence");
+  await page.getByRole("heading",{name:"저장된 GitHub 관측 기록"}).waitFor();
+  await page.getByRole("heading",{name:"완료 조건과 증거 연결"}).waitFor();
+  const cacheSection=page.locator("section.surface-card")
+    .filter({has:page.getByRole("heading",{name:"저장된 GitHub 관측 기록"})});
+  await cacheSection.getByText("Example/project · pr:42",{exact:true}).waitFor();
+  await page.getByText("연결 검토 완료",{exact:false}).first().waitFor();
+
+  const associationForm=page.locator("form")
+    .filter({has:page.getByRole("button",{name:"증거 연결 후보 등록"})});
+  await associationForm.locator('select[name="criterionId"]')
+    .selectOption({label:"User-visible completion criterion"});
+  await associationForm.getByRole("button",{name:"증거 연결 후보 등록"}).click();
+  await page.getByText("검증 전 증거 연결 후보를 등록했습니다.").waitFor();
+  await page.getByRole("button",{name:"연결 검토 승인"}).first().click();
+  await page.getByText("연결 후보 검토 이력을 기록했습니다. 완료 판정은 별개입니다.").waitFor();
+  await page.getByText("완료 상태: UNKNOWN",{exact:false}).first().waitFor();
+
+  const crossOrigin = await page.request.post(
+    base + "/api/projects/" + projectId + "/execution/evidence-refresh",
+    { headers: {"origin":"https://unrelated.example"},
+      data: {linkId:"00000000-0000-4000-8000-000000000511"} },
+  );
+  assert.equal(crossOrigin.status(),403,"cross-origin evidence refresh must fail before provider access");
+
   await context.close();
 
   const otherContext=await browser.newContext();
