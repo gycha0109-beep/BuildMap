@@ -110,6 +110,9 @@ jobs:
       - name: Verify manual acceptance audit, revision eligibility and RLS
         run: psql -X -v ON_ERROR_STOP=1 -f scripts/execution-contract/em3c-manual-scenarios.sql
 
+      - name: Verify parallel Builder manual transition serialization
+        run: bash scripts/execution-contract/em3c-parallel-events.sh
+
       - name: Rehearse complete BuildMap migration lineage including EM-3C
         run: bash scripts/execution-contract/run-full-lineage-rehearsal.sh
 
