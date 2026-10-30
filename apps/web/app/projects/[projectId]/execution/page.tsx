@@ -122,6 +122,7 @@ export default async function ExecutionMapPage({
       <section className="hero-card">
         <p className="section-kicker">Execution Map · EM-1</p>
         <h2>로드맵과 완료 조건</h2>
+        <Link href={`/projects/${projectId}/execution/evidence`}>GitHub 증거 미리보기 →</Link>
         <p className="section-help">
           승인된 로드맵 버전은 변경되지 않습니다. GitHub 증거 검증 및 진행률 계산은 EM-2/EM-3 이후 제공됩니다.
         </p>

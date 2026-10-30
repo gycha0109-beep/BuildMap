@@ -2,7 +2,7 @@ name: Web App CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/execution-map-em1-schema-foundation]
   push:
     branches: [main]
 
@@ -41,6 +41,10 @@ jobs:
       - name: EM-1A execution schema static contract
         working-directory: apps/web
         run: npm run test:em1
+
+      - name: EM-2A GitHub evidence source contract
+        working-directory: apps/web
+        run: npm run test:em2
 
       - name: Lint
         working-directory: apps/web
