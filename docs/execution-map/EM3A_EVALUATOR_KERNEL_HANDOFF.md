@@ -45,6 +45,7 @@ An approved revision is calculable only when milestone IDs, positive integer wei
 - Local TypeScript strict no-emit: PASS.
 - GitHub CI: **PENDING EXACT-HEAD RESULT** until this PR runs.
 - Actual EM-1/2 Postgres, hosted RLS, GitHub App E2E, approved revision storage, evaluated provenance persistence, UI and deployment: **NOT RUN / NOT CLAIMED**.
+- EM-3A runtime hardening checks untyped truthy JSON (`"false"` for merge/artifact/approval), contradictory PR state, malformed check lists and malformed revision policies; all fail closed to UNKNOWN/NOT_CALCULABLE.
 - No Production merge is authorized by this isolated kernel. Keep as Draft until upstream EM-1 and EM-2B release gates are complete and the server-side re-read trust boundary is reviewed.
 
 ## Next bounded EM-3 step

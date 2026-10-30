@@ -209,6 +209,9 @@ export function evaluateCriterion(
       if (!Number.isSafeInteger(criterion.prNumber) || criterion.prNumber <= 0 || pr.prNumber !== criterion.prNumber) {
         return result(criterion, "UNKNOWN", "pull_request_identity_mismatch");
       }
+      if (typeof pr.merged !== "boolean" || typeof pr.closed !== "boolean" || (pr.merged && !pr.closed)) {
+        return result(criterion, "UNKNOWN", "inconsistent_or_untyped_pull_request_state");
+      }
       if (!pr.merged) return result(criterion, pr.closed ? "FAIL" : "PENDING", pr.closed ? "closed_without_merge" : "pull_request_not_yet_merged", checkedAt);
       if (!validSha(pr.mergeSha) || !validSha(attestation.sourceSha)) return result(criterion, "UNKNOWN", "missing_verified_merge_sha");
       if (!sameSha(pr.mergeSha, attestation.sourceSha)) return result(criterion, "UNKNOWN", "source_sha_conflict");
@@ -225,7 +228,7 @@ export function evaluateCriterion(
       if (!sameSha(criterion.relevantSha, check.relevantSha) || !sameSha(criterion.relevantSha, attestation.sourceSha)) {
         return result(criterion, "UNKNOWN", "relevant_sha_mismatch");
       }
-      if (criterion.requiredChecks.length === 0 || new Set(criterion.requiredChecks).size !== criterion.requiredChecks.length || criterion.requiredChecks.some((name) => !validId(name))) {
+      if (!Array.isArray(check.checks) || !Array.isArray(criterion.requiredChecks) || criterion.requiredChecks.length === 0 || new Set(criterion.requiredChecks).size !== criterion.requiredChecks.length || criterion.requiredChecks.some((name) => !validId(name))) {
         return result(criterion, "UNKNOWN", "invalid_required_check_policy");
       }
       let pending = false;
@@ -247,6 +250,7 @@ export function evaluateCriterion(
         return result(criterion, "UNKNOWN", "missing_artifact_version_or_name");
       }
       if (artifact.artifactName !== criterion.artifactName) return result(criterion, "UNKNOWN", "artifact_identity_mismatch");
+      if (typeof artifact.exists !== "boolean") return result(criterion, "UNKNOWN", "untyped_artifact_existence");
       if (!artifact.exists) return result(criterion, "FAIL", "verified_artifact_absent", checkedAt);
       return result(criterion, artifact.version === criterion.artifactVersion ? "PASS" : "FAIL", artifact.version === criterion.artifactVersion ? "exact_artifact_revision_verified" : "artifact_revision_mismatch", checkedAt);
     }
@@ -269,12 +273,15 @@ export function evaluateCriterion(
       if (!validId(criterion.authorizedBuilderProfileId) || manual.builderProfileId !== criterion.authorizedBuilderProfileId) {
         return result(criterion, "UNKNOWN", "builder_approval_actor_not_verified");
       }
+      if (manual.accepted !== null && typeof manual.accepted !== "boolean") {
+        return result(criterion, "UNKNOWN", "untyped_builder_acceptance");
+      }
       if (manual.accepted === null) return result(criterion, "PENDING", "builder_acceptance_pending", checkedAt);
-      if (manual.accepted === false) return result(criterion, "FAIL", "builder_explicitly_rejected", checkedAt);
       const approvedMs = instant(manual.approvedAt);
       if (approvedMs === null || approvedMs > nowMs || approvedMs > verifiedMs || !validId(manual.reason)) {
         return result(criterion, "UNKNOWN", "builder_approval_time_or_reason_missing");
       }
+      if (manual.accepted === false) return result(criterion, "FAIL", "builder_explicitly_rejected", checkedAt);
       return result(criterion, "PASS", "authorized_builder_acceptance_verified", checkedAt);
     }
   }
@@ -296,7 +303,7 @@ export function evaluateRoadmapProgress(
     totalWeight: null,
     completeWeight: 0,
     completedMilestones: 0,
-    totalMilestones: revision.milestones.length,
+    totalMilestones: Array.isArray(revision.milestones) ? revision.milestones.length : 0,
     requiredCriteria: 0,
     passedCriteria: 0,
     unknownCriteria: 0,
@@ -304,14 +311,14 @@ export function evaluateRoadmapProgress(
     failedCriteria: 0,
     evaluations: [],
   };
-  if (revision.state !== "APPROVED" || !validId(revision.id) || !validId(revision.projectId) || revision.milestones.length === 0 || instant(now) === null) {
+  if (revision.state !== "APPROVED" || !validId(revision.id) || !validId(revision.projectId) || !Array.isArray(revision.milestones) || revision.milestones.length === 0 || instant(now) === null) {
     return resultBase;
   }
   const ids = new Set<string>();
   const criteriaIds = new Set<string>();
   let totalWeight = 0;
   for (const milestone of revision.milestones) {
-    if (!validId(milestone.id) || ids.has(milestone.id) || !Number.isSafeInteger(milestone.weight) || milestone.weight <= 0 || milestone.criteria.length === 0) {
+    if (!validId(milestone.id) || ids.has(milestone.id) || !Number.isSafeInteger(milestone.weight) || milestone.weight <= 0 || !Array.isArray(milestone.criteria) || milestone.criteria.length === 0) {
       return { ...resultBase, reason: "invalid_milestone_policy" };
     }
     ids.add(milestone.id);
@@ -319,7 +326,7 @@ export function evaluateRoadmapProgress(
     if (!Number.isSafeInteger(totalWeight)) return { ...resultBase, reason: "invalid_weight_denominator" };
     let requiredCount = 0;
     for (const criterion of milestone.criteria) {
-      if (!validId(criterion.id) || criteriaIds.has(criterion.id) || criterion.projectId !== revision.projectId || criterion.revisionId !== revision.id) {
+      if (!criterion || !validId(criterion.id) || criteriaIds.has(criterion.id) || criterion.projectId !== revision.projectId || criterion.revisionId !== revision.id || typeof criterion.required !== "boolean") {
         return { ...resultBase, reason: "invalid_or_cross_scope_criterion" };
       }
       criteriaIds.add(criterion.id);

@@ -53,6 +53,9 @@ for (const [criterion, fact] of all) {
   if (criterion.rule !== "MANUAL_ACCEPTANCE") expected(criterion, fact, "UNKNOWN", { repositoryId: "wrong-repository" });
 }
 
+expected(pr, { ...prFact, merged: "true" }, "UNKNOWN");
+expected(pr, { ...prFact, closed: "false" }, "UNKNOWN");
+expected(pr, { ...prFact, merged: true, closed: false }, "UNKNOWN");
 expected(pr, { ...prFact, merged: false, closed: false, mergeSha: null }, "PENDING");
 expected(pr, { ...prFact, merged: false, closed: true, mergeSha: null }, "FAIL");
 expected(pr, { ...prFact, mergeSha: WRONG_SHA }, "UNKNOWN");
@@ -60,6 +63,8 @@ expected(pr, { ...prFact, mergeSha: null }, "UNKNOWN");
 assert.equal(evaluateCriterion({ ...pr, expectedMergeSha: WRONG_SHA }, evidence(pr, prFact), NOW).state, "FAIL");
 expected(pr, { ...prFact, prNumber: 82 }, "UNKNOWN");
 
+expected(check, { ...checksFact, checks: null }, "UNKNOWN");
+assert.equal(evaluateCriterion({ ...check, requiredChecks: null }, evidence(check, checksFact), NOW).state, "UNKNOWN");
 expected(check, { ...checksFact, relevantSha: WRONG_SHA }, "UNKNOWN");
 expected(check, { ...checksFact, checks: [checksFact.checks[0]] }, "UNKNOWN");
 expected(check, { ...checksFact, checks: [checksFact.checks[0], checksFact.checks[0]] }, "UNKNOWN");
@@ -69,6 +74,8 @@ expected(check, { ...checksFact, checks: [{ ...checksFact.checks[0], conclusion:
 expected(check, { ...checksFact, checks: [{ ...checksFact.checks[0], conclusion: "unknown" }, checksFact.checks[1]] }, "UNKNOWN");
 assert.equal(evaluateCriterion({ ...check, requiredChecks: [] }, evidence(check, checksFact), NOW).state, "UNKNOWN");
 
+expected(artifact, { ...artifactFact, exists: "false" }, "UNKNOWN");
+expected(artifact, { ...artifactFact, exists: 0 }, "UNKNOWN");
 expected(artifact, { ...artifactFact, exists: false }, "FAIL");
 expected(artifact, { ...artifactFact, version: "v1" }, "FAIL");
 expected(artifact, { ...artifactFact, artifactName: "other.tgz" }, "UNKNOWN");
@@ -80,6 +87,10 @@ expected(deploy, { ...deployFact, state: "QUEUED" }, "PENDING");
 expected(manual, { ...manualFact, builderProfileId: "other" }, "UNKNOWN");
 expected(manual, { ...manualFact, approvedAt: null }, "UNKNOWN");
 expected(manual, { ...manualFact, reason: null }, "UNKNOWN");
+expected(manual, { ...manualFact, accepted: "true" }, "UNKNOWN");
+expected(manual, { ...manualFact, accepted: "false" }, "UNKNOWN");
+expected(manual, { ...manualFact, accepted: false, approvedAt: null }, "UNKNOWN");
+expected(manual, { ...manualFact, accepted: false, reason: null }, "UNKNOWN");
 expected(manual, { ...manualFact, accepted: null }, "PENDING");
 expected(manual, { ...manualFact, accepted: false }, "FAIL");
 
@@ -125,6 +136,9 @@ assert.equal(evaluateRoadmapProgress(revision2, attestations, NOW).percentage, 0
 assert.equal(evaluateRoadmapProgress(revision2, attestations, NOW).unknownCriteria, 4);
 assert.equal(evaluateRoadmapProgress({ ...revision, state: "DRAFT" }, attestations, NOW).status, "NOT_CALCULABLE");
 assert.equal(evaluateRoadmapProgress({ ...revision, milestones: [] }, attestations, NOW).percentage, null);
+assert.equal(evaluateRoadmapProgress({ ...revision, milestones: null }, attestations, NOW).status, "NOT_CALCULABLE");
+assert.equal(evaluateRoadmapProgress({ ...revision, milestones: [{ ...revision.milestones[0], criteria: null }] }, attestations, NOW).status, "NOT_CALCULABLE");
+assert.equal(evaluateRoadmapProgress({ ...revision, milestones: [{ ...revision.milestones[0], criteria: [{ ...pr, required: "false" }] }] }, attestations, NOW).status, "NOT_CALCULABLE");
 assert.equal(evaluateRoadmapProgress({ ...revision, milestones: [{ ...revision.milestones[0], weight: 0 }] }, attestations, NOW).status, "NOT_CALCULABLE");
 assert.equal(evaluateRoadmapProgress({ ...revision, milestones: [{ ...revision.milestones[0], weight: NaN }] }, attestations, NOW).status, "NOT_CALCULABLE");
 assert.equal(evaluateRoadmapProgress({ ...revision, milestones: [{ ...revision.milestones[0], criteria: [{ ...manual, required: false }] }] }, attestations, NOW).status, "NOT_CALCULABLE");
@@ -146,3 +160,4 @@ console.log("EM3A_BUILDER_MANUAL_AUTHORITY = PASS");
 console.log("EM3A_REVISION_FROZEN_DENOMINATOR = PASS");
 console.log("EM3A_REPEATED_EVALUATION_STABLE = PASS");
 console.log("EM3A_NO_DB_OR_PROVIDER_MUTATION = PASS");
+console.log("EM3A_UNTYPED_PROVIDER_INPUTS_FAIL_CLOSED = PASS");
