@@ -5,9 +5,12 @@ import { isGitHubAppConfigured, verifyGitHubBindingProof } from "@/lib/github/ap
 import { parseCanonicalGitHubRepositoryUrl } from "@/lib/github/repository";
 import { inspectGitHubExecutionInstallation } from "@/lib/execution/github-installation-diagnostic";
 import { inspectExecutionSourceHealth } from "@/lib/execution/github-source-health";
+import { extendedExecutionSourceReadsEnabled } from "@/lib/execution/github-extended-capability-broker";
+import { checkApprovedExtendedRulesForVerifiedSource } from "@/lib/execution/trusted-extended-rule-adapter";
 import {
   evaluateApprovedRoadmap,
   type FreshProviderRecheck,
+  type TrustedExtendedRuleProof,
   type ProgressAssessment,
   type TrustedManualAcceptance,
   type Revision,
@@ -169,17 +172,30 @@ export async function computeTrustedExecutionReadiness(input: {
 
   // Never query arbitrary user-supplied GitHub URLs. Only re-read reviewed
   // source links of the immutable approved revision through active HMAC bindings.
+  const extendedEnabled=extendedExecutionSourceReadsEnabled();
+  const extendedTypes=["CHECK_PASSED","ARTIFACT_EXISTS","DEPLOY_VERIFIED"];
   const reviewed=associations.filter(link=>
     link.reviewStatus==="reviewed"&&link.sourceType==="merged_pull_request"&&
     criterionRows.some(criterion=>
-      criterion.id===link.criterionId&&criterion.rule_type==="PR_MERGED"
+      criterion.id===link.criterionId&&(
+        criterion.rule_type==="PR_MERGED"||
+        (extendedEnabled && extendedTypes.includes(criterion.rule_type))
+      )
     )
   );
+  const extendedCandidates=extendedEnabled
+    ?reviewed.filter(link=>criterionRows.some(criterion=>
+      criterion.id===link.criterionId&&
+      extendedTypes.includes(criterion.rule_type)))
+    :[];
+  if(extendedCandidates.length>MAX_RECHECKS)
+    return unavailable("extended_verification_budget_exceeded");
   const uniqueReviewed=[...new Map(reviewed.map(link=>[link.evidenceId,link])).values()];
   if(uniqueReviewed.length>MAX_RECHECKS)
     return unavailable("fresh_verification_budget_exceeded");
 
   const rechecks:FreshProviderRecheck[]=[];
+  const extendedRuleProofs:TrustedExtendedRuleProof[]=[];
   let rechecksPerformed=0;
 
   if(uniqueReviewed.length&&isGitHubAppConfigured()){
@@ -282,6 +298,32 @@ export async function computeTrustedExecutionReadiness(input: {
             currentSha:status.currentSha,cachedSha:snapshot.data.source_sha,
             result:"CURRENT_SOURCE_MATCH",
           });
+          if(extendedEnabled){
+            const criteriaForSource=reviewed
+              .filter(item=>item.evidenceId===link.evidenceId)
+              .flatMap(item=>criterionRows
+                .filter(criterion=>criterion.id===item.criterionId &&
+                  extendedTypes.includes(criterion.rule_type))
+                .map(criterion=>({
+                  id:criterion.id,
+                  ruleType:criterion.rule_type as
+                    "CHECK_PASSED"|"ARTIFACT_EXISTS"|"DEPLOY_VERIFIED",
+                  config:criterion.rule_config,
+                })));
+            try {
+              extendedRuleProofs.push(...await checkApprovedExtendedRulesForVerifiedSource({
+                binding,
+                source:{
+                  evidenceId:link.evidenceId,sourceId:link.sourceId,
+                  repositoryId:link.repositoryId,
+                  sha:status.currentSha,checkedAt:status.checkedAt,
+                },
+                criteria:criteriaForSource,
+              }));
+            } catch {
+              // Any scope, token, provider or config error is UNKNOWN.
+            }
+          }
         }
       } catch {
         // Network, app suspension, permission or API errors remain UNKNOWN.
@@ -293,7 +335,8 @@ export async function computeTrustedExecutionReadiness(input: {
   // 5-minute freshness and canonical SHA checks again before any PASS.
   const assessment=evaluateApprovedRoadmap({
     revision,associations,providerRechecks:rechecks,manualAcceptances,
-    policyVersion:"EM3C_V2",
+    extendedRuleProofs,
+    policyVersion:extendedEnabled?"EM3CB_V3":"EM3C_V2",
     nowIso:new Date().toISOString(),
   });
   return {state:"VERIFIED_AT_REQUEST_TIME",reason:null,assessment,rechecksPerformed};
