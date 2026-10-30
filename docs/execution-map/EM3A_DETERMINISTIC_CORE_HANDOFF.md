@@ -35,7 +35,9 @@ EM-3B must construct provider recheck objects **inside a trusted server-only ada
 - fixed four-place weight precision and floor-to-2dp no false 100%
 - byte-for-byte deterministic repeated calls and no runtime API exposure
 
-**Verified source commit:** `7492421487da473e05af9eae1f22cfc92926adc7` — Web App CI (EM-1/2/3 contract + ESLint/TypeScript/Next.js build) PASS, PIE Prospective Shadow PASS. Check exact final PR HEAD again after documentation changes.\n\nThese tests are synthetic **calculation contracts**, not proof that BuildMap has processed a genuine GitHub deployment or check run. No real progress percentage is claimed for BuildMap or MyeongHa.
+**Verified source commit:** `7492421487da473e05af9eae1f22cfc92926adc7` — Web App CI (EM-1/2/3 contract + ESLint/TypeScript/Next.js build) PASS, PIE Prospective Shadow PASS. Check exact final PR HEAD again after documentation changes.
+
+These tests are synthetic **calculation contracts**, not proof that BuildMap has processed a genuine GitHub deployment or check run. No real progress percentage is claimed for BuildMap or MyeongHa.
 
 ## Remaining gates
 
