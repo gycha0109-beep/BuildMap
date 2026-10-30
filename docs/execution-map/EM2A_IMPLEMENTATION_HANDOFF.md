@@ -1,10 +1,10 @@
 # EM-2A — Scoped GitHub Evidence Source Preview
 
 - Date: 2026-10-30
-- Status: **SOURCE_IMPLEMENTED / CONTRACT_AND_CI_PENDING / NOT_PERSISTED / NOT_DEPLOYED**
+- Status: **SOURCE_IMPLEMENTED / WEB_CI_PASS / NOT_PERSISTED / NOT_DEPLOYED**
 - Parent: EM-1 PR #96 (Draft; not merged), Execution Map Technical Roadmap EM-2
 - Dependency: Existing GitHub integration with verified HMAC binding and repository-scoped installation token.
-- Delivery: stacked **draft PR** targeting `feat/execution-map-em1-schema-foundation`; NOT eligible to merge into main before EM-1 controlled release.
+- Delivery: [PR #97](https://github.com/gycha0109-beep/BuildMap/pull/97) stacked **Draft** targeting `feat/execution-map-em1-schema-foundation`; NOT eligible to merge into main before EM-1 controlled release.
 
 ## Source implementation
 
@@ -31,13 +31,13 @@
 
 - Node-based deterministic normalization/unit test covers valid canonical PR SHA, invalid merge SHA, unmerged PR, malformed repository, draft releases and unknown release SHA.
 - Simulated scoped REST client confirms exact PR detail re-read, no calls to unauthorized Issues/Checks/Actions/Deployments endpoints, bounded source window and no token exposure.
-- Web App CI builds and typechecks route/page/panel.
+- Web App CI lint/typecheck/build and `npm run test:em2` contract PASS on tested PR head; verify exact final head before promotion.
 - **Not yet tested:** live repository-scoped GitHub App read from an actual user's connected private project; real hosted Supabase integration and browser preview. Must not mark EM-2 closed until these are exercised.
 
 ## Next steps
 
-1. Confirm full exact-head CI for stacked PR. Address contract/runtime issues.
+1. Keep exact-head CI green on stacked PR. Initial Web App CI and PIE Prospective Shadow passed for #97; subsequent docs/code changes require rerun.
 2. Once EM-1 is controlled-released to hosted BuildMap, retarget or rebase EM-2A safely to main, preserving its proof.
 3. Implement EM-2B private evidence registry + refresh with RLS, idempotency, source SHA and stale/unknown semantics.
-4. Plan and verify minimal GitHub App permission expansion separately: Check Runs (Checks read), workflow metadata (Actions read), deployments (Deployments read), issues (Issues read). Never silently request broad write scopes.
+4. See [EM-2B persistence and trust-boundary contract](EM2B_EVIDENCE_REGISTRY_CONTRACT.md); plan and verify minimal GitHub App permission expansion separately: Check Runs (Checks read), workflow metadata (Actions read), deployments (Deployments read), issues (Issues read). Never silently request broad write scopes.
 5. Implement EM-3 evaluator only when verified source SHA / rule evidence binding is available.
