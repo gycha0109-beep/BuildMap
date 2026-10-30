@@ -69,6 +69,8 @@ try {
   assert.equal(await importedTrack.getByRole("button",{name:"초안 정보 수정"}).count(),0);
 
   await page.goto(base + "/projects/" + projectId + "/execution/evidence");
+  await page.getByRole("heading",{name:"GitHub App 권한 및 출처 상태 진단"}).waitFor();
+  await page.getByText("연결된 GitHub 프로젝트 링크가 없어 실시간 진단을 실행할 수 없습니다.").waitFor();
   await page.getByRole("heading",{name:"저장된 GitHub 관측 기록"}).waitFor();
   await page.getByRole("heading",{name:"완료 조건과 증거 연결"}).waitFor();
   const cacheSection=page.locator("section.surface-card")
