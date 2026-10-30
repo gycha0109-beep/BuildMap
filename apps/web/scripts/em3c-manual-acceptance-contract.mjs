@@ -87,7 +87,7 @@ assert.match(actions,/\.eq\("status", "approved"\)/);
 assert.match(actions,/execution_manual_acceptance_events/);
 assert.doesNotMatch(actions,/actor_builder_profile_id: builder|recorded_at:.*Date|service_role/i);
 assert.match(page,/ManualAcceptancePanel/);
-assert.match(panel,/Builder 수동 승인/);
+assert.match(panel,/수동 완료 조건 승인·철회/);
 assert.match(panel,/textarea name="reason" required minLength=\{12\}/);
 
 console.log("EM3C_MANUAL_ACCEPTANCE_POLICY_CONTRACT_PASS");
