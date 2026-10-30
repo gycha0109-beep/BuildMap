@@ -108,7 +108,7 @@ export function normalizeReleaseReference(
     repository,
     sourceType: "release",
     sourceId: `release:${id}`,
-    sourceUrl: `https://github.com/${repository}/releases`,
+    sourceUrl: `https://github.com/${repository}/releases/tag/${encodeURIComponent(tag)}`,
     title: boundedTitle(value.name, tag),
     sourceState: "UNKNOWN",
     reason: "release_tag_revision_and_deployment_not_verified",
