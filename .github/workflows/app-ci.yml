@@ -54,6 +54,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:em2c
 
+      - name: EM-3A deterministic criterion and weighting policy
+        working-directory: apps/web
+        run: npm run test:em3a
+
       - name: Lint
         working-directory: apps/web
         run: npm run lint
