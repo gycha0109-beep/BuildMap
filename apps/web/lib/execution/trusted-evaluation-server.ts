@@ -161,6 +161,7 @@ export async function computeTrustedExecutionReadiness(input: {
     const trustedRepositories=new Map<string,{
       owner:string;repository:string;repositoryId:string;installationId:string;
     }>();
+    const ambiguousRepositoryIds=new Set<string>();
     for(const link of links.data){
       const parsed=parseCanonicalGitHubRepositoryUrl(link.url);
       if(!parsed) continue;
@@ -182,8 +183,9 @@ export async function computeTrustedExecutionReadiness(input: {
       },record.binding_proof)) continue;
       const id=record.external_resource_id;
       // Ambiguous multiple active bindings to one numeric repository fail closed.
-      if(trustedRepositories.has(id)){
+      if(trustedRepositories.has(id)||ambiguousRepositoryIds.has(id)){
         trustedRepositories.delete(id);
+        ambiguousRepositoryIds.add(id);
         continue;
       }
       trustedRepositories.set(id,{
