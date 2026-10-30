@@ -25,7 +25,8 @@ assert.match(migration,/foreign key \(project_id, evidence_id\)[\s\S]*?public\.e
 assert.match(migration,/create trigger execution_evidence_snapshot_guard[\s\S]*?before update or delete/);
 assert.match(migration,/security invoker[\s\S]*?auth\.uid\(\) is null or not public\.is_project_owner\(p_project_id\)/);
 assert.match(migration,/on conflict on constraint execution_evidence_identity_unique/);
-assert.match(migration,/on conflict on constraint execution_evidence_observations_dedup_unique/);
+assert.match(migration,/insert into public\.execution_evidence_observations[\s\S]*?version_sequence/);
+assert.doesNotMatch(migration,/execution_evidence_observations_dedup_unique/);
 assert.match(migration,/CACHED_UNTRUSTED/);
 assert.match(migration,/criterionEvaluation','NOT_AVAILABLE'/);
 assert.match(migration,/grant select, insert on table public\.execution_evidence_observations to authenticated/);
