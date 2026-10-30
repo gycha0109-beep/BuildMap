@@ -32,6 +32,8 @@ assert.equal(checkResult(checkConfig,{total_count:2,check_runs:[check]}).verdict
   "pagination cannot produce a false PASS");
 assert.equal(checkResult(checkConfig,{total_count:2,check_runs:[check,check]}).verdict,"UNKNOWN",
   "ambiguous same-name check must not PASS");
+assert.equal(checkResult(checkConfig,{total_count:2,check_runs:[check,{...check,id:92,conclusion:"failure"}]}).verdict,"UNKNOWN",
+  "pinned historical success cannot override a newer failing rerun");
 assert.equal(checkResult(checkConfig,{total_count:1,check_runs:[{...check,status:"in_progress"}]}).verdict,"PENDING");
 assert.equal(checkResult(checkConfig,{total_count:1,check_runs:[{...check,conclusion:"failure"}]}).verdict,"FAIL");
 assert.equal(checkResult(checkConfig,{total_count:1,check_runs:[{...check,conclusion:"cancelled"}]}).verdict,"FAIL");
