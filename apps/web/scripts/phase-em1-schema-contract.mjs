@@ -16,10 +16,9 @@ const tables = [
 ];
 const expect = (pattern, description) => assert.match(sql, pattern, description);
 
-assert.equal(
-  readdirSync(migrations).filter((name) => name.endsWith(".sql")).sort().at(-1),
-  filename,
-  "EM-1A must be the latest additive migration; historical files remain untouched",
+assert.ok(
+  readdirSync(migrations).filter((name) => name.endsWith(".sql")).includes(filename),
+  "EM-1A additive migration must remain present even after later EM phases",
 );
 expect(/^\s*begin;\s*$/im, "migration must begin atomically");
 expect(/^\s*commit;\s*$/im, "migration must commit atomically");
