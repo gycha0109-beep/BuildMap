@@ -2,12 +2,14 @@ name: Execution Map Supabase Auth E2E
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/execution-map-em2-github-evidence-preview]
     paths:
       - ".github/workflows/execution-map-supabase-auth-e2e.yml"
       - "supabase/migrations/**"
       - "apps/web/app/projects/**/execution/**"
       - "apps/web/scripts/em1-local-auth-e2e.mjs"
+      - "apps/web/scripts/em2-local-auth-e2e.mjs"
+      - "apps/web/app/api/projects/**/execution/**"
       - "docs/execution-map/**"
   push:
     branches: [main]
@@ -58,6 +60,7 @@ jobs:
           set +a
           test -n "$API_URL" && test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY"
           node apps/web/scripts/em1-local-auth-e2e.mjs
+          node apps/web/scripts/em2-local-auth-e2e.mjs
 
       - name: Install isolated Playwright Chromium
         working-directory: apps/web
