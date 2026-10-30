@@ -49,6 +49,34 @@ try{
   const page=await ownerContext.newPage();
   page.setDefaultTimeout(20000);
   await login(page,"em1-owner@example.invalid");
+  let diagnosticCalls=0;
+  let diagnosticMode="success";
+  const mockDiagnostic={
+    mode:"EM3B_PRIVATE_SOURCE_DIAGNOSTIC",
+    revisionId:approved.id,
+    policyVersion:"EM3C_V2",
+    verificationAvailable:true,
+    unavailableReason:null,
+    sourceRechecksPerformed:1,
+    rules:[{
+      criterionId:criterion.id,ruleType:"PR_MERGED",
+      providerCheckState:"FRESH_SOURCE_MATCHED_NOT_APPROVED_FOR_PUBLICATION",
+      reason:"fresh_exact_merged_pr_sha_with_reviewed_binding",
+      sourceId:evidence.id,
+    }],
+    progress:"NOT_PUBLISHED",
+    criterionEvaluation:"NOT_PUBLISHED",
+  };
+  await page.route(/\/api\/projects\/.*\/execution\/verification-readiness\?revisionId=/,async route=>{
+    diagnosticCalls++;
+    if(diagnosticMode==="unavailable"){
+      await route.fulfill({status:503,contentType:"application/json",
+        body:JSON.stringify({mode:"NOT_PUBLISHED",error:{code:"github_permission_unavailable"}})});
+      return;
+    }
+    await route.fulfill({status:200,contentType:"application/json",
+      body:JSON.stringify({...mockDiagnostic,progress:diagnosticMode==="numeric"?100:"NOT_PUBLISHED"})});
+  });
   await page.goto(base+"/projects/"+project+"/execution");
   const navigation=page.getByRole("link",{name:new RegExp("승인 v"+approved.version+" 증거 연결")});
   await navigation.waitFor();
@@ -67,6 +95,20 @@ try{
   assert.ok(text.includes("Builder 연결 검토 완료 · 원본 미검증"));
   assert.ok(!/공식 진행률: ?\d/.test(text),"Never show invented progress percentage");
   assert.ok(!text.includes("완료 판정: PASS"));
+  assert.equal(diagnosticCalls,0,"No automatic provider recheck on read-only page load");
+  const diagnosticButton=page.getByRole("button",{name:"원본 검증 진단 실행"});
+  await diagnosticButton.click();
+  await page.getByText(/원본 일치 관측 · 공식 완료 아님/).waitFor();
+  assert.equal(diagnosticCalls,1);
+  assert.ok((await page.locator("body").innerText()).includes("공식 진행률: 미공개"));
+  diagnosticMode="numeric";
+  await diagnosticButton.click();
+  await page.getByText(/검증 응답의 버전·출처·비공개 경계가 일치하지 않습니다/).waitFor();
+  diagnosticMode="unavailable";
+  await diagnosticButton.click();
+  await page.getByText(/원본 검증 진단 불가/).waitFor();
+  assert.equal(diagnosticCalls,3);
+  assert.ok(!(await page.locator("body").innerText()).includes("공식 진행률: 100%"));
   await page.getByRole("link",{name:"출처·검토·관측 SHA 상세 보기"}).first().click();
   await page.waitForURL(/\/execution\/provenance\//);
   await page.getByText("완료 판정: UNKNOWN").waitFor();
@@ -93,6 +135,7 @@ try{
   await anonymous.waitForURL(/\/login/,{timeout:20000});
   await anonymousContext.close();
 
+  console.log("EM4C_ON_DEMAND_MATCHED_NOT_PUBLISHED_AND_HTTP_FAIL_CLOSED = PASS");
   console.log("EM4B_LOCAL_OWNER_APPROVED_COVERAGE_BROWSER_PASS");
   console.log("EM4B_LOCAL_DRAFT_CROSS_OWNER_ANON_DENIAL_PASS");
   console.log("EM4B_LOCAL_UNKNOWN_AND_LINKAGE_COUNTS_NOT_PROGRESS_PASS");

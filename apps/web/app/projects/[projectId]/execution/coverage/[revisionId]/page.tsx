@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeEvidenceLinkage } from "@/lib/execution/em4b-evidence-coverage";
+import { PrivateVerificationDiagnostic } from "@/components/execution/private-verification-diagnostic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_MILESTONES = 50;
@@ -103,6 +104,18 @@ export default async function ExecutionRevisionCoveragePage({
           인증된 EM-3 판정 결과가 연결될 때까지 모든 완료 조건은 UNKNOWN입니다.
         </p>
       </section>
+
+      {coverage.completeness === "COMPLETE" ? (
+        <PrivateVerificationDiagnostic
+          projectId={projectId}
+          revisionId={revisionId}
+          criteria={coverage.rows.map((row) => ({
+            id: row.id,
+            title: row.title,
+            ruleType: row.ruleType,
+          }))}
+        />
+      ) : null}
 
       {coverage.completeness !== "COMPLETE" ? (
         <section className="surface-card stack">

@@ -4,6 +4,9 @@ on:
     paths:
       - "apps/web/app/projects/**/execution/**"
       - "apps/web/lib/execution/em4b-evidence-coverage.ts"
+      - "apps/web/lib/execution/em4c-diagnostic-view.ts"
+      - "apps/web/components/execution/private-verification-diagnostic.tsx"
+      - "apps/web/scripts/em4c-private-diagnostic-contract.mjs"
       - "apps/web/scripts/em4b-coverage-contract.mjs"
       - "apps/web/scripts/em4-lineage-integration-contract.mjs"
       - "apps/web/scripts/em4b-coverage-browser-e2e.mjs"
@@ -40,6 +43,9 @@ jobs:
       - name: EM-4A/B trusted-lineage coexistence contract
         working-directory: apps/web
         run: node --experimental-strip-types scripts/em4-lineage-integration-contract.mjs
+      - name: EM-4C private diagnostic response gate contract
+        working-directory: apps/web
+        run: node --experimental-strip-types scripts/em4c-private-diagnostic-contract.mjs
       - name: Lint
         working-directory: apps/web
         run: npm run lint
