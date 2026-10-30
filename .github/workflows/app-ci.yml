@@ -50,6 +50,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:em2b
 
+      - name: EM-2C GitHub installation and source health contract
+        working-directory: apps/web
+        run: npm run test:em2c
+
       - name: Lint
         working-directory: apps/web
         run: npm run lint
