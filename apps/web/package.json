@@ -19,7 +19,8 @@
     "test:em3a": "node --experimental-strip-types scripts/em3a-deterministic-evaluator-contract.mjs",
     "test:em3b": "node --experimental-strip-types scripts/em3b-trusted-server-adapter-contract.mjs",
     "test:em3c": "node --experimental-strip-types scripts/em3c-manual-acceptance-contract.mjs",
-    "test:em3cb": "node --experimental-strip-types scripts/em3cb-github-extended-rules-contract.mjs"
+    "test:em3cb": "node --experimental-strip-types scripts/em3cb-github-extended-rules-contract.mjs",
+    "test:em3cb2": "node --experimental-strip-types scripts/em3cb2-capability-broker-contract.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
